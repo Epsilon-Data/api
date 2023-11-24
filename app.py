@@ -2,19 +2,22 @@ import os, psycopg2, json, ast
 from dotenv import load_dotenv
 from flask import Flask, request
 from datetime import datetime
+from flask_cors import CORS
 
 INSERT_REQUEST = "INSERT INTO public.request (date, requestor, project_id, status, db_id, org_admin_id, data_collection_start_date, data_collection_end_date, data_participants_num, data_description, data_keywords, additional_info) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;"
 INSERT_ORG_ADMIN = "INSERT INTO public.org_admin (email) VALUES (%s) RETURNING id;"
 INSERT_DB = "INSERT INTO public.researcher_db (db_name, db_type) VALUES (%s, %s);"
 INSERT_PROJECT = "INSERT INTO public.project (name, start_date, end_date, lead, members, university, faculty, ethics_id, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;"
 
-SELECT_REQUEST_LIST = "SELECT (id, date, project_id, status) FROM public.request;"
+SELECT_REQUEST_LIST = "SELECT (id, date, requestor, org_admin_id, project_id, status) FROM public.request;"
 SELECT_REQUEST_DETAILS = "SELECT (id, date, project_id, db_id, org_admin_id, data_collection_start_date, data_collection_end_date, data_participants_num, data_description, data_keywords, additional_info) FROM public.request WHERE id = %s;"
 
 
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
+CORS(app, origins=['http://localhost:3000'], methods=['GET', 'POST'], headers=['Content-Type'])
 url = os.getenv("DATABASE_URL")
 connection = psycopg2.connect(url)
 
@@ -98,6 +101,8 @@ def create_request():
 
 @app.get("/api/request-list")
 def get_request_list():
+    user_id = int(request.args.get("id"))
+    user_type = request.args.get("type")
     with connection:
         with connection.cursor() as cursor:
             cursor.execute(SELECT_REQUEST_LIST)
@@ -105,26 +110,39 @@ def get_request_list():
             requests = []
             for request_data in result:
                 data = string_to_tuple(request_data[0])
-                request_id, date, project_id, status = data
+                request_id, date, requestor, org_admin_id, project_id, status = data
                 cursor.execute(
                     f"SELECT name FROM public.project WHERE id = {project_id}"
                 )
                 project_name = cursor.fetchone()[0]
-                requests.append(
-                    {
-                        "id": request_id,
-                        "requestDate": date,
-                        "projectName": project_name,
-                        "requestStatus": status,
-                    }
-                )
+                if user_type == 'researcher': # and user_id == requestor
+                    requests.append(
+                        {
+                            "id": request_id,
+                            "requestDate": date,
+                            "projectName": project_name,
+                            "requestStatus": status,
+                        }
+                    )
+                elif user_type == 'orgAdmin' and user_id == org_admin_id:
+                    print(org_admin_id)
+                    requests.append(
+                        {
+                            "id": request_id,
+                            "requestor": requestor,
+                            "requestDate": date,
+                            "projectName": project_name,
+                            "requestStatus": status,
+                        }
+                    )
+                else:
+                    continue
             return requests
 
 
 @app.get("/api/request-details")
 def get_request_details():
-    data = request.get_json()
-    request_id = data["id"]
+    request_id = int(request.args.get("id"))
     with connection:
         with connection.cursor() as cursor:
             cursor.execute(SELECT_REQUEST_DETAILS, (request_id,))
