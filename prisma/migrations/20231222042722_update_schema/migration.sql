@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "OrgAdmin" ALTER COLUMN "email" SET DATA TYPE VARCHAR(100);
