@@ -9,7 +9,7 @@ datasource db {
 
 model ConnectionRequest {
   id                      Int           @id(map: "request_pkey") @default(autoincrement()) @db.SmallInt
-  requestor               String?       @db.VarChar(50)
+  requestor               Int?          @db.SmallInt
   projectId               Int?          @db.SmallInt
   status                  Int?          @db.SmallInt
   dbId                    Int?          @db.SmallInt
@@ -48,7 +48,7 @@ model Project {
 
 model ResearcherDb {
   id                Int                 @id(map: "researcher_db_pkey") @default(autoincrement()) @db.SmallInt
-  dbName            String?             @db.VarChar(50)
-  dbType            String?             @db.VarChar(15)
+  name            String?               @db.VarChar(50)
+  type            String?               @db.VarChar(15)
   ConnectionRequest ConnectionRequest[]
 }

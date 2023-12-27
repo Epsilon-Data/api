@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { ConnectionRequestDto } from './dto';
 
@@ -7,13 +14,16 @@ export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
 
   @Get('details')
-  details() {
-    return this.connectionRequestService.details();
+  details(@Query('requestId', ParseIntPipe) requestId: number) {
+    return this.connectionRequestService.details(requestId);
   }
 
   @Get('summary')
-  summary() {
-    return this.connectionRequestService.summary();
+  summary(
+    @Body('userId', ParseIntPipe) userId: number,
+    @Body('userType') userType: string,
+  ) {
+    return this.connectionRequestService.summary(userId, userType);
   }
 
   @Post('create')

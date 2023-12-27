@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsDate,
@@ -8,55 +8,12 @@ import {
   IsNotEmptyObject,
   IsNumber,
   IsObject,
+  IsOptional,
   IsString,
   IsUrl,
   ValidateNested,
 } from 'class-validator';
-
-export class ConnectionRequestDto {
-  @IsNumber()
-  @IsNotEmpty()
-  id?: number;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  requestor: string;
-
-  @IsDate()
-  @IsNotEmpty()
-  date?: Date;
-
-  @IsNumber()
-  @IsNotEmpty()
-  status?: number;
-
-  @IsDefined()
-  @IsNotEmptyObject()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => ProjectInfoDto)
-  projectInfo: ProjectInfoDto;
-
-  @IsEmail()
-  orgAdminEmail?: string;
-
-  @IsNotEmptyObject()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => DatabaseInfoDto)
-  databaseInfo?: DatabaseInfoDto;
-
-  @IsDefined()
-  @IsNotEmptyObject()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => DatabaseInfoDto)
-  dataInfo: DataInfoDto;
-
-  @IsString()
-  additionalInfo?: string;
-}
+import { parse, isValid } from 'date-fns';
 
 class ProjectInfoDto {
   @IsDefined()
@@ -67,12 +24,16 @@ class ProjectInfoDto {
   @IsDefined()
   @IsDate({ each: true })
   @ArrayNotEmpty()
+  @Transform(({ value }) => value.map((item) => transformDateString(item)))
   duration: Date[];
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   lead: string;
+
+  @IsDefined()
+  @IsString({ each: true })
   members: string[];
 
   @IsDefined()
@@ -90,6 +51,7 @@ class ProjectInfoDto {
   @IsNotEmpty()
   ethicsApprovalId: string;
 
+  @IsOptional()
   @IsString()
   description?: string;
 }
@@ -98,18 +60,21 @@ class DataInfoDto {
   @IsDefined()
   @IsDate({ each: true })
   @ArrayNotEmpty()
+  @Transform(({ value }) => value.map((item) => transformDateString(item)))
   collectionDuration: Date[];
 
   @IsDefined()
   @IsNumber()
   @IsNotEmpty()
+  @Transform(({ value }) => parseInt(value))
   participantsNumber: number;
 
+  @IsOptional()
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsString({ each: true })
-  @ArrayNotEmpty()
   keywords?: string[];
 }
 
@@ -124,15 +89,75 @@ class DatabaseInfoDto {
   @IsNotEmpty()
   type: string;
 
+  @IsOptional()
   @IsUrl()
-  @IsNotEmpty()
   url?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   username?: string;
 
+  @IsOptional()
   @IsString()
   @IsString()
   password?: string;
+}
+
+export class ConnectionRequestDto {
+  @IsOptional()
+  @IsNumber()
+  id?: number;
+
+  @IsDefined()
+  @IsNumber()
+  @IsNotEmpty()
+  @Transform(({ value }) => parseInt(value))
+  requestor: number;
+
+  @IsOptional()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  date?: Date;
+
+  @IsOptional()
+  @IsNumber()
+  status?: number;
+
+  @IsDefined()
+  @IsNotEmptyObject()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ProjectInfoDto)
+  projectInfo: ProjectInfoDto;
+
+  @IsOptional()
+  @IsEmail()
+  orgAdminEmail?: string;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  databaseInfo?: DatabaseInfoDto;
+
+  @IsDefined()
+  @IsNotEmptyObject()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DataInfoDto)
+  dataInfo: DataInfoDto;
+
+  @IsOptional()
+  @IsString()
+  additionalInfo?: string;
+}
+
+function transformDateString(value: any): Date {
+  if (typeof value === 'string') {
+    const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
+    if (isValid(parsedDate)) {
+      return parsedDate;
+    }
+  }
+  return value;
 }
