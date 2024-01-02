@@ -6,45 +6,58 @@ import { ConnectionRequestDto } from './dto';
 export class ConnectionRequestService {
   constructor(private prisma: PrismaService) {}
   async details(requestId: number) {
-    return await this.prisma.connectionRequest.findUnique({
+    const request = await this.prisma.connectionRequest.findUnique({
       where: {
         id: requestId,
       },
-      select: {
-        status: true,
-        createdDate: true,
-        dataCollectionStartDate: true,
-        dataCollectionEndDate: true,
-        dataParticipantsNum: true,
-        dataDescription: true,
-        dataKeywords: true,
-        additionalInfo: true,
-        Project: {
-          select: {
-            name: true,
-            startDate: true,
-            endDate: true,
-            lead: true,
-            members: true,
-            university: true,
-            faculty: true,
-            ethicsId: true,
-            description: true,
-          },
-        },
-        OrgAdmin: {
-          select: {
-            email: true,
-          },
-        },
-        ResearcherDb: {
-          select: {
-            name: true,
-            type: true,
-          },
-        },
+      include: {
+        Project: true,
+        OrgAdmin: true,
+        ResearcherDb: true,
       },
     });
+
+    const mappedRequest: ConnectionRequestDto = {
+      requestor: request.requestor,
+      status: request.status,
+      date: request.createdDate,
+      projectInfo: {
+        name: request.Project.name,
+        duration: [request.Project.startDate, request.Project.endDate],
+        lead: request.Project.lead,
+        members: request.Project.members,
+        university: request.Project.university,
+        faculty: request.Project.faculty,
+        ethicsId: request.Project.ethicsId,
+        description: request.Project.description,
+      },
+      dataInfo: {
+        collectionDuration: [
+          request.dataCollectionStartDate,
+          request.dataCollectionEndDate,
+        ],
+        participantsNumber: request.dataParticipantsNum,
+        description: request.dataDescription,
+        keywords: request.dataKeywords,
+      },
+    };
+
+    let info = {};
+    if (request.ResearcherDb) {
+      info = {
+        databaseInfo: {
+          name: request.ResearcherDb.name,
+          type: request.ResearcherDb.type,
+        },
+      };
+    } else {
+      info = {
+        orgAdminEmail: request.OrgAdmin.email,
+        additionalInfo: request.additionalInfo,
+      };
+    }
+
+    return { ...mappedRequest, ...info };
   }
 
   async summary(userId: number, userType: string) {
@@ -100,7 +113,7 @@ export class ConnectionRequestService {
           lead: dto.projectInfo.lead,
           university: dto.projectInfo.university,
           faculty: dto.projectInfo.faculty,
-          ethicsId: dto.projectInfo.ethicsApprovalId,
+          ethicsId: dto.projectInfo.ethicsId,
           description: dto.projectInfo.description,
           startDate: dto.projectInfo.duration[0],
           endDate: dto.projectInfo.duration[1],
@@ -109,9 +122,9 @@ export class ConnectionRequestService {
       },
     };
 
-    let information = {};
+    let info = {};
     if (dto.databaseInfo) {
-      information = {
+      info = {
         ResearcherDb: {
           create: {
             name: dto.databaseInfo.name,
@@ -129,11 +142,11 @@ export class ConnectionRequestService {
         },
       });
       if (existingOrgAdmin) {
-        information = {
+        info = {
           orgAdminId: existingOrgAdmin.id,
         };
       } else {
-        information = {
+        info = {
           OrgAdmin: {
             create: {
               email: dto.orgAdminEmail,
@@ -144,7 +157,7 @@ export class ConnectionRequestService {
       return await this.prisma.connectionRequest.create({
         data: {
           ...request,
-          ...information,
+          ...info,
         },
       });
     }

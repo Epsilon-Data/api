@@ -10,10 +10,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
-  IsUrl,
   ValidateNested,
 } from 'class-validator';
-import { parse, isValid } from 'date-fns';
 
 class ProjectInfoDto {
   @IsDefined()
@@ -49,7 +47,7 @@ class ProjectInfoDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  ethicsApprovalId: string;
+  ethicsId: string;
 
   @IsOptional()
   @IsString()
@@ -90,8 +88,12 @@ class DatabaseInfoDto {
   type: string;
 
   @IsOptional()
-  @IsUrl()
-  url?: string;
+  host?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value))
+  port?: number;
 
   @IsOptional()
   @IsString()
@@ -154,8 +156,8 @@ export class ConnectionRequestDto {
 
 function transformDateString(value: any): Date {
   if (typeof value === 'string') {
-    const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
-    if (isValid(parsedDate)) {
+    const parsedDate = new Date(value);
+    if (!isNaN(parsedDate.getTime())) {
       return parsedDate;
     }
   }

@@ -20,8 +20,8 @@ export class ConnectionRequestController {
 
   @Get('summary')
   summary(
-    @Body('userId', ParseIntPipe) userId: number,
-    @Body('userType') userType: string,
+    @Query('userId', ParseIntPipe) userId: number,
+    @Query('userType') userType: string,
   ) {
     return this.connectionRequestService.summary(userId, userType);
   }
