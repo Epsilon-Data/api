@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -29,5 +30,10 @@ export class ConnectionRequestController {
   @Post('create')
   create(@Body() dto: ConnectionRequestDto) {
     return this.connectionRequestService.create(dto);
+  }
+
+  @Patch('update')
+  update(@Body() dto: ConnectionRequestDto) {
+    return this.connectionRequestService.update(dto);
   }
 }

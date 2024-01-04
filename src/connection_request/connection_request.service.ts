@@ -162,4 +162,94 @@ export class ConnectionRequestService {
       });
     }
   }
+
+  async update(dto: ConnectionRequestDto) {
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        id: dto.id,
+      },
+      include: {
+        Project: true,
+        OrgAdmin: true,
+        ResearcherDb: true,
+      },
+    });
+
+    let transactions = [];
+
+    if (request.ResearcherDb) {
+      transactions = [
+        this.prisma.project.update({
+          where: { id: request.Project.id },
+          data: {
+            name: dto.projectInfo.name,
+            lead: dto.projectInfo.lead,
+            university: dto.projectInfo.university,
+            faculty: dto.projectInfo.faculty,
+            ethicsId: dto.projectInfo.ethicsId,
+            description: dto.projectInfo.description,
+            startDate: dto.projectInfo.duration[0],
+            endDate: dto.projectInfo.duration[1],
+            members: dto.projectInfo.members,
+          },
+        }),
+        this.prisma.connectionRequest.update({
+          where: { id: dto.id },
+          data: {
+            status: dto.status,
+            additionalInfo: dto.additionalInfo,
+            dataParticipantsNum: dto.dataInfo.participantsNumber,
+            dataDescription: dto.dataInfo.description,
+            dataKeywords: dto.dataInfo.keywords,
+            dataCollectionStartDate: dto.dataInfo.collectionDuration[0],
+            dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
+          },
+        }),
+        this.prisma.researcherDb.update({
+          where: { id: request.ResearcherDb.id },
+          data: {
+            name: dto.databaseInfo.name,
+            type: dto.databaseInfo.type,
+          },
+        }),
+      ];
+    } else {
+      transactions = [
+        this.prisma.project.update({
+          where: { id: request.Project.id },
+          data: {
+            name: dto.projectInfo.name,
+            lead: dto.projectInfo.lead,
+            university: dto.projectInfo.university,
+            faculty: dto.projectInfo.faculty,
+            ethicsId: dto.projectInfo.ethicsId,
+            description: dto.projectInfo.description,
+            startDate: dto.projectInfo.duration[0],
+            endDate: dto.projectInfo.duration[1],
+            members: dto.projectInfo.members,
+          },
+        }),
+        this.prisma.connectionRequest.update({
+          where: { id: dto.id },
+          data: {
+            status: dto.status,
+            additionalInfo: dto.additionalInfo,
+            dataParticipantsNum: dto.dataInfo.participantsNumber,
+            dataDescription: dto.dataInfo.description,
+            dataKeywords: dto.dataInfo.keywords,
+            dataCollectionStartDate: dto.dataInfo.collectionDuration[0],
+            dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
+          },
+        }),
+        this.prisma.orgAdmin.update({
+          where: { id: request.OrgAdmin.id },
+          data: {
+            email: dto.orgAdminEmail,
+          },
+        }),
+      ];
+    }
+
+    return await this.prisma.$transaction(transactions);
+  }
 }
