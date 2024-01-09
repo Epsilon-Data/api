@@ -50,5 +50,11 @@ model ResearcherDb {
   id                Int                 @id(map: "researcher_db_pkey") @default(autoincrement()) @db.SmallInt
   name            String?               @db.VarChar(50)
   type            String?               @db.VarChar(15)
+  host            String?               @db.VarChar(50)
+  port            String?               @db.VarChar(15)
+  username        String?               @db.VarChar(100)
+  password        String?               @db.VarChar(100)
+  status          Int?                  @db.SmallInt
+  connectDate     DateTime?             @db.Date
   ConnectionRequest ConnectionRequest[]
 }

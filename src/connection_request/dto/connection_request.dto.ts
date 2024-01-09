@@ -88,19 +88,18 @@ class DatabaseInfoDto {
   type: string;
 
   @IsOptional()
+  @IsString()
   host?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value))
-  port?: number;
+  @IsString()
+  port?: string;
 
   @IsOptional()
   @IsString()
   username?: string;
 
   @IsOptional()
-  @IsString()
   @IsString()
   password?: string;
 }

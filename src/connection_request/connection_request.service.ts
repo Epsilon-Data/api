@@ -48,6 +48,8 @@ export class ConnectionRequestService {
         databaseInfo: {
           name: request.ResearcherDb.name,
           type: request.ResearcherDb.type,
+          host: request.ResearcherDb.host,
+          port: request.ResearcherDb.port,
         },
       };
     } else {
@@ -129,6 +131,10 @@ export class ConnectionRequestService {
           create: {
             name: dto.databaseInfo.name,
             type: dto.databaseInfo.type,
+            host: dto.databaseInfo.host,
+            port: dto.databaseInfo.port,
+            username: dto.databaseInfo.username,
+            password: dto.databaseInfo.password,
           },
         },
       };
@@ -175,79 +181,61 @@ export class ConnectionRequestService {
       },
     });
 
+    const projectUpdate = this.prisma.project.update({
+      where: { id: request.Project.id },
+      data: {
+        name: dto.projectInfo.name,
+        lead: dto.projectInfo.lead,
+        university: dto.projectInfo.university,
+        faculty: dto.projectInfo.faculty,
+        ethicsId: dto.projectInfo.ethicsId,
+        description: dto.projectInfo.description,
+        startDate: dto.projectInfo.duration[0],
+        endDate: dto.projectInfo.duration[1],
+        members: dto.projectInfo.members,
+      },
+    });
+
+    const connectionRequestUpdate = this.prisma.connectionRequest.update({
+      where: { id: dto.id },
+      data: {
+        status: dto.status,
+        additionalInfo: dto.additionalInfo,
+        dataParticipantsNum: dto.dataInfo.participantsNumber,
+        dataDescription: dto.dataInfo.description,
+        dataKeywords: dto.dataInfo.keywords,
+        dataCollectionStartDate: dto.dataInfo.collectionDuration[0],
+        dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
+      },
+    });
+
     let transactions = [];
 
     if (request.ResearcherDb) {
+      const researcherDbUpdate = this.prisma.researcherDb.update({
+        where: { id: request.ResearcherDb.id },
+        data: {
+          name: dto.databaseInfo.name,
+          type: dto.databaseInfo.type,
+          host: dto.databaseInfo.host,
+          port: dto.databaseInfo.port,
+          username: dto.databaseInfo.username,
+          password: dto.databaseInfo.password,
+        },
+      });
       transactions = [
-        this.prisma.project.update({
-          where: { id: request.Project.id },
-          data: {
-            name: dto.projectInfo.name,
-            lead: dto.projectInfo.lead,
-            university: dto.projectInfo.university,
-            faculty: dto.projectInfo.faculty,
-            ethicsId: dto.projectInfo.ethicsId,
-            description: dto.projectInfo.description,
-            startDate: dto.projectInfo.duration[0],
-            endDate: dto.projectInfo.duration[1],
-            members: dto.projectInfo.members,
-          },
-        }),
-        this.prisma.connectionRequest.update({
-          where: { id: dto.id },
-          data: {
-            status: dto.status,
-            additionalInfo: dto.additionalInfo,
-            dataParticipantsNum: dto.dataInfo.participantsNumber,
-            dataDescription: dto.dataInfo.description,
-            dataKeywords: dto.dataInfo.keywords,
-            dataCollectionStartDate: dto.dataInfo.collectionDuration[0],
-            dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
-          },
-        }),
-        this.prisma.researcherDb.update({
-          where: { id: request.ResearcherDb.id },
-          data: {
-            name: dto.databaseInfo.name,
-            type: dto.databaseInfo.type,
-          },
-        }),
+        projectUpdate,
+        connectionRequestUpdate,
+        researcherDbUpdate,
       ];
     } else {
-      transactions = [
-        this.prisma.project.update({
-          where: { id: request.Project.id },
-          data: {
-            name: dto.projectInfo.name,
-            lead: dto.projectInfo.lead,
-            university: dto.projectInfo.university,
-            faculty: dto.projectInfo.faculty,
-            ethicsId: dto.projectInfo.ethicsId,
-            description: dto.projectInfo.description,
-            startDate: dto.projectInfo.duration[0],
-            endDate: dto.projectInfo.duration[1],
-            members: dto.projectInfo.members,
-          },
-        }),
-        this.prisma.connectionRequest.update({
-          where: { id: dto.id },
-          data: {
-            status: dto.status,
-            additionalInfo: dto.additionalInfo,
-            dataParticipantsNum: dto.dataInfo.participantsNumber,
-            dataDescription: dto.dataInfo.description,
-            dataKeywords: dto.dataInfo.keywords,
-            dataCollectionStartDate: dto.dataInfo.collectionDuration[0],
-            dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
-          },
-        }),
-        this.prisma.orgAdmin.update({
-          where: { id: request.OrgAdmin.id },
-          data: {
-            email: dto.orgAdminEmail,
-          },
-        }),
-      ];
+      const orgAdminUpdate = this.prisma.orgAdmin.update({
+        where: { id: request.OrgAdmin.id },
+        data: {
+          email: dto.orgAdminEmail,
+        },
+      });
+      transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
     }
 
     return await this.prisma.$transaction(transactions);
