@@ -16,7 +16,7 @@ model ConnectionRequest {
   orgAdminId              Int?          @db.SmallInt
   dataParticipantsNum     Int?          @db.SmallInt
   dataDescription         String?       @db.VarChar(500)
-  dataKeywords            String[]       
+  dataKeywords            String[]
   additionalInfo          String?       @db.VarChar(500)
   createdDate             DateTime?     @default(now()) @db.Date
   dataCollectionStartDate DateTime?     @db.Date
@@ -48,13 +48,38 @@ model Project {
 
 model ResearcherDb {
   id                Int                 @id(map: "researcher_db_pkey") @default(autoincrement()) @db.SmallInt
-  name            String?               @db.VarChar(50)
-  type            String?               @db.VarChar(15)
-  host            String?               @db.VarChar(50)
-  port            String?               @db.VarChar(15)
-  username        String?               @db.VarChar(100)
-  password        String?               @db.VarChar(100)
-  status          Int?                  @db.SmallInt
-  connectDate     DateTime?             @db.Date
+  name              String?             @db.VarChar(50)
+  type              String?             @db.VarChar(15)
+  host              String?             @db.VarChar(50)
+  port              String?             @db.VarChar(15)
+  username          String?             @db.VarChar(100)
+  password          String?             @db.VarChar(100)
+  status            Int?                @db.SmallInt
+  connectDate       DateTime?           @db.Date
   ConnectionRequest ConnectionRequest[]
+  Template          Template[]
+}
+
+model User {
+  id                   Int      @id(map: "user_pkey") @default(autoincrement()) @db.SmallInt
+  type                 String   @db.Char(2)
+  firstName            String?  @db.VarChar(100)
+  lastName             String?  @db.VarChar(100)
+  email                String?  @db.VarChar(320)
+  gender               String?  @db.Char(2)
+  jobTitle             String?  @db.VarChar(255)
+  highestQualification String?  @db.VarChar(255)
+  institution          String?  @db.VarChar(255)
+  faculty              String?  @db.VarChar(255)
+  expertiseArea        String?  @db.VarChar(255)
+  orgName              String?  @db.VarChar(255)
+  orgDepartment        String?  @db.VarChar(255)
+  isAdmin              Boolean? @db.Boolean
+}
+
+model Template {
+  id               Int          @id(map: "template_pkey") @default(autoincrement()) @db.SmallInt
+  researcherDbId   Int          @db.SmallInt
+  hierarchicalData Json         @db.Json
+  researcherDb     ResearcherDb @relation(fields: [researcherDbId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_template_db_id")
 }

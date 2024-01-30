@@ -36,4 +36,9 @@ export class ConnectionRequestController {
   update(@Body() dto: ConnectionRequestDto) {
     return this.connectionRequestService.update(dto);
   }
+
+  // @Post('test-connection')
+  // testConnection(@Body() databaseDto: DatabaseInfoDto) {
+  //   return this.connectionRequestService.testConnection(databaseDto);
+  // }
 }

@@ -76,7 +76,7 @@ class DataInfoDto {
   keywords?: string[];
 }
 
-class DatabaseInfoDto {
+export class DatabaseInfoDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
