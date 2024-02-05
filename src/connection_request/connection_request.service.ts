@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ConnectionRequestDto } from './dto';
-// import { testConnection } from '@epsilon-data/epsilon-connector';
+import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
+import { testConnection } from '@epsilon-data/epsilon-connector';
 
 @Injectable()
 export class ConnectionRequestService {
@@ -242,22 +242,16 @@ export class ConnectionRequestService {
     return await this.prisma.$transaction(transactions);
   }
 
-  // async testConnection(databaseDto: DatabaseInfoDto) {
-  //   const connectionData = {
-  //     driver: databaseDto.type,
-  //     port: parseInt(databaseDto.port),
-  //     host: databaseDto.host,
-  //     user: databaseDto.username,
-  //     password: databaseDto.password,
-  //     database: databaseDto.name,
-  //     ssl: false,
-  //   };
-  //   await testConnection(connectionData)
-  //     .then(() => {
-  //       return true;
-  //     })
-  //     .catch(() => {
-  //       return false;
-  //     });
-  // }
+  async testConnection(databaseDto: DatabaseInfoDto) {
+    const connectionData = {
+      driver: databaseDto.type,
+      port: parseInt(databaseDto.port),
+      host: databaseDto.host,
+      user: databaseDto.username,
+      password: databaseDto.password,
+      database: databaseDto.name,
+      ssl: false,
+    };
+    return await testConnection(connectionData);
+  }
 }

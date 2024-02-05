@@ -2,13 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  HttpException,
+  HttpStatus,
   ParseIntPipe,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { ConnectionRequestDto } from './dto';
+import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
 
 @Controller('connection-request')
 export class ConnectionRequestController {
@@ -37,8 +39,18 @@ export class ConnectionRequestController {
     return this.connectionRequestService.update(dto);
   }
 
-  // @Post('test-connection')
-  // testConnection(@Body() databaseDto: DatabaseInfoDto) {
-  //   return this.connectionRequestService.testConnection(databaseDto);
-  // }
+  @Post('test-connection')
+  async testConnection(@Body() databaseDto: DatabaseInfoDto) {
+    try {
+      await this.connectionRequestService.testConnection(databaseDto);
+    } catch (error) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          error: 'Wrong credentials',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
 }
