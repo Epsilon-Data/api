@@ -8,12 +8,12 @@ datasource db {
 }
 
 model ConnectionRequest {
-  id                      Int           @id(map: "request_pkey") @default(autoincrement()) @db.SmallInt
-  requestor               Int?          @db.SmallInt
-  projectId               Int?          @db.SmallInt
+  id                      String           @id(map: "request_pkey") @default(uuid()) @db.Uuid
+  requestor               String?       @db.Uuid
+  projectId               String?          @db.Uuid
   status                  Int?          @db.SmallInt
-  dbId                    Int?          @db.SmallInt
-  orgAdminId              Int?          @db.SmallInt
+  dbId                    String?          @db.Uuid
+  orgAdminId              String?       @db.Uuid
   dataParticipantsNum     Int?          @db.SmallInt
   dataDescription         String?       @db.VarChar(500)
   dataKeywords            String[]
@@ -22,18 +22,14 @@ model ConnectionRequest {
   dataCollectionStartDate DateTime?     @db.Date
   dataCollectionEndDate   DateTime?     @db.Date
   ResearcherDb            ResearcherDb? @relation(fields: [dbId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_db_id")
-  OrgAdmin                OrgAdmin?     @relation(fields: [orgAdminId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_org_admin_id")
+  User                    User?         @relation("User_orgAdminId", fields: [orgAdminId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_org_admin_id")
   Project                 Project?      @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
-}
-
-model OrgAdmin {
-  id                Int                 @id(map: "org_admin_pkey") @default(autoincrement()) @db.SmallInt
-  email             String?             @db.VarChar(100)
-  ConnectionRequest ConnectionRequest[]
+  User2                   User?         @relation("User_requestor", fields: [requestor], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request__id")
+  userId                  String?       @db.Uuid
 }
 
 model Project {
-  id                Int                 @id(map: "project_pkey") @default(autoincrement()) @db.SmallInt
+  id                String              @id(map: "project_pkey") @default(uuid()) @db.Uuid
   name              String?             @db.VarChar(100)
   lead              String?             @db.VarChar(50)
   university        String?             @db.VarChar(100)
@@ -47,7 +43,7 @@ model Project {
 }
 
 model ResearcherDb {
-  id                Int                 @id(map: "researcher_db_pkey") @default(autoincrement()) @db.SmallInt
+  id                String                 @id(map: "researcher_db_pkey") @default(uuid()) @db.Uuid
   name              String?             @db.VarChar(50)
   type              String?             @db.VarChar(15)
   host              String?             @db.VarChar(50)
@@ -57,29 +53,23 @@ model ResearcherDb {
   status            Int?                @db.SmallInt
   connectDate       DateTime?           @db.Date
   ConnectionRequest ConnectionRequest[]
-  Template          Template[]
 }
 
 model User {
-  id                   Int      @id(map: "user_pkey") @default(autoincrement()) @db.SmallInt
-  type                 String   @db.Char(2)
-  firstName            String?  @db.VarChar(100)
-  lastName             String?  @db.VarChar(100)
-  email                String?  @db.VarChar(320)
-  gender               String?  @db.Char(2)
-  jobTitle             String?  @db.VarChar(255)
-  highestQualification String?  @db.VarChar(255)
-  institution          String?  @db.VarChar(255)
-  faculty              String?  @db.VarChar(255)
-  expertiseArea        String?  @db.VarChar(255)
-  orgName              String?  @db.VarChar(255)
-  orgDepartment        String?  @db.VarChar(255)
-  isAdmin              Boolean? @db.Boolean
-}
-
-model Template {
-  id               Int          @id(map: "template_pkey") @default(autoincrement()) @db.SmallInt
-  researcherDbId   Int          @db.SmallInt
-  hierarchicalData Json         @db.Json
-  researcherDb     ResearcherDb @relation(fields: [researcherDbId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_template_db_id")
+  id                   String              @id(map: "user_pkey") @db.Uuid
+  type                 String              @db.Char(2)
+  firstName            String?             @db.VarChar(100)
+  lastName             String?             @db.VarChar(100)
+  email                String?             @db.VarChar(320)
+  gender               String?             @db.Char(2)
+  jobTitle             String?             @db.VarChar(255)
+  highestQualification String?             @db.VarChar(255)
+  institution          String?             @db.VarChar(255)
+  faculty              String?             @db.VarChar(255)
+  expertiseArea        String?             @db.VarChar(255)
+  orgName              String?             @db.VarChar(255)
+  orgDepartment        String?             @db.VarChar(255)
+  isAdmin              Boolean?            @db.Boolean
+  ConnectionRequest    ConnectionRequest[] @relation("User_orgAdminId")
+  ConnectionRequest2   ConnectionRequest[] @relation("User_requestor")
 }
