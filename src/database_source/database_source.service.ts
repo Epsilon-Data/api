@@ -5,7 +5,7 @@ import { TemplateDto } from './dto';
 @Injectable()
 export class DatabaseSourceService {
   constructor(private prisma: PrismaService) {}
-  async list(userId: number) {
+  async list(userId: string) {
     const requestList = await this.prisma.connectionRequest.findMany({
       where: {
         requestor: userId,

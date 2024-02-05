@@ -63,7 +63,7 @@ export class ConnectionRequestService {
     return { ...mappedRequest, ...info };
   }
 
-  async summary(userId: number, userType: string) {
+  async summary(userId: string, userType: string) {
     if (userType === 'researcher') {
       return await this.prisma.connectionRequest.findMany({
         where: {

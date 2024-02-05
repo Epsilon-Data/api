@@ -14,7 +14,7 @@ export class DatabaseSourceController {
   constructor(private databaseSourceService: DatabaseSourceService) {}
 
   @Get('list')
-  list(@Query('userId', ParseIntPipe) userId: number) {
+  list(@Query('userId') userId: string) {
     return this.databaseSourceService.list(userId);
   }
 

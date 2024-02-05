@@ -21,7 +21,7 @@ export class ConnectionRequestController {
 
   @Get('summary')
   summary(
-    @Query('userId', ParseIntPipe) userId: number,
+    @Query('userId') userId: string,
     @Query('userType') userType: string,
   ) {
     return this.connectionRequestService.summary(userId, userType);

@@ -10,6 +10,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 
@@ -110,10 +111,9 @@ export class ConnectionRequestDto {
   id?: number;
 
   @IsDefined()
-  @IsNumber()
+  @IsUUID()
   @IsNotEmpty()
-  @Transform(({ value }) => parseInt(value))
-  requestor: number;
+  requestor: string;
 
   @IsOptional()
   @IsDate()
