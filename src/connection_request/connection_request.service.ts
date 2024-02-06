@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
@@ -6,14 +6,13 @@ import { testConnection } from '@epsilon-data/epsilon-connector';
 @Injectable()
 export class ConnectionRequestService {
   constructor(private prisma: PrismaService) {}
-  async details(requestId: number) {
+  async details(requestId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
         id: requestId,
       },
       include: {
         Project: true,
-        OrgAdmin: true,
         ResearcherDb: true,
       },
     });
@@ -55,7 +54,7 @@ export class ConnectionRequestService {
       };
     } else {
       info = {
-        orgAdminEmail: request.OrgAdmin.email,
+        // orgAdminEmail: request.OrgAdmin.email,
         additionalInfo: request.additionalInfo,
       };
     }
@@ -102,7 +101,11 @@ export class ConnectionRequestService {
 
   async create(dto: ConnectionRequestDto) {
     const request = {
-      requestor: dto.requestor,
+      RequestUser: {
+        connect: {
+          id: dto.requestor,
+        },
+      },
       status: 1,
       dataParticipantsNum: dto.dataInfo.participantsNumber,
       dataDescription: dto.dataInfo.description,
@@ -140,7 +143,7 @@ export class ConnectionRequestService {
         },
       };
     } else {
-      const existingOrgAdmin = await this.prisma.orgAdmin.findFirst({
+      const existingOrgAdmin = await this.prisma.user.findFirst({
         where: {
           email: dto.orgAdminEmail,
         },
@@ -150,16 +153,14 @@ export class ConnectionRequestService {
       });
       if (existingOrgAdmin) {
         info = {
-          orgAdminId: existingOrgAdmin.id,
-        };
-      } else {
-        info = {
-          OrgAdmin: {
-            create: {
-              email: dto.orgAdminEmail,
+          AdminUser: {
+            connect: {
+              id: existingOrgAdmin.id,
             },
           },
         };
+      } else {
+        throw new HttpException('Org admin not found', HttpStatus.NOT_FOUND);
       }
       return await this.prisma.connectionRequest.create({
         data: {
@@ -177,7 +178,6 @@ export class ConnectionRequestService {
       },
       include: {
         Project: true,
-        OrgAdmin: true,
         ResearcherDb: true,
       },
     });
@@ -230,13 +230,25 @@ export class ConnectionRequestService {
         researcherDbUpdate,
       ];
     } else {
-      const orgAdminUpdate = this.prisma.orgAdmin.update({
-        where: { id: request.OrgAdmin.id },
-        data: {
+      const existingOrgAdmin = await this.prisma.user.findFirst({
+        where: {
           email: dto.orgAdminEmail,
         },
+        select: {
+          id: true,
+        },
       });
-      transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
+      if (existingOrgAdmin) {
+        const orgAdminUpdate = this.prisma.connectionRequest.update({
+          where: { id: dto.id },
+          data: {
+            orgAdminId: existingOrgAdmin.id,
+          },
+        });
+        transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
+      } else {
+        throw new HttpException('Org admin not found', HttpStatus.NOT_FOUND);
+      }
     }
 
     return await this.prisma.$transaction(transactions);

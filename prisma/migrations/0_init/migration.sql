@@ -13,7 +13,6 @@ CREATE TABLE "ConnectionRequest" (
     "createdDate" DATE DEFAULT CURRENT_TIMESTAMP,
     "dataCollectionStartDate" DATE,
     "dataCollectionEndDate" DATE,
-    "userId" UUID,
 
     CONSTRAINT "request_pkey" PRIMARY KEY ("id")
 );
@@ -69,6 +68,9 @@ CREATE TABLE "User" (
     CONSTRAINT "user_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateIndex
+CREATE UNIQUE INDEX "ConnectionRequest_projectId_key" ON "ConnectionRequest"("projectId");
+
 -- AddForeignKey
 ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request_db_id" FOREIGN KEY ("dbId") REFERENCES "ResearcherDb"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
@@ -79,5 +81,5 @@ ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request_org_admin_id" FOREIGN
 ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request_project_id" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request__id" FOREIGN KEY ("requestor") REFERENCES "User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_requestor_id" FOREIGN KEY ("requestor") REFERENCES "User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 

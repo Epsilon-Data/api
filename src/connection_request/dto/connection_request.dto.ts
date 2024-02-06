@@ -107,8 +107,8 @@ export class DatabaseInfoDto {
 
 export class ConnectionRequestDto {
   @IsOptional()
-  @IsNumber()
-  id?: number;
+  @IsUUID()
+  id?: string;
 
   @IsDefined()
   @IsUUID()

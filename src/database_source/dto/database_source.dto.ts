@@ -1,12 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsDefined, IsNotEmpty, IsNumber } from 'class-validator';
+import { IsDefined, IsNotEmpty, IsUUID } from 'class-validator';
 
 export class TemplateDto {
   @IsDefined()
-  @IsNumber()
+  @IsUUID()
   @IsNotEmpty()
-  @Transform(({ value }) => parseInt(value))
-  projectId: number;
+  projectId: string;
 
   @IsDefined()
   @IsNotEmpty()

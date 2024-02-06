@@ -40,7 +40,7 @@ export class DatabaseSourceService {
     return filteredList;
   }
 
-  async summary(projectId: number) {
+  async summary(projectId: string) {
     const dbId = this.findDbId(projectId);
     console.log(dbId);
     const details = this.getSampleData();
@@ -62,7 +62,7 @@ export class DatabaseSourceService {
     return { overall: overall, diagram: diagram };
   }
 
-  async tables(projectId: number) {
+  async tables(projectId: string) {
     const dbId = this.findDbId(projectId);
     console.log(dbId);
     const details = this.getSampleData();
@@ -94,7 +94,7 @@ export class DatabaseSourceService {
     console.log(template.template);
   }
 
-  async columns(projectId: number) {
+  async columns(projectId: string) {
     const dbId = this.findDbId(projectId);
     console.log(dbId);
     const details = this.getSampleData();
@@ -257,10 +257,10 @@ export class DatabaseSourceService {
     return name;
   }
 
-  async findDbId(projectId: number) {
+  async findDbId(projectId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       select: {
         dbId: true,
