@@ -13,7 +13,7 @@ model ConnectionRequest {
   projectId               String?       @unique @db.Uuid
   status                  Int?          @db.SmallInt
   dbId                    String?       @db.Uuid
-  orgAdminId              String?       @db.Uuid
+  orgAdminEmail           String?       @db.VarChar(320)
   dataParticipantsNum     Int?          @db.SmallInt
   dataDescription         String?       @db.VarChar(500)
   dataKeywords            String[]
@@ -22,23 +22,21 @@ model ConnectionRequest {
   dataCollectionStartDate DateTime?     @db.Date
   dataCollectionEndDate   DateTime?     @db.Date
   ResearcherDb            ResearcherDb? @relation(fields: [dbId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_db_id")
-  AdminUser               User?         @relation("User_orgAdminId", fields: [orgAdminId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_org_admin_id")
   Project                 Project?      @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
-  RequestUser             User?         @relation("User_requestor", fields: [requestor], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_requestor_id")
 }
 
 model Project {
-  id                  String            @id(map: "project_pkey") @default(uuid()) @db.Uuid
-  name                String?           @db.VarChar(100)
-  lead                String?           @db.VarChar(50)
-  university          String?           @db.VarChar(100)
-  faculty             String?           @db.VarChar(100)
-  ethicsId            String?           @db.VarChar(15)
-  description         String?           @db.VarChar(500)
-  startDate           DateTime?         @db.Date
-  endDate             DateTime?         @db.Date
-  members             String[]
-  ConnectionRequest   ConnectionRequest?
+  id                String             @id(map: "project_pkey") @default(uuid()) @db.Uuid
+  name              String?            @db.VarChar(100)
+  lead              String?            @db.VarChar(50)
+  university        String?            @db.VarChar(100)
+  faculty           String?            @db.VarChar(100)
+  ethicsId          String?            @db.VarChar(15)
+  description       String?            @db.VarChar(500)
+  startDate         DateTime?          @db.Date
+  endDate           DateTime?          @db.Date
+  members           String[]
+  ConnectionRequest ConnectionRequest?
 }
 
 model ResearcherDb {
@@ -52,23 +50,4 @@ model ResearcherDb {
   status            Int?                @db.SmallInt
   connectDate       DateTime?           @db.Date
   ConnectionRequest ConnectionRequest[]
-}
-
-model User {
-  id                   String              @id(map: "user_pkey") @default(uuid()) @db.Uuid
-  type                 String              @db.Char(2)
-  firstName            String?             @db.VarChar(100)
-  lastName             String?             @db.VarChar(100)
-  email                String?             @db.VarChar(320)
-  gender               String?             @db.Char(2)
-  jobTitle             String?             @db.VarChar(255)
-  highestQualification String?             @db.VarChar(255)
-  institution          String?             @db.VarChar(255)
-  faculty              String?             @db.VarChar(255)
-  expertiseArea        String?             @db.VarChar(255)
-  orgName              String?             @db.VarChar(255)
-  orgDepartment        String?             @db.VarChar(255)
-  isAdmin              Boolean?            @db.Boolean
-  ConnectionRequest    ConnectionRequest[] @relation("User_orgAdminId")
-  ConnectionRequest2   ConnectionRequest[] @relation("User_requestor")
 }

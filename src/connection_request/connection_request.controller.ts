@@ -11,23 +11,19 @@ import {
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
-import { UUID } from 'crypto';
 
 @Controller('connection-request')
 export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
 
   @Get('details')
-  details(@Query('requestId', ParseUUIDPipe) requestId: UUID) {
+  details(@Query('requestId', ParseUUIDPipe) requestId: string) {
     return this.connectionRequestService.details(requestId);
   }
 
   @Get('summary')
-  summary(
-    @Query('userId', ParseUUIDPipe) userId: UUID,
-    @Query('userType') userType: string,
-  ) {
-    return this.connectionRequestService.summary(userId, userType);
+  summary(@Query('userId', ParseUUIDPipe) userId: string) {
+    return this.connectionRequestService.summary(userId);
   }
 
   @Post('create')

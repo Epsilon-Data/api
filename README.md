@@ -37,10 +37,10 @@ mkdir -p prisma/migrations/0_init
 3. Generate migration and save it to a file:
 
 ```bash
-npx prisma migrate diff \ 
---from-empty \ 
---to-schema-datamodel prisma/schema.prisma \ 
---script > prisma/migrations/0_init/migration.sql 
+npx prisma migrate diff \
+--from-empty \
+--to-schema-datamodel prisma/schema.prisma \
+--script > prisma/migrations/0_init/migration.sql
 ```
 
 4. Add `0_init` migration to `_prisma_migrations` table and marks as applied:
