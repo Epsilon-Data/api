@@ -31,6 +31,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "pg": "^8.11.3",
+    "cookie-parser": "^1.4.6",
+    "express-oauth2-jwt-bearer": "^1.6.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1"
   },
