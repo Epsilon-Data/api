@@ -10,6 +10,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 
@@ -76,7 +77,7 @@ class DataInfoDto {
   keywords?: string[];
 }
 
-class DatabaseInfoDto {
+export class DatabaseInfoDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
@@ -106,14 +107,13 @@ class DatabaseInfoDto {
 
 export class ConnectionRequestDto {
   @IsOptional()
-  @IsNumber()
-  id?: number;
+  @IsUUID()
+  id?: string;
 
   @IsDefined()
-  @IsNumber()
+  @IsUUID()
   @IsNotEmpty()
-  @Transform(({ value }) => parseInt(value))
-  requestor: number;
+  requestor: string;
 
   @IsOptional()
   @IsDate()

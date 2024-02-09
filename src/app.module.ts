@@ -3,7 +3,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { ConnectionRequestModule } from './connection_request/connection_request.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { DatabaseSourceModule } from './database-source/database-source.module';
+import { DatabaseSourceModule } from './database_source/database_source.module';
 
 @Module({
   imports: [
