@@ -11,7 +11,7 @@ export class AppController {
     return this.appService.getHello();
   }
   @Get('test')
-  @UseGuards(new AuthGuard('api.secret.read'))
+  @UseGuards(new AuthGuard('api.hub.read'))
   async getTest(): Promise<string> {
     return 'Success';
   }

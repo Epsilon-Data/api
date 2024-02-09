@@ -8,9 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
+import { UUID } from 'crypto';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('connection-request')
 export class ConnectionRequestController {
@@ -37,6 +40,7 @@ export class ConnectionRequestController {
   }
 
   @Post('test-connection')
+  @UseGuards(new AuthGuard('api.hub.read'))
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {
       await this.connectionRequestService.testConnection(databaseDto);

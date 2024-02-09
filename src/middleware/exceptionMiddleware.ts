@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextFunction, Request, Response } from 'express'
+import { NextFunction, Request, Response } from 'express';
 // import { configuration } from '../configuration'
 // import { CookieType, cookieHandler } from '../lib'
-import { TokenHandlerException } from './exceptions'
-import { UnhandledException } from './exceptions'
-import { RequestLogOptions, startRequestLog, writeOutput } from './requestLog'
+import { TokenHandlerException } from './exceptions';
+import { UnhandledException } from './exceptions';
+import { RequestLogOptions, startRequestLog, writeOutput } from './requestLog';
 
 const exceptionMiddleware = (
   caught: Readonly<TokenHandlerException>,
@@ -25,7 +25,7 @@ const exceptionMiddleware = (
   const exception =
     caught.handled || caught.statusCode
       ? caught
-      : UnhandledException(caught.toString(), undefined, undefined, false)
+      : UnhandledException(caught.toString(), undefined, undefined, false);
 
   if (!res.locals.log) {
     // For malformed JSON errors, middleware does not get created so write the whole log here
@@ -33,15 +33,15 @@ const exceptionMiddleware = (
     // res.locals.log.start(req)
     // res.locals.log.addError(exception)
     // res.locals.log.end(res)
-    const startOptions: RequestLogOptions = startRequestLog(req)
-    writeOutput(res.statusCode, startOptions, exception)
+    const startOptions: RequestLogOptions = startRequestLog(req);
+    writeOutput(res.statusCode, startOptions, exception);
   } else {
     // Otherwise just write exception to log
-    res.locals.log = exception
+    res.locals.log = exception;
   }
 
-  const statusCode = exception.statusCode
-  const data = { code: exception.code, message: exception.message }
+  const statusCode = exception.statusCode;
+  const data = { code: exception.code, message: exception.message };
 
   // // Send the error response to the client and remove cookies when the session expires
   // res.status(statusCode)
@@ -74,8 +74,8 @@ const exceptionMiddleware = (
   //   )
   // }
   // res.send(data)
-  res.status(statusCode).send(data)
-}
+  res.status(statusCode).send(data);
+};
 
 /*
  * Unhandled promise rejections may not be caught properly
@@ -88,9 +88,9 @@ export const asyncCatch = (fn: any) => {
     next: NextFunction,
   ) => {
     Promise.resolve(fn(request, response, next)).catch((e) => {
-      exceptionMiddleware(e, request, response, next)
-    })
-  }
-}
+      exceptionMiddleware(e, request, response, next);
+    });
+  };
+};
 
-export default exceptionMiddleware
+export default exceptionMiddleware;

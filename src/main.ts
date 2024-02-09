@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  app.setGlobalPrefix(configService.get<string>('apiBaseUrl'));
 
   // const corsOptions: CorsOptions = {
   //   origin: 'http://localhost:3000', // Replace with frontend URL

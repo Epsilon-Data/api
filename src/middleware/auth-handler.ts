@@ -1,11 +1,11 @@
-import cors from 'cors'
-import cookieParser from 'cookie-parser'
-import { auth } from 'express-oauth2-jwt-bearer'
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { auth } from 'express-oauth2-jwt-bearer';
 
-import { decryptCookie } from './cookieEncrypter'
+import { decryptCookie } from './cookieEncrypter';
 
-import { NextFunction, Request, Response } from 'express'
-import { CookieDecryptionException, UnauthorizedException } from './exceptions'
+import { NextFunction, Request, Response } from 'express';
+import { CookieDecryptionException, UnauthorizedException } from './exceptions';
 
 export const cookieHandler = (
   issuerBaseURL: string,
@@ -23,7 +23,7 @@ export const cookieHandler = (
   addToken(encryptionKey, cookiePrefix, trustedWebOrigins, allowTokenAuth),
   // auth
   auth({ issuerBaseURL, audience }),
-]
+];
 
 const addToken =
   (
@@ -39,10 +39,10 @@ const addToken =
   ) => {
     // check if authToken already exists
     if (allowTokenAuth && request.headers['authorization']) {
-      return next()
+      return next();
     }
     // check for origin
-    const origin = request.header('origin')
+    const origin = request.header('origin');
     if (
       origin &&
       trustedWebOrigins.findIndex((value) => value === origin) == -1
@@ -51,46 +51,46 @@ const addToken =
         UnauthorizedException(
           `Request was not from a trusted origin: ${origin}`,
         ),
-      )
+      );
 
     // CSRF check
     if (['POST', 'PUT', 'PATH', 'DELETE'].includes(request.method)) {
-      const csrfCookie = request.cookies[`${cookiePrefix}-csrf`]
-      const csrfHeader = request.header(`x-${cookiePrefix}-csrf`)
+      const csrfCookie = request.cookies[`${cookiePrefix}-csrf`];
+      const csrfHeader = request.header(`x-${cookiePrefix}-csrf`);
       if (!csrfCookie || !csrfCookie)
-        next(UnauthorizedException('No CSRF cookie or header found'))
+        next(UnauthorizedException('No CSRF cookie or header found'));
       try {
-        const decryptedCsrfCookie = decryptCookie(csrfCookie, encryptionKey)
+        const decryptedCsrfCookie = decryptCookie(csrfCookie, encryptionKey);
         if (decryptedCsrfCookie !== csrfHeader)
           next(
             UnauthorizedException(
               'The request CSRF header did not match with the CSRF cookie',
             ),
-          )
+          );
       } catch (error: any) {
-        next(CookieDecryptionException(`Error decrypting CSRF cookie`, error))
+        next(CookieDecryptionException(`Error decrypting CSRF cookie`, error));
       }
     }
 
     // check for access token cookie
-    const atCookie = request.cookies[`${cookiePrefix}-at`]
+    const atCookie = request.cookies[`${cookiePrefix}-at`];
 
     if (!atCookie) {
-      next(UnauthorizedException('No authorisation cookie found'))
+      next(UnauthorizedException('No authorisation cookie found'));
     }
 
     try {
       // decrypt cookie and add as auth header auth token
-      const decryptedAtCookie = decryptCookie(atCookie, encryptionKey)
+      const decryptedAtCookie = decryptCookie(atCookie, encryptionKey);
 
-      request.headers[`authorization`] = `Bearer ${decryptedAtCookie}`
+      request.headers[`authorization`] = `Bearer ${decryptedAtCookie}`;
     } catch (error: any) {
       next(
         CookieDecryptionException(
           `Error decrypting authorization cookie`,
           error,
         ),
-      )
+      );
     }
-    next()
-  }
+    next();
+  };

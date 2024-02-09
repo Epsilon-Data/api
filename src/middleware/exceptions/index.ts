@@ -1,1 +1,1 @@
-export * from './TokenHandlerException'
+export * from './TokenHandlerException';

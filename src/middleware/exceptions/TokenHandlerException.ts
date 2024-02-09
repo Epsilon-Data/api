@@ -1,10 +1,10 @@
 export type TokenHandlerException = Error & {
-  readonly statusCode: number
-  readonly code: string
-  readonly logInfo?: string
-  readonly handled?: boolean
-  readonly cause?: Error
-}
+  readonly statusCode: number;
+  readonly code: string;
+  readonly logInfo?: string;
+  readonly handled?: boolean;
+  readonly cause?: Error;
+};
 
 export enum Grant {
   AuthorizationCode,
@@ -25,7 +25,7 @@ export const UnhandledException = (
   cause,
   logInfo,
   handled,
-})
+});
 
 export const AuthorizationClientException = (
   grant: Grant,
@@ -43,7 +43,7 @@ export const AuthorizationClientException = (
       statusCode: 401,
       logInfo: `${Grant[grant]} request failed with status: ${status} and response: ${responseText}`,
       handled,
-    }
+    };
   }
   if (
     grant === Grant.RefreshToken &&
@@ -57,7 +57,7 @@ export const AuthorizationClientException = (
       statusCode: 401,
       logInfo: `${Grant[grant]} request failed with status: ${status} and response: ${responseText}`,
       handled,
-    }
+    };
   }
   return {
     message:
@@ -67,8 +67,8 @@ export const AuthorizationClientException = (
     statusCode: 400,
     logInfo: `${Grant[grant]} request failed with status: ${status} and response: ${responseText}`,
     handled,
-  }
-}
+  };
+};
 
 export const AuthorizationResponseException = (
   message: string,
@@ -82,7 +82,7 @@ export const AuthorizationResponseException = (
       name: error,
       statusCode: 401,
       handled,
-    }
+    };
   }
   return {
     message: message,
@@ -90,8 +90,8 @@ export const AuthorizationResponseException = (
     name: error,
     statusCode: 400,
     handled,
-  }
-}
+  };
+};
 
 export const AuthorizationServerException = (
   message?: string,
@@ -107,7 +107,7 @@ export const AuthorizationServerException = (
   cause,
   logInfo,
   handled,
-})
+});
 
 export const CookieDecryptionException = (
   message?: string,
@@ -120,7 +120,7 @@ export const CookieDecryptionException = (
   name: 'unauthorized_request',
   cause,
   handled,
-})
+});
 
 export const InvalidCookieException = (
   message?: string,
@@ -133,7 +133,7 @@ export const InvalidCookieException = (
   name: 'unauthorized_request',
   cause,
   handled,
-})
+});
 
 export const InvalidIDTokenException = (
   message?: string,
@@ -146,7 +146,7 @@ export const InvalidIDTokenException = (
   name: 'invalid_request',
   cause,
   handled,
-})
+});
 
 export const UnauthorizedException = (
   message?: string,
@@ -159,7 +159,7 @@ export const UnauthorizedException = (
   name: 'unauthorized_request',
   cause,
   handled,
-})
+});
 
 export const InvalidRequestException = (
   message?: string,
@@ -172,7 +172,7 @@ export const InvalidRequestException = (
   name: 'invalid_request',
   cause,
   handled,
-})
+});
 
 export const MissingCodeVerifierException = (
   message?: string,
@@ -185,7 +185,7 @@ export const MissingCodeVerifierException = (
   name: 'invalid_request',
   cause,
   handled,
-})
+});
 
 export const InvalidStateException = (
   message?: string,
@@ -198,4 +198,4 @@ export const InvalidStateException = (
   name: 'invalid_request',
   cause,
   handled,
-})
+});
