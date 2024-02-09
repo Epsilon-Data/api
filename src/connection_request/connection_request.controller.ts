@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
-import { UUID } from 'crypto';
 import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('connection-request')
