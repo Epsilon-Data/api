@@ -1,6 +1,9 @@
 import { ExceptionFilter, Catch, ArgumentsHost } from '@nestjs/common';
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import exceptionMiddleware from 'src/middleware/exceptionMiddleware';
+import {
+  ApiException,
+  exceptionMiddleware,
+} from '@epsilon-data/epsilon-api-middleware';
 
 @Catch()
 export class AuthExceptionFilter implements ExceptionFilter {
@@ -19,7 +22,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
     }
 
     this.handler(
-      exception,
+      exception as ApiException,
       ctx.getRequest<Request>(),
       resp,
       ctx.getNext<NextFunction>(),

@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { requiredScopes } from 'express-oauth2-jwt-bearer';
-import { UnauthorizedException } from 'src/middleware/exceptions/TokenHandlerException';
+import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
 
 @Injectable()
 export class AuthGuard implements CanActivate {

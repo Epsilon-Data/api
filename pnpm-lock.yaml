@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@epsilon-data/epsilon-api-middleware':
+    specifier: ^0.0.1
+    version: 0.0.1
   '@epsilon-data/epsilon-connector':
     specifier: ^0.1.2
     version: 0.1.2
@@ -525,6 +528,18 @@ packages:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
     dev: true
+
+  /@epsilon-data/epsilon-api-middleware@0.0.1:
+    resolution: {integrity: sha512-8d0LBrSqPC5PeLZrkW35TKsjurfVVQkyOPvwIDBGPIj5Q/+JGz33gpo+KYIUSFh5W9MTlKWp7lw7zYd0ap4Wig==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-api-middleware/0.0.1/26e921ab44aef29c752e97b77e91a00760cece8f}
+    dependencies:
+      '@types/node': 20.10.5
+      base64url: 3.0.1
+      express: 4.18.2
+      npm-run-all: 4.1.5
+      rimraf: 5.0.5
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
 
   /@epsilon-data/epsilon-connector@0.1.2:
     resolution: {integrity: sha512-aCJgGbycnA2CF3y4+31znK7uvqCsYMc5/2knrqx1MdwW9faSndu9LCaqQJ8VI0zpVJ6OSbtpiiM6jl4cap9AeQ==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-connector/0.1.2/206abbe0541442253edd9556a72a1be9bfcd27a5}

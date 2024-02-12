@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@epsilon-data/epsilon-api-middleware": "^0.0.1",
     "@epsilon-data/epsilon-connector": "^0.1.2",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.1.1",
