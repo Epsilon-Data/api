@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@epsilon-data/epsilon-api-middleware": "^0.0.1",
     "@epsilon-data/epsilon-connector": "^0.1.2",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.1.1",
@@ -28,8 +29,12 @@
     "@nestjs/platform-express": "^10.0.0",
     "@prisma/client": "^5.9.1",
     "argon2": "^0.31.2",
+    "base64url": "^3.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express-oauth2-jwt-bearer": "^1.6.0",
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1"

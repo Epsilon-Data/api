@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@epsilon-data/epsilon-api-middleware':
+    specifier: ^0.0.1
+    version: 0.0.1
   '@epsilon-data/epsilon-connector':
     specifier: ^0.1.2
     version: 0.1.2
@@ -26,12 +29,24 @@ dependencies:
   argon2:
     specifier: ^0.31.2
     version: 0.31.2
+  base64url:
+    specifier: ^3.0.1
+    version: 3.0.1
   class-transformer:
     specifier: ^0.5.1
     version: 0.5.1
   class-validator:
     specifier: ^0.14.0
     version: 0.14.0
+  cookie-parser:
+    specifier: ^1.4.6
+    version: 1.4.6
+  cors:
+    specifier: ^2.8.5
+    version: 2.8.5
+  express-oauth2-jwt-bearer:
+    specifier: ^1.6.0
+    version: 1.6.0
   pg:
     specifier: ^8.11.3
     version: 8.11.3
@@ -513,6 +528,18 @@ packages:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
     dev: true
+
+  /@epsilon-data/epsilon-api-middleware@0.0.1:
+    resolution: {integrity: sha512-8d0LBrSqPC5PeLZrkW35TKsjurfVVQkyOPvwIDBGPIj5Q/+JGz33gpo+KYIUSFh5W9MTlKWp7lw7zYd0ap4Wig==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-api-middleware/0.0.1/26e921ab44aef29c752e97b77e91a00760cece8f}
+    dependencies:
+      '@types/node': 20.10.5
+      base64url: 3.0.1
+      express: 4.18.2
+      npm-run-all: 4.1.5
+      rimraf: 5.0.5
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
 
   /@epsilon-data/epsilon-connector@0.1.2:
     resolution: {integrity: sha512-aCJgGbycnA2CF3y4+31znK7uvqCsYMc5/2knrqx1MdwW9faSndu9LCaqQJ8VI0zpVJ6OSbtpiiM6jl4cap9AeQ==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-connector/0.1.2/206abbe0541442253edd9556a72a1be9bfcd27a5}
@@ -1926,6 +1953,11 @@ packages:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
     dev: true
 
+  /base64url@3.0.1:
+    resolution: {integrity: sha512-ir1UPr3dkwexU7FdV8qBBbNDRUhMmIekYMFZfi+C/sLNnRESKPl23nB9b2pltqfOQNnGzsDdId90AEtG5tCx4A==}
+    engines: {node: '>=6.0.0'}
+    dev: false
+
   /big-integer@1.6.52:
     resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
     engines: {node: '>=0.6'}
@@ -2292,8 +2324,21 @@ packages:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
     dev: true
 
+  /cookie-parser@1.4.6:
+    resolution: {integrity: sha512-z3IzaNjdwUC2olLIB5/ITd0/setiaFMLYiZJle7xg5Fe9KWAceil7xszYfHHBtDFYLSgJduS2Ty0P1uJdPDJeA==}
+    engines: {node: '>= 0.8.0'}
+    dependencies:
+      cookie: 0.4.1
+      cookie-signature: 1.0.6
+    dev: false
+
   /cookie-signature@1.0.6:
     resolution: {integrity: sha512-QADzlaHc8icV8I7vbaJXJwod9HWYp8uCqf1xa4OfNu1T7JVxQIrUgOWtHdNDtPiywmFbiS12VjotIXLrKM3orQ==}
+
+  /cookie@0.4.1:
+    resolution: {integrity: sha512-ZwrFkGJxUR3EIoXtO+yVE69Eb7KlixbaeAWfBQB9vVsNn/o+Yw69gBWSSDK825hQNdN+wF8zELf3dFNl/kxkUA==}
+    engines: {node: '>= 0.6'}
+    dev: false
 
   /cookie@0.5.0:
     resolution: {integrity: sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==}
@@ -2868,6 +2913,13 @@ packages:
       jest-message-util: 29.7.0
       jest-util: 29.7.0
     dev: true
+
+  /express-oauth2-jwt-bearer@1.6.0:
+    resolution: {integrity: sha512-HXnez7vocYlOqlfF3ozPcf/WE3zxT7zfUNfeg5FHJnvNwhBYlNXiPOvuCtBalis8xcigvwtInzEKhBuH87+9ug==}
+    engines: {node: ^12.19.0 || ^14.15.0 || ^16.13.0 || ^18.12.0 || ^20.2.0}
+    dependencies:
+      jose: 4.15.4
+    dev: false
 
   /express@4.18.2:
     resolution: {integrity: sha512-5/PsL6iGPdfQ/lKM1UuielYgv3BUoJfz1aUwU9vHZ+J7gyvwdQXFEBIEIaxeGf0GIcreATNyBExtalisDbuMqQ==}
@@ -4163,6 +4215,10 @@ packages:
       - supports-color
       - ts-node
     dev: true
+
+  /jose@4.15.4:
+    resolution: {integrity: sha512-W+oqK4H+r5sITxfxpSU+MMdr/YSWGvgZMQDIsNoBDGGy4i7GBPTtvFKibQzW06n3U3TqHjhvBJsirShsEJ6eeQ==}
+    dev: false
 
   /js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
