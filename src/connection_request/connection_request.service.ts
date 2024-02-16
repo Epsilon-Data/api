@@ -19,7 +19,6 @@ export class ConnectionRequestService {
       },
       include: {
         Project: true,
-        ResearcherDb: true,
       },
     });
 
@@ -48,22 +47,22 @@ export class ConnectionRequestService {
       },
     };
 
-    let info = {};
-    if (request.ResearcherDb) {
-      info = {
-        databaseInfo: {
-          name: request.ResearcherDb.name,
-          type: request.ResearcherDb.type,
-          host: request.ResearcherDb.host,
-          port: request.ResearcherDb.port,
-        },
-      };
-    } else {
-      info = {
-        orgAdminEmail: request.orgAdminEmail,
-        additionalInfo: request.additionalInfo,
-      };
-    }
+    const info = {};
+    // if (request.ResearcherDb) {
+    //   info = {
+    //     databaseInfo: {
+    //       name: request.ResearcherDb.name,
+    //       type: request.ResearcherDb.type,
+    //       host: request.ResearcherDb.host,
+    //       port: request.ResearcherDb.port,
+    //     },
+    //   };
+    // } else {
+    //   info = {
+    //     orgAdminEmail: request.orgAdminEmail,
+    //     additionalInfo: request.additionalInfo,
+    //   };
+    // }
 
     return { ...mappedRequest, ...info };
   }
@@ -182,7 +181,6 @@ export class ConnectionRequestService {
       },
       include: {
         Project: true,
-        ResearcherDb: true,
       },
     });
 
@@ -214,39 +212,39 @@ export class ConnectionRequestService {
       },
     });
 
-    let transactions = [];
+    const transactions = [projectUpdate, connectionRequestUpdate];
 
-    if (request.ResearcherDb) {
-      const researcherDbUpdate = this.prisma.researcherDb.update({
-        where: { id: request.ResearcherDb.id },
-        data: {
-          name: dto.databaseInfo.name,
-          type: dto.databaseInfo.type,
-          host: dto.databaseInfo.host,
-          port: dto.databaseInfo.port,
-          username: dto.databaseInfo.username,
-          password: dto.databaseInfo.password,
-        },
-      });
-      transactions = [
-        projectUpdate,
-        connectionRequestUpdate,
-        researcherDbUpdate,
-      ];
-    } else {
-      //TODO: get boolean whether if email is a registered org admin
-      const orgAdminUpdate = this.prisma.connectionRequest.update({
-        where: { id: dto.id },
-        data: {
-          orgAdminEmail: dto.orgAdminEmail,
-        },
-      });
-      transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
-      // const existingOrgAdmin
-      // if (!existingOrgAdmin) {
-      //   TODO: send email to org admin
-      // }
-    }
+    // if (request.ResearcherDb) {
+    //   const researcherDbUpdate = this.prisma.researcherDb.update({
+    //     where: { id: request.ResearcherDb.id },
+    //     data: {
+    //       name: dto.databaseInfo.name,
+    //       type: dto.databaseInfo.type,
+    //       host: dto.databaseInfo.host,
+    //       port: dto.databaseInfo.port,
+    //       username: dto.databaseInfo.username,
+    //       password: dto.databaseInfo.password,
+    //     },
+    //   });
+    //   transactions = [
+    //     projectUpdate,
+    //     connectionRequestUpdate,
+    //     researcherDbUpdate,
+    //   ];
+    // } else {
+    //   //TODO: get boolean whether if email is a registered org admin
+    //   const orgAdminUpdate = this.prisma.connectionRequest.update({
+    //     where: { id: dto.id },
+    //     data: {
+    //       orgAdminEmail: dto.orgAdminEmail,
+    //     },
+    //   });
+    //   transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
+    //   // const existingOrgAdmin
+    //   // if (!existingOrgAdmin) {
+    //   //   TODO: send email to org admin
+    //   // }
+    // }
 
     return await this.prisma.$transaction(transactions);
   }

@@ -13,31 +13,31 @@ export class DatabaseSourceService {
       },
       include: {
         Project: true,
-        ResearcherDb: true,
       },
     });
 
-    const filteredList = requestList.map((request) => {
-      const project = {
-        projectId: request.Project.id,
-        projectName: request.Project.name,
-      };
-      const researcherDb = request.ResearcherDb
-        ? {
-            databaseName: request.ResearcherDb.name,
-            connectDate: request.ResearcherDb.connectDate,
-            sourceStatus: request.ResearcherDb.status,
-          }
-        : null;
-      if (researcherDb) {
-        return {
-          ...project,
-          ...researcherDb,
-        };
-      }
-    });
+    // const filteredList = requestList.map((request) => {
+    //   const project = {
+    //     projectId: request.Project.id,
+    //     projectName: request.Project.name,
+    //   };
+    //   const researcherDb = request.ResearcherDb
+    //     ? {
+    //         databaseName: request.ResearcherDb.name,
+    //         connectDate: request.ResearcherDb.connectDate,
+    //         sourceStatus: request.ResearcherDb.status,
+    //       }
+    //     : null;
+    //   if (researcherDb) {
+    //     return {
+    //       ...project,
+    //       ...researcherDb,
+    //     };
+    //   }
+    // });
 
-    return filteredList;
+    // return filteredList;
+    return requestList;
   }
 
   async summary(projectId: string) {
