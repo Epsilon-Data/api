@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
@@ -25,8 +26,8 @@ export class ConnectionRequestController {
 
   @Get('summary')
   @UseGuards(new AuthGuard('api.hub.read'))
-  summary(@Query('userId', ParseUUIDPipe) userId: string) {
-    return this.connectionRequestService.summary(userId);
+  summary(@Req() request) {
+    return this.connectionRequestService.summary(request);
   }
 
   @Post('create')

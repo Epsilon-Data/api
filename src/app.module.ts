@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ConnectionRequestModule } from './connection_request/connection_request.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseSourceModule } from './database_source/database_source.module';
+import { CassandraModule } from './cassandra/cassandra.module';
 
 import configuration from './config/configuration';
 
@@ -34,6 +35,7 @@ import configuration from './config/configuration';
     ConnectionRequestModule,
     PrismaModule,
     DatabaseSourceModule,
+    CassandraModule,
   ],
   controllers: [AppController],
   providers: [AppService],

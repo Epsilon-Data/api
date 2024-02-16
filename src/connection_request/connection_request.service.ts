@@ -2,10 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
+import { Request } from 'express';
+import { CassandraService } from 'src/cassandra/cassandra.service';
+import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class ConnectionRequestService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cassandra: CassandraService,
+  ) {}
   async details(requestId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
@@ -54,7 +60,7 @@ export class ConnectionRequestService {
       };
     } else {
       info = {
-        // orgAdminEmail: request.OrgAdmin.email,
+        orgAdminEmail: request.orgAdminEmail,
         additionalInfo: request.additionalInfo,
       };
     }
@@ -62,28 +68,28 @@ export class ConnectionRequestService {
     return { ...mappedRequest, ...info };
   }
 
-  async summary(userId: string) {
-    const isAdmin = await this.isAdmin(userId);
+  async summary(request: Request) {
+    const isAdmin = await this.isAdmin(request);
+    const userId = request.auth.payload.sub;
     let requestList = {};
     if (isAdmin) {
-      //TODO: get email from userId from Keycloak
-      // const user
-      // requestList = await this.prisma.connectionRequest.findMany({
-      //   where: {
-      //     orgAdminEmail: user.email,
-      //   },
-      //   select: {
-      //     id: true,
-      //     requestor: true,
-      //     status: true,
-      //     createdDate: true,
-      //     Project: {
-      //       select: {
-      //         name: true,
-      //       },
-      //     },
-      //   },
-      // });
+      const userEmail = request.auth.payload.email;
+      requestList = await this.prisma.connectionRequest.findMany({
+        where: {
+          orgAdminEmail: userEmail,
+        },
+        select: {
+          id: true,
+          requestor: true,
+          status: true,
+          createdDate: true,
+          Project: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
     } else {
       requestList = await this.prisma.connectionRequest.findMany({
         where: {
@@ -101,7 +107,6 @@ export class ConnectionRequestService {
         },
       });
     }
-
     return { requests: requestList, isAdmin: isAdmin };
   }
 
@@ -132,17 +137,26 @@ export class ConnectionRequestService {
 
     let info = {};
     if (dto.databaseInfo) {
+      const query =
+        'INSERT INTO sources (id, connect_date, host, name, password, port, status, type, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+      const dbId = uuid();
+      const queryParams = [
+        dbId,
+        this.cassandra.getCurrentDate(),
+        dto.databaseInfo.host,
+        dto.databaseInfo.name,
+        dto.databaseInfo.password,
+        dto.databaseInfo.port,
+        1,
+        dto.databaseInfo.type,
+        dto.databaseInfo.username,
+      ];
+      this.cassandra
+        .executeQuery(query, queryParams)
+        .then(() => console.log('User inserted successfully'))
+        .catch((err) => console.error('Error inserting user', err));
       info = {
-        ResearcherDb: {
-          create: {
-            name: dto.databaseInfo.name,
-            type: dto.databaseInfo.type,
-            host: dto.databaseInfo.host,
-            port: dto.databaseInfo.port,
-            username: dto.databaseInfo.username,
-            password: dto.databaseInfo.password,
-          },
-        },
+        dbId: dbId,
       };
     } else {
       //TODO: get boolean whether if email is a registered org admin
@@ -151,13 +165,14 @@ export class ConnectionRequestService {
       // if (!existingOrgAdmin) {
       //   TODO: send email to org admin
       // }
-      return await this.prisma.connectionRequest.create({
-        data: {
-          ...request,
-          ...info,
-        },
-      });
     }
+
+    return await this.prisma.connectionRequest.create({
+      data: {
+        ...request,
+        ...info,
+      },
+    });
   }
 
   async update(dto: ConnectionRequestDto) {
@@ -249,9 +264,12 @@ export class ConnectionRequestService {
     return await testConnection(connectionData);
   }
 
-  async isAdmin(userId: string) {
-    // TODO: check if user is an admin
-    console.log(userId);
+  async isAdmin(request: Request) {
+    const access: { account?: { roles: string[] } } =
+      request.auth.payload.resource_access;
+    if (access && access.account && access.account.roles) {
+      return access.account.roles.indexOf('admin') !== -1;
+    }
     return false;
   }
 }

@@ -21,7 +21,6 @@ model ConnectionRequest {
   createdDate             DateTime?     @default(now()) @db.Date
   dataCollectionStartDate DateTime?     @db.Date
   dataCollectionEndDate   DateTime?     @db.Date
-  ResearcherDb            ResearcherDb? @relation(fields: [dbId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_db_id")
   Project                 Project?      @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
 }
 
@@ -37,17 +36,4 @@ model Project {
   endDate           DateTime?          @db.Date
   members           String[]
   ConnectionRequest ConnectionRequest?
-}
-
-model ResearcherDb {
-  id                String              @id(map: "researcher_db_pkey") @default(uuid()) @db.Uuid
-  name              String?             @db.VarChar(50)
-  type              String?             @db.VarChar(15)
-  host              String?             @db.VarChar(50)
-  port              String?             @db.VarChar(15)
-  username          String?             @db.VarChar(100)
-  password          String?             @db.VarChar(100)
-  status            Int?                @db.SmallInt
-  connectDate       DateTime?           @db.Date
-  ConnectionRequest ConnectionRequest[]
 }
