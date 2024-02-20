@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   HttpStatus,
@@ -12,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
+import { RevisionDto, ConnectionRequestDto, DatabaseInfoDto } from './dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('connection-request')
@@ -35,9 +36,27 @@ export class ConnectionRequestController {
     return this.connectionRequestService.create(dto);
   }
 
-  @Patch('update')
-  update(@Body() dto: ConnectionRequestDto) {
-    return this.connectionRequestService.update(dto);
+  @Patch('edit')
+  edit(@Body() dto: ConnectionRequestDto) {
+    return this.connectionRequestService.edit(dto);
+  }
+
+  @Delete('delete')
+  delete(@Query('requestId', ParseUUIDPipe) requestId: string) {
+    return this.connectionRequestService.delete(requestId);
+  }
+
+  @Patch('approve')
+  approve(
+    @Body() dto: DatabaseInfoDto,
+    @Query('requestId', ParseUUIDPipe) requestId: string,
+  ) {
+    return this.connectionRequestService.approve(dto, requestId);
+  }
+
+  @Patch('revision')
+  revision(@Body() dto: RevisionDto) {
+    return this.connectionRequestService.revision(dto);
   }
 
   @Post('test-connection')

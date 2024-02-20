@@ -8,6 +8,7 @@ import { ConnectionRequestModule } from './connection_request/connection_request
 import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseSourceModule } from './database_source/database_source.module';
 import { CassandraModule } from './cassandra/cassandra.module';
+import { UserModule } from './user/user.module';
 
 import configuration from './config/configuration';
 
@@ -36,6 +37,7 @@ import configuration from './config/configuration';
     PrismaModule,
     DatabaseSourceModule,
     CassandraModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

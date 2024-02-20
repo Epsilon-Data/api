@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ConnectionRequestDto, DatabaseInfoDto } from './dto';
+import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { Request } from 'express';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { v4 as uuid } from 'uuid';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,
+    private user: UserService,
   ) {}
   async details(requestId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
@@ -26,6 +28,7 @@ export class ConnectionRequestService {
       requestor: request.requestor,
       status: request.status,
       date: request.createdDate,
+      revisionInfo: request.revisionInfo,
       projectInfo: {
         name: request.Project.name,
         duration: [request.Project.startDate, request.Project.endDate],
@@ -47,28 +50,32 @@ export class ConnectionRequestService {
       },
     };
 
-    const info = {};
-    // if (request.ResearcherDb) {
-    //   info = {
-    //     databaseInfo: {
-    //       name: request.ResearcherDb.name,
-    //       type: request.ResearcherDb.type,
-    //       host: request.ResearcherDb.host,
-    //       port: request.ResearcherDb.port,
-    //     },
-    //   };
-    // } else {
-    //   info = {
-    //     orgAdminEmail: request.orgAdminEmail,
-    //     additionalInfo: request.additionalInfo,
-    //   };
-    // }
+    let info = {};
+    if (request.orgAdminEmail) {
+      info = {
+        orgAdminEmail: request.orgAdminEmail,
+        additionalInfo: request.additionalInfo,
+      };
+    } else {
+      const query = `SELECT name, type, host, port FROM sources WHERE id = ?`;
+      const queryParams = [request.dbId];
+      const result = await this.cassandra.executeQuery(query, queryParams);
+      console.log(result);
+      info = {
+        databaseInfo: {
+          name: result[0].name,
+          type: result[0].type,
+          host: result[0].host,
+          port: result[0].port,
+        },
+      };
+    }
 
     return { ...mappedRequest, ...info };
   }
 
   async summary(request: Request) {
-    const isAdmin = await this.isAdmin(request);
+    const isAdmin = await this.user.admin(request);
     const userId = request.auth.payload.sub;
     let requestList = {};
     if (isAdmin) {
@@ -152,8 +159,8 @@ export class ConnectionRequestService {
       ];
       this.cassandra
         .executeQuery(query, queryParams)
-        .then(() => console.log('User inserted successfully'))
-        .catch((err) => console.error('Error inserting user', err));
+        .then(() => console.log('Source inserted successfully'))
+        .catch((err) => console.error('Error inserting source: ', err));
       info = {
         dbId: dbId,
       };
@@ -174,7 +181,7 @@ export class ConnectionRequestService {
     });
   }
 
-  async update(dto: ConnectionRequestDto) {
+  async edit(dto: ConnectionRequestDto) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
         id: dto.id,
@@ -202,7 +209,6 @@ export class ConnectionRequestService {
     const connectionRequestUpdate = this.prisma.connectionRequest.update({
       where: { id: dto.id },
       data: {
-        status: dto.status,
         additionalInfo: dto.additionalInfo,
         dataParticipantsNum: dto.dataInfo.participantsNumber,
         dataDescription: dto.dataInfo.description,
@@ -212,41 +218,101 @@ export class ConnectionRequestService {
       },
     });
 
-    const transactions = [projectUpdate, connectionRequestUpdate];
+    let transactions = [];
 
-    // if (request.ResearcherDb) {
-    //   const researcherDbUpdate = this.prisma.researcherDb.update({
-    //     where: { id: request.ResearcherDb.id },
-    //     data: {
-    //       name: dto.databaseInfo.name,
-    //       type: dto.databaseInfo.type,
-    //       host: dto.databaseInfo.host,
-    //       port: dto.databaseInfo.port,
-    //       username: dto.databaseInfo.username,
-    //       password: dto.databaseInfo.password,
-    //     },
-    //   });
-    //   transactions = [
-    //     projectUpdate,
-    //     connectionRequestUpdate,
-    //     researcherDbUpdate,
-    //   ];
-    // } else {
-    //   //TODO: get boolean whether if email is a registered org admin
-    //   const orgAdminUpdate = this.prisma.connectionRequest.update({
-    //     where: { id: dto.id },
-    //     data: {
-    //       orgAdminEmail: dto.orgAdminEmail,
-    //     },
-    //   });
-    //   transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
-    //   // const existingOrgAdmin
-    //   // if (!existingOrgAdmin) {
-    //   //   TODO: send email to org admin
-    //   // }
-    // }
+    if (request.dbId) {
+      const query =
+        'UPDATE sources SET name = ?, type = ?, host = ?, port = ?, username = ?, password = ? WHERE id = ?';
+      const queryParams = [
+        dto.databaseInfo.name,
+        dto.databaseInfo.type,
+        dto.databaseInfo.host,
+        dto.databaseInfo.port,
+        dto.databaseInfo.username,
+        dto.databaseInfo.password,
+        request.dbId,
+      ];
+      this.cassandra.executeQuery(query, queryParams);
+      transactions = [projectUpdate, connectionRequestUpdate];
+    } else {
+      const orgAdminUpdate = this.prisma.connectionRequest.update({
+        where: { id: dto.id },
+        data: {
+          orgAdminEmail: dto.orgAdminEmail,
+          status: 1,
+        },
+      });
+      transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
+      //TODO: get boolean whether if email is a registered org admin
+      // const existingOrgAdmin
+      // if (!existingOrgAdmin) {
+      //   TODO: send email to org admin
+      // }
+    }
 
     return await this.prisma.$transaction(transactions);
+  }
+
+  async delete(requestId: string) {
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        id: requestId,
+      },
+    });
+
+    if (request.dbId) {
+      const query = 'DELETE FROM sources WHERE id = ?';
+      const queryParams = [request.dbId];
+      this.cassandra.executeQuery(query, queryParams);
+    }
+
+    return await this.prisma.connectionRequest.delete({
+      where: {
+        id: requestId,
+      },
+      include: {
+        Project: true,
+      },
+    });
+  }
+
+  async approve(dto: DatabaseInfoDto, requestId: string) {
+    const query =
+      'INSERT INTO sources (id, connect_date, host, name, password, port, status, type, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const dbId = uuid();
+    const queryParams = [
+      dbId,
+      this.cassandra.getCurrentDate(),
+      dto.host,
+      dto.name,
+      dto.password,
+      dto.port,
+      1,
+      dto.type,
+      dto.username,
+    ];
+    this.cassandra
+      .executeQuery(query, queryParams)
+      .then(() => console.log('Source inserted successfully'))
+      .catch((err) => console.error('Error inserting source: ', err));
+
+    return await this.prisma.connectionRequest.update({
+      where: { id: requestId },
+      data: {
+        dbId: dbId,
+        status: 3,
+      },
+    });
+  }
+
+  async revision(dto: RevisionDto) {
+    return await this.prisma.connectionRequest.update({
+      where: { id: dto.requestId },
+      data: {
+        revisionInfo: dto.revisionInfo,
+        status: 2,
+      },
+    });
   }
 
   async testConnection(databaseDto: DatabaseInfoDto) {
@@ -260,14 +326,5 @@ export class ConnectionRequestService {
       ssl: false,
     };
     return await testConnection(connectionData);
-  }
-
-  async isAdmin(request: Request) {
-    const access: { account?: { roles: string[] } } =
-      request.auth.payload.resource_access;
-    if (access && access.account && access.account.roles) {
-      return access.account.roles.indexOf('admin') !== -1;
-    }
-    return false;
   }
 }

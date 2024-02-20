@@ -151,6 +151,21 @@ export class ConnectionRequestDto {
   @IsOptional()
   @IsString()
   additionalInfo?: string;
+
+  @IsOptional()
+  @IsString()
+  revisionInfo?: string;
+}
+
+export class RevisionDto {
+  @IsDefined()
+  @IsUUID()
+  @IsNotEmpty()
+  requestId: string;
+
+  @IsDefined()
+  @IsString()
+  revisionInfo: string;
 }
 
 function transformDateString(value: any): Date {
