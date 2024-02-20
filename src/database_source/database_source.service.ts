@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TemplateDto } from './dto';
+import { CassandraService } from 'src/cassandra/cassandra.service';
+import { Request } from 'express';
 
 @Injectable()
 export class DatabaseSourceService {
-  constructor(private prisma: PrismaService) {}
-  async list(userId: string) {
+  constructor(
+    private prisma: PrismaService,
+    private cassandra: CassandraService,
+  ) {}
+  async list(request: Request) {
+    const userId = request.auth.payload.sub;
     const requestList = await this.prisma.connectionRequest.findMany({
       where: {
         requestor: userId,
@@ -16,28 +22,43 @@ export class DatabaseSourceService {
       },
     });
 
-    // const filteredList = requestList.map((request) => {
-    //   const project = {
-    //     projectId: request.Project.id,
-    //     projectName: request.Project.name,
-    //   };
-    //   const researcherDb = request.ResearcherDb
-    //     ? {
-    //         databaseName: request.ResearcherDb.name,
-    //         connectDate: request.ResearcherDb.connectDate,
-    //         sourceStatus: request.ResearcherDb.status,
-    //       }
-    //     : null;
-    //   if (researcherDb) {
-    //     return {
-    //       ...project,
-    //       ...researcherDb,
-    //     };
-    //   }
-    // });
+    const filteredList = requestList.map(async (request) => {
+      const project = {
+        projectId: request.Project.id,
+        projectName: request.Project.name,
+      };
 
-    // return filteredList;
-    return requestList;
+      const query = `SELECT name, connect_date, status FROM sources WHERE id = ?`;
+      const queryParams = [request.dbId];
+      const result = await this.cassandra.executeQuery(query, queryParams);
+
+      const researcherDb = result[0]
+        ? {
+            databaseName: result[0].name,
+            connectDate: result[0].connect_date,
+            sourceStatus: result[0].status,
+          }
+        : null;
+      if (researcherDb) {
+        return {
+          ...project,
+          ...researcherDb,
+        };
+      }
+    });
+
+    return await Promise.all(filteredList);
+  }
+
+  async getProjectName(projectId: string) {
+    return await this.prisma.project.findUnique({
+      where: {
+        id: projectId,
+      },
+      select: {
+        name: true,
+      },
+    });
   }
 
   async summary(projectId: string) {

@@ -60,7 +60,7 @@ export class ConnectionRequestService {
       const query = `SELECT name, type, host, port FROM sources WHERE id = ?`;
       const queryParams = [request.dbId];
       const result = await this.cassandra.executeQuery(query, queryParams);
-      console.log(result);
+
       info = {
         databaseInfo: {
           name: result[0].name,
@@ -107,6 +107,7 @@ export class ConnectionRequestService {
           createdDate: true,
           Project: {
             select: {
+              id: true,
               name: true,
             },
           },

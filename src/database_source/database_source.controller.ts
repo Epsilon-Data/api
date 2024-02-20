@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 import { DatabaseSourceService } from './database_source.service';
 import { TemplateDto } from './dto';
 
@@ -7,8 +7,13 @@ export class DatabaseSourceController {
   constructor(private databaseSourceService: DatabaseSourceService) {}
 
   @Get('list')
-  list(@Query('userId') userId: string) {
-    return this.databaseSourceService.list(userId);
+  list(@Req() request) {
+    return this.databaseSourceService.list(request);
+  }
+
+  @Get('project-name')
+  getProjectName(@Query('projectId') projectId: string) {
+    return this.databaseSourceService.getProjectName(projectId);
   }
 
   @Get('summary')
