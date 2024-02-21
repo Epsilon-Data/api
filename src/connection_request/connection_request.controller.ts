@@ -74,4 +74,9 @@ export class ConnectionRequestController {
       );
     }
   }
+
+  @Get('valid-project-id')
+  async validProjectId(@Req() request, @Query('projectId') projectId: string) {
+    return this.connectionRequestService.validProjectId(request, projectId);
+  }
 }

@@ -27,6 +27,7 @@ model ConnectionRequest {
 
 model Project {
   id                String             @id(map: "project_pkey") @default(uuid()) @db.Uuid
+  customId          String?            @db.Text
   name              String?            @db.Text
   lead              String?            @db.Text
   university        String?            @db.Text

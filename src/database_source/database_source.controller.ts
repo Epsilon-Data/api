@@ -11,9 +11,9 @@ export class DatabaseSourceController {
     return this.databaseSourceService.list(request);
   }
 
-  @Get('project-name')
-  getProjectName(@Query('projectId') projectId: string) {
-    return this.databaseSourceService.getProjectName(projectId);
+  @Get('project-id')
+  getProjectId(@Query('id') projectId: string) {
+    return this.databaseSourceService.getProjectId(projectId);
   }
 
   @Get('summary')

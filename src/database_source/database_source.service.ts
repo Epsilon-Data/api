@@ -25,6 +25,7 @@ export class DatabaseSourceService {
     const filteredList = requestList.map(async (request) => {
       const project = {
         projectId: request.Project.id,
+        projectCustomId: request.Project.customId,
         projectName: request.Project.name,
       };
 
@@ -50,13 +51,13 @@ export class DatabaseSourceService {
     return await Promise.all(filteredList);
   }
 
-  async getProjectName(projectId: string) {
+  async getProjectId(projectId: string) {
     return await this.prisma.project.findUnique({
       where: {
         id: projectId,
       },
       select: {
-        name: true,
+        customId: true,
       },
     });
   }

@@ -30,6 +30,7 @@ export class ConnectionRequestService {
       date: request.createdDate,
       revisionInfo: request.revisionInfo,
       projectInfo: {
+        id: request.Project.customId,
         name: request.Project.name,
         duration: [request.Project.startDate, request.Project.endDate],
         lead: request.Project.lead,
@@ -77,7 +78,7 @@ export class ConnectionRequestService {
   async summary(request: Request) {
     const isAdmin = await this.user.admin(request);
     const userId = request.auth.payload.sub;
-    let requestList = {};
+    let requestList = [];
     if (isAdmin) {
       const userEmail = request.auth.payload.email;
       requestList = await this.prisma.connectionRequest.findMany({
@@ -91,6 +92,7 @@ export class ConnectionRequestService {
           createdDate: true,
           Project: {
             select: {
+              customId: true,
               name: true,
             },
           },
@@ -105,14 +107,35 @@ export class ConnectionRequestService {
           id: true,
           status: true,
           createdDate: true,
+          dbId: true,
           Project: {
             select: {
               id: true,
+              customId: true,
               name: true,
             },
           },
         },
       });
+
+      requestList = await Promise.all(
+        requestList.map(async (request) => {
+          const { dbId, ...requestDetails } = request;
+          if (dbId) {
+            const query = `SELECT status FROM sources WHERE id = ?`;
+            const queryParams = [request.dbId];
+            const result = await this.cassandra.executeQuery(
+              query,
+              queryParams,
+            );
+
+            if (result[0]) {
+              request.dbStatus = result[0].status;
+            }
+          }
+          return requestDetails;
+        }),
+      );
     }
     return { requests: requestList, isAdmin: isAdmin };
   }
@@ -129,6 +152,7 @@ export class ConnectionRequestService {
       dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
       Project: {
         create: {
+          customId: dto.projectInfo.id,
           name: dto.projectInfo.name,
           lead: dto.projectInfo.lead,
           university: dto.projectInfo.university,
@@ -327,5 +351,18 @@ export class ConnectionRequestService {
       ssl: false,
     };
     return await testConnection(connectionData);
+  }
+
+  async validProjectId(request: Request, projectId: string) {
+    const result = await this.prisma.connectionRequest.findFirst({
+      where: {
+        requestor: request.auth.payload.sub,
+        Project: {
+          customId: projectId,
+        },
+      },
+    });
+    console.log(result);
+    return result ? false : true;
   }
 }

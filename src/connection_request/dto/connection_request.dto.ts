@@ -18,6 +18,11 @@ class ProjectInfoDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
+  id: string;
+
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
   name: string;
 
   @IsDefined()
