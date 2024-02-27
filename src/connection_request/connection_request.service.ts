@@ -4,8 +4,8 @@ import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { Request } from 'express';
 import { CassandraService } from 'src/cassandra/cassandra.service';
-import { v4 as uuid } from 'uuid';
 import { UserService } from 'src/user/user.service';
+import { DockerService } from 'src/docker/docker.service';
 
 @Injectable()
 export class ConnectionRequestService {
@@ -13,6 +13,7 @@ export class ConnectionRequestService {
     private prisma: PrismaService,
     private cassandra: CassandraService,
     private user: UserService,
+    private docker: DockerService,
   ) {}
   async details(requestId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
@@ -58,16 +59,9 @@ export class ConnectionRequestService {
         additionalInfo: request.additionalInfo,
       };
     } else {
-      const query = `SELECT name, type, host, port FROM sources WHERE id = ?`;
-      const queryParams = [request.dbId];
-      const result = await this.cassandra.executeQuery(query, queryParams);
-
       info = {
         databaseInfo: {
-          name: result[0].name,
-          type: result[0].type,
-          host: result[0].host,
-          port: result[0].port,
+          name: request.dbName,
         },
       };
     }
@@ -108,6 +102,7 @@ export class ConnectionRequestService {
           status: true,
           createdDate: true,
           dbId: true,
+          dbName: true,
           Project: {
             select: {
               id: true,
@@ -120,17 +115,27 @@ export class ConnectionRequestService {
 
       requestList = await Promise.all(
         requestList.map(async (request) => {
-          const { dbId, ...requestDetails } = request;
-          if (dbId) {
-            const query = `SELECT status FROM sources WHERE id = ?`;
-            const queryParams = [request.dbId];
+          const { dbName, dbId, ...requestDetails } = request;
+          if (dbName) {
+            const query = `SELECT id, status FROM sources WHERE name = ? LIMIT 1`;
+            const queryParams = [dbName];
             const result = await this.cassandra.executeQuery(
               query,
               queryParams,
             );
 
             if (result[0]) {
-              request.dbStatus = result[0].status;
+              requestDetails.dbStatus = result[0].status;
+              if (result[0].status == 3 && !dbId) {
+                await this.prisma.connectionRequest.update({
+                  where: {
+                    dbName: dbName,
+                  },
+                  data: {
+                    dbId: result[0].id,
+                  },
+                });
+              }
             }
           }
           return requestDetails;
@@ -143,7 +148,6 @@ export class ConnectionRequestService {
   async create(dto: ConnectionRequestDto) {
     const request = {
       requestor: dto.requestor,
-      status: 1,
       dataParticipantsNum: dto.dataInfo.participantsNumber,
       dataDescription: dto.dataInfo.description,
       dataKeywords: dto.dataInfo.keywords,
@@ -165,33 +169,20 @@ export class ConnectionRequestService {
         },
       },
     };
-
     let info = {};
     if (dto.databaseInfo) {
-      const query =
-        'INSERT INTO sources (id, connect_date, host, name, password, port, status, type, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-      const dbId = uuid();
-      const queryParams = [
-        dbId,
-        this.cassandra.getCurrentDate(),
-        dto.databaseInfo.host,
-        dto.databaseInfo.name,
-        dto.databaseInfo.password,
-        dto.databaseInfo.port,
-        1,
-        dto.databaseInfo.type,
-        dto.databaseInfo.username,
-      ];
-      this.cassandra
-        .executeQuery(query, queryParams)
-        .then(() => console.log('Source inserted successfully'))
-        .catch((err) => console.error('Error inserting source: ', err));
-      info = {
-        dbId: dbId,
-      };
+      try {
+        const result = await this.docker.runDataBroker(dto.databaseInfo);
+        console.log('Data broker container started successfully:', result);
+        info = { status: 3 };
+      } catch (error) {
+        console.error('Failed to start data broker container:', error);
+        info = { status: 2 };
+      }
+      info = { ...info, dbName: dto.databaseInfo.name };
     } else {
       //TODO: get boolean whether if email is a registered org admin
-      info = { orgAdminEmail: dto.orgAdminEmail };
+      info = { status: 1, orgAdminEmail: dto.orgAdminEmail };
       // const existingOrgAdmin
       // if (!existingOrgAdmin) {
       //   TODO: send email to org admin
@@ -246,19 +237,26 @@ export class ConnectionRequestService {
     let transactions = [];
 
     if (request.dbId) {
-      const query =
-        'UPDATE sources SET name = ?, type = ?, host = ?, port = ?, username = ?, password = ? WHERE id = ?';
-      const queryParams = [
-        dto.databaseInfo.name,
-        dto.databaseInfo.type,
-        dto.databaseInfo.host,
-        dto.databaseInfo.port,
-        dto.databaseInfo.username,
-        dto.databaseInfo.password,
-        request.dbId,
-      ];
-      this.cassandra.executeQuery(query, queryParams);
-      transactions = [projectUpdate, connectionRequestUpdate];
+      let status = 2;
+      try {
+        const result = await this.docker.runDataBroker(dto.databaseInfo);
+        console.log('Data broker container started successfully:', result);
+        const deleteQuery = 'DELETE FROM sources WHERE id = ?';
+        const deleteQueryParams = [request.dbId];
+        this.cassandra.executeQuery(deleteQuery, deleteQueryParams);
+        status = 3;
+      } catch (error) {
+        console.error('Failed to start data broker container:', error);
+      }
+
+      const databaseUpdate = this.prisma.connectionRequest.update({
+        where: { id: dto.id },
+        data: {
+          dbName: dto.databaseInfo.name,
+          status: status,
+        },
+      });
+      transactions = [projectUpdate, connectionRequestUpdate, databaseUpdate];
     } else {
       const orgAdminUpdate = this.prisma.connectionRequest.update({
         where: { id: dto.id },
@@ -302,30 +300,20 @@ export class ConnectionRequestService {
   }
 
   async approve(dto: DatabaseInfoDto, requestId: string) {
-    const query =
-      'INSERT INTO sources (id, connect_date, host, name, password, port, status, type, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    const dbId = uuid();
-    const queryParams = [
-      dbId,
-      this.cassandra.getCurrentDate(),
-      dto.host,
-      dto.name,
-      dto.password,
-      dto.port,
-      1,
-      dto.type,
-      dto.username,
-    ];
-    this.cassandra
-      .executeQuery(query, queryParams)
-      .then(() => console.log('Source inserted successfully'))
-      .catch((err) => console.error('Error inserting source: ', err));
+    let status = 1;
+    try {
+      const result = await this.docker.runDataBroker(dto);
+      console.log('Data broker container started successfully:', result);
+      status = 3;
+    } catch (error) {
+      console.error('Failed to start data broker container:', error);
+    }
 
     return await this.prisma.connectionRequest.update({
       where: { id: requestId },
       data: {
-        dbId: dbId,
-        status: 3,
+        dbName: dto.name,
+        status: status,
       },
     });
   }
@@ -362,7 +350,6 @@ export class ConnectionRequestService {
         },
       },
     });
-    console.log(result);
     return result ? false : true;
   }
 }

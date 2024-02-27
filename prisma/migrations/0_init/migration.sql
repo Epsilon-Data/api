@@ -5,14 +5,16 @@ CREATE TABLE "ConnectionRequest" (
     "projectId" UUID,
     "status" SMALLINT,
     "dbId" UUID,
-    "orgAdminEmail" VARCHAR(320),
+    "dbName" TEXT,
+    "orgAdminEmail" TEXT,
     "dataParticipantsNum" SMALLINT,
-    "dataDescription" VARCHAR(500),
+    "dataDescription" TEXT,
     "dataKeywords" TEXT[],
-    "additionalInfo" VARCHAR(500),
+    "additionalInfo" TEXT,
     "createdDate" DATE DEFAULT CURRENT_TIMESTAMP,
     "dataCollectionStartDate" DATE,
     "dataCollectionEndDate" DATE,
+    "revisionInfo" TEXT,
 
     CONSTRAINT "request_pkey" PRIMARY KEY ("id")
 );
@@ -20,12 +22,13 @@ CREATE TABLE "ConnectionRequest" (
 -- CreateTable
 CREATE TABLE "Project" (
     "id" UUID NOT NULL,
-    "name" VARCHAR(100),
-    "lead" VARCHAR(50),
-    "university" VARCHAR(100),
-    "faculty" VARCHAR(100),
-    "ethicsId" VARCHAR(15),
-    "description" VARCHAR(500),
+    "customId" TEXT,
+    "name" TEXT,
+    "lead" TEXT,
+    "university" TEXT,
+    "faculty" TEXT,
+    "ethicsId" TEXT,
+    "description" TEXT,
     "startDate" DATE,
     "endDate" DATE,
     "members" TEXT[],
@@ -33,26 +36,11 @@ CREATE TABLE "Project" (
     CONSTRAINT "project_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "ResearcherDb" (
-    "id" UUID NOT NULL,
-    "name" VARCHAR(50),
-    "type" VARCHAR(15),
-    "host" VARCHAR(50),
-    "port" VARCHAR(15),
-    "username" VARCHAR(100),
-    "password" VARCHAR(100),
-    "status" SMALLINT,
-    "connectDate" DATE,
-
-    CONSTRAINT "researcher_db_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "ConnectionRequest_projectId_key" ON "ConnectionRequest"("projectId");
 
--- AddForeignKey
-ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request_db_id" FOREIGN KEY ("dbId") REFERENCES "ResearcherDb"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- CreateIndex
+CREATE UNIQUE INDEX "ConnectionRequest_dbName_key" ON "ConnectionRequest"("dbName");
 
 -- AddForeignKey
 ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request_project_id" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
