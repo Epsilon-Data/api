@@ -28,8 +28,17 @@ export class DatabaseSourceController {
 
   @Post('add-template')
   addTemplate(@Body() template: TemplateDto) {
-    console.log(template);
     return this.databaseSourceService.addTemplate(template);
+  }
+
+  @Get('template')
+  template(@Query('projectId') projectId: string) {
+    return this.databaseSourceService.template(projectId);
+  }
+
+  @Post('add-column-mapping')
+  addColumnMapping(@Body() template: TemplateDto) {
+    return this.databaseSourceService.addColumnMapping(template);
   }
 
   @Get('columns')

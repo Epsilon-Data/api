@@ -157,8 +157,24 @@ export class DatabaseSourceService {
 
   async addTemplate(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
-    console.log(dbId);
-    console.log(template.template);
+    const query = `UPDATE sources SET template = ? WHERE id = ?`;
+    const queryParams = [template.template, dbId];
+    await this.cassandra.executeQuery(query, queryParams);
+  }
+
+  async template(projectId: string) {
+    const dbId = await this.findDbId(projectId);
+    const query = `SELECT template FROM sources WHERE id = ?`;
+    const queryParams = [dbId];
+    const result = await this.cassandra.executeQuery(query, queryParams);
+    return result[0].template;
+  }
+
+  async addColumnMapping(template: TemplateDto) {
+    const dbId = await this.findDbId(template.projectId);
+    const query = `UPDATE sources SET column_mapping = ? WHERE id = ?`;
+    const queryParams = [template.columnMapping, dbId];
+    await this.cassandra.executeQuery(query, queryParams);
   }
 
   async columns(projectId: string) {

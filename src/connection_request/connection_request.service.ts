@@ -92,6 +92,17 @@ export class ConnectionRequestService {
           },
         },
       });
+      requestList = await Promise.all(
+        requestList.map(async (connRequest) => {
+          const requestorName = await this.user.getUserFullName(
+            connRequest.requestor,
+          );
+          return {
+            ...connRequest,
+            requestor: requestorName,
+          };
+        }),
+      );
     } else {
       requestList = await this.prisma.connectionRequest.findMany({
         where: {
@@ -114,8 +125,8 @@ export class ConnectionRequestService {
       });
 
       requestList = await Promise.all(
-        requestList.map(async (request) => {
-          const { dbName, dbId, ...requestDetails } = request;
+        requestList.map(async (connRequest) => {
+          const { dbName, dbId, ...requestDetails } = connRequest;
           if (dbName) {
             const query = `SELECT id, status FROM sources WHERE name = ? LIMIT 1`;
             const queryParams = [dbName];

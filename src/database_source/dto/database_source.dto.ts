@@ -1,5 +1,10 @@
-import { Transform } from 'class-transformer';
-import { IsDefined, IsNotEmpty, IsUUID } from 'class-validator';
+import {
+  IsDefined,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class TemplateDto {
   @IsDefined()
@@ -7,8 +12,11 @@ export class TemplateDto {
   @IsNotEmpty()
   projectId: string;
 
-  @IsDefined()
-  @IsNotEmpty()
-  @Transform(({ value }) => JSON.parse(value))
-  template: JSON;
+  @IsOptional()
+  @IsString()
+  template: string;
+
+  @IsOptional()
+  @IsString()
+  columnMapping: string;
 }
