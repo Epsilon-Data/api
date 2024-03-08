@@ -11,6 +11,7 @@ import { CassandraModule } from './cassandra/cassandra.module';
 import { UserModule } from './user/user.module';
 import { DockerModule } from './docker/docker.module';
 import { AppGateway } from './app.gateway';
+import { AdminModule } from './admin/admin.module';
 
 import configuration from './config/configuration';
 
@@ -41,6 +42,25 @@ import configuration from './config/configuration';
     CassandraModule,
     UserModule,
     DockerModule,
+    AdminModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => {
+        return {
+          issuerBaseURL: configService.get<string>('admin.issuerBaseURL'),
+          realm: configService.get<string>('admin.realm'),
+          audience: configService.get<string>('admin.audience'),
+          scopePrefix: configService.get<string>('admin.scopePrefix'),
+          clientId: configService.get<string>('admin.clientId'),
+          clientSecret: configService.get<string>('admin.clientSecret'),
+          cookiePrefix: configService.get<string>('admin.cookiePrefix'),
+          encryptionKey: configService.get<string>('admin.encryptionKey'),
+          trustedWebOrigins: configService.get<string[]>(
+            'admin.trustedWebOrigins',
+          ),
+        };
+      },
+    }),
   ],
   controllers: [AppController],
   providers: [AppService, AppGateway],
