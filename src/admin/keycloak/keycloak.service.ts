@@ -32,6 +32,8 @@ export class KeycloakService {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
     };
+    // NOTE: maybe makes sense to do the init for each request
+    // it keeps dropping on keycloak restart
     this.init(credentials);
   }
 

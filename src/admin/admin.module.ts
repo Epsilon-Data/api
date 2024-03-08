@@ -9,11 +9,10 @@ import {
   AdminModuleConfig,
 } from './config.interface';
 import { AdminController } from './admin.controller';
-import { UserController } from './user/user.controller';
 
 @Module({
   imports: [ConfigModule],
-  controllers: [AdminController, UserController],
+  controllers: [AdminController],
   providers: [AdminService, KeycloakService],
 })
 export class AdminModule {
