@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TemplateDto } from './dto';
+import { PermissionsDto, TemplateDto } from './dto';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { Request } from 'express';
 
@@ -159,7 +159,7 @@ export class DatabaseSourceService {
     const dbId = await this.findDbId(template.projectId);
     const query = `UPDATE sources SET template = ? WHERE id = ?`;
     const queryParams = [template.template, dbId];
-    await this.cassandra.executeQuery(query, queryParams);
+    return await this.cassandra.executeQuery(query, queryParams);
   }
 
   async template(projectId: string) {
@@ -174,7 +174,7 @@ export class DatabaseSourceService {
     const dbId = await this.findDbId(template.projectId);
     const query = `UPDATE sources SET column_mapping = ? WHERE id = ?`;
     const queryParams = [template.columnMapping, dbId];
-    await this.cassandra.executeQuery(query, queryParams);
+    return await this.cassandra.executeQuery(query, queryParams);
   }
 
   async columns(projectId: string) {
@@ -185,6 +185,21 @@ export class DatabaseSourceService {
     const result = await this.cassandra.executeQuery(query, queryParams);
 
     return result.map((row: any) => row.column_name);
+  }
+
+  async permissions(projectId: string) {
+    const dbId = await this.findDbId(projectId);
+    const query = `SELECT permissions FROM sources WHERE id = ?`;
+    const queryParams = [dbId];
+    const result = await this.cassandra.executeQuery(query, queryParams);
+    return result[0].permissions;
+  }
+
+  async addPermissions(permissions: PermissionsDto) {
+    const dbId = await this.findDbId(permissions.projectId);
+    const query = `UPDATE sources SET permissions = ? WHERE id = ?`;
+    const queryParams = [permissions.permissions, dbId];
+    return await this.cassandra.executeQuery(query, queryParams);
   }
 
   async convertToDiagramCode(dbId: string): Promise<string> {

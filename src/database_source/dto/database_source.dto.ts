@@ -20,3 +20,15 @@ export class TemplateDto {
   @IsString()
   columnMapping: string;
 }
+
+export class PermissionsDto {
+  @IsDefined()
+  @IsUUID()
+  @IsNotEmpty()
+  projectId: string;
+
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  permissions: string;
+}

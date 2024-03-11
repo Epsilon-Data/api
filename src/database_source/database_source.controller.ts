@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 import { DatabaseSourceService } from './database_source.service';
-import { TemplateDto } from './dto';
+import { PermissionsDto, TemplateDto } from './dto';
 
 @Controller('database-source')
 export class DatabaseSourceController {
@@ -44,5 +44,15 @@ export class DatabaseSourceController {
   @Get('columns')
   columns(@Query('projectId') projectId: string) {
     return this.databaseSourceService.columns(projectId);
+  }
+
+  @Get('permissions')
+  permissions(@Query('projectId') projectId: string) {
+    return this.databaseSourceService.permissions(projectId);
+  }
+
+  @Post('add-permissions')
+  addPermissions(@Body() permissions: PermissionsDto) {
+    return this.databaseSourceService.addPermissions(permissions);
   }
 }
