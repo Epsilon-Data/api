@@ -4,6 +4,7 @@ import {
   Credentials,
   UserRepresentation,
   EventRepresentation,
+  RoleRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
 import {
   AdminConfigInjectionToken,
@@ -105,7 +106,7 @@ export class KeycloakService {
         const lastLoginEvent = this.getUserLastLoginEvent(user.id, events);
         return {
           ...user,
-          lastLogin: lastLoginEvent?.time,
+          lastLogin: new Date(lastLoginEvent?.time),
         };
       });
     } catch (error) {
@@ -133,7 +134,7 @@ export class KeycloakService {
       const lastLoginEvent = this.getUserLastLoginEvent(user.id, events);
       return {
         ...user,
-        lastLogin: lastLoginEvent?.time,
+        lastLogin: new Date(lastLoginEvent?.time),
       };
     } catch (error) {
       this.logger.error(error);
@@ -154,6 +155,65 @@ export class KeycloakService {
   async deleteUser(id: string) {
     try {
       return await this.kcAdminClient.users.del({
+        id,
+        realm: this.config.realm,
+      });
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
+  async createRole(role: RoleRepresentation) {
+    try {
+      const { roleName } = await this.kcAdminClient.roles.create(role);
+      // get new role ID
+      const roleRepresentation: RoleRepresentation =
+        await this.getRoleByName(roleName);
+      return { id: roleRepresentation?.id as string };
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
+  async getRoleById(id: string) {
+    try {
+      return await this.kcAdminClient.roles.findOneById({
+        id,
+        realm: this.config.realm,
+      });
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
+  async getRoleByName(name: string) {
+    try {
+      return await this.kcAdminClient.roles.findOneByName({
+        name,
+        realm: this.config.realm,
+      });
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
+  async updateRole(id: string, role: Partial<RoleRepresentation>) {
+    try {
+      return await this.kcAdminClient.roles.updateById(
+        {
+          id,
+          realm: this.config.realm,
+        },
+        role,
+      );
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
+  async deletRole(id: string) {
+    try {
+      return await this.kcAdminClient.roles.delById({
         id,
         realm: this.config.realm,
       });

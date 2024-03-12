@@ -12,8 +12,8 @@ dependencies:
     specifier: ^0.1.2
     version: 0.1.2
   '@epsilon-data/keycloak-admin-client':
-    specifier: ^24.0.2
-    version: 24.0.2
+    specifier: ^24.0.3
+    version: 24.0.3
   '@nestjs/common':
     specifier: ^10.3.0
     version: 10.3.0(class-transformer@0.5.1)(class-validator@0.14.0)(reflect-metadata@0.1.14)(rxjs@7.8.1)
@@ -574,8 +574,8 @@ packages:
       - pg-native
     dev: false
 
-  /@epsilon-data/keycloak-admin-client@24.0.2:
-    resolution: {integrity: sha512-6PTj2HePeX2K0DNCcmIzeADZtvM8JyaQBQJWswHmTL0x175+iiAYdaiF/+tbYY+zUQ2B7XoHvp+OoP0XidG9rQ==, tarball: https://npm.pkg.github.com/download/@epsilon-data/keycloak-admin-client/24.0.2/06dc77981b931cacce38e578df4246cc8b7253c9}
+  /@epsilon-data/keycloak-admin-client@24.0.3:
+    resolution: {integrity: sha512-Z6JsrEAZBZOuPPoQv+Yrbevt4+xa0QjjNeBlYlcMRMidU+GOciQ0rsCT1f8giNKm4RGtLSs/k/kSYDaBrUl+8Q==, tarball: https://npm.pkg.github.com/download/@epsilon-data/keycloak-admin-client/24.0.3/47e7f57b4ea00b72986df96b164794ce13606c84}
     dependencies:
       '@keycloak/keycloak-admin-client': 24.0.1
     dev: false
