@@ -8,7 +8,6 @@ import { ConnectionRequestModule } from './connection_request/connection_request
 import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseSourceModule } from './database_source/database_source.module';
 import { CassandraModule } from './cassandra/cassandra.module';
-import { UserModule } from './user/user.module';
 import { DockerModule } from './docker/docker.module';
 import { AppGateway } from './app.gateway';
 import { AdminModule } from './admin/admin.module';
@@ -40,7 +39,6 @@ import configuration from './config/configuration';
     PrismaModule,
     DatabaseSourceModule,
     CassandraModule,
-    UserModule,
     DockerModule,
     AdminModule.forRootAsync({
       imports: [ConfigModule],

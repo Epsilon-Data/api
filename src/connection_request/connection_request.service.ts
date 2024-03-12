@@ -4,7 +4,6 @@ import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { Request } from 'express';
 import { CassandraService } from 'src/cassandra/cassandra.service';
-import { UserService } from 'src/user/user.service';
 import { DockerService } from 'src/docker/docker.service';
 
 @Injectable()
@@ -12,7 +11,6 @@ export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,
-    private user: UserService,
     private docker: DockerService,
   ) {}
   async details(requestId: string) {
@@ -70,7 +68,13 @@ export class ConnectionRequestService {
   }
 
   async summary(request: Request) {
-    const isAdmin = await this.user.admin(request);
+    // check if user is admin
+    let isAdmin = false;
+    const access: { roles?: string[] } = request.auth.payload.realm_access;
+    if (access && access.roles) {
+      isAdmin = access.roles.indexOf('admin') !== -1;
+    }
+
     const userId = request.auth.payload.sub;
     let requestList = [];
     if (isAdmin) {
@@ -92,17 +96,6 @@ export class ConnectionRequestService {
           },
         },
       });
-      requestList = await Promise.all(
-        requestList.map(async (connRequest) => {
-          const requestorName = await this.user.getUserFullName(
-            connRequest.requestor,
-          );
-          return {
-            ...connRequest,
-            requestor: requestorName,
-          };
-        }),
-      );
     } else {
       requestList = await this.prisma.connectionRequest.findMany({
         where: {
@@ -153,7 +146,7 @@ export class ConnectionRequestService {
         }),
       );
     }
-    return { requests: requestList, isAdmin: isAdmin };
+    return { requests: requestList };
   }
 
   async create(dto: ConnectionRequestDto) {

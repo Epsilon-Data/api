@@ -211,7 +211,7 @@ export class KeycloakService {
     }
   }
 
-  async deletRole(id: string) {
+  async deleteRole(id: string) {
     try {
       return await this.kcAdminClient.roles.delById({
         id,
