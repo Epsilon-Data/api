@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PermissionsDto, TemplateDto } from './dto';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { Request } from 'express';
+import { v4 as UUID } from 'uuid';
 
 @Injectable()
 export class DatabaseSourceService {
@@ -157,12 +158,37 @@ export class DatabaseSourceService {
 
   async addTemplate(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
+    const getQuery = `SELECT template FROM sources WHERE id = ?`;
+    const getParams = [dbId];
+    const query = `UPDATE sources SET template = ? WHERE id = ?`;
+
+    const parsed = JSON.parse(template.template);
+    parsed.id = UUID();
+    const updatedTemplate = JSON.stringify(parsed);
+
+    let templates = null;
+    const getResult = await this.cassandra.executeQuery(getQuery, getParams);
+    if (
+      getResult[0].template &&
+      getResult[0].template.replace(/\s/g, '') !== '[]'
+    ) {
+      templates =
+        getResult[0].template.slice(0, -1) + ',' + updatedTemplate + ']';
+    } else {
+      templates = '[' + updatedTemplate + ']';
+    }
+    const queryParams = [templates, dbId];
+    return await this.cassandra.executeQuery(query, queryParams);
+  }
+
+  async updateTemplates(template: TemplateDto) {
+    const dbId = await this.findDbId(template.projectId);
     const query = `UPDATE sources SET template = ? WHERE id = ?`;
     const queryParams = [template.template, dbId];
     return await this.cassandra.executeQuery(query, queryParams);
   }
 
-  async template(projectId: string) {
+  async templates(projectId: string) {
     const dbId = await this.findDbId(projectId);
     const query = `SELECT template FROM sources WHERE id = ?`;
     const queryParams = [dbId];

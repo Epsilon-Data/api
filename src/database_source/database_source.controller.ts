@@ -31,9 +31,14 @@ export class DatabaseSourceController {
     return this.databaseSourceService.addTemplate(template);
   }
 
-  @Get('template')
-  template(@Query('projectId') projectId: string) {
-    return this.databaseSourceService.template(projectId);
+  @Get('templates')
+  templates(@Query('projectId') projectId: string) {
+    return this.databaseSourceService.templates(projectId);
+  }
+
+  @Post('update-templates')
+  updateTemplates(@Body() template: TemplateDto) {
+    return this.databaseSourceService.updateTemplates(template);
   }
 
   @Post('add-column-mapping')
