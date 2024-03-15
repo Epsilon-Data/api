@@ -23,20 +23,11 @@ export type UserQueryParams = {
 
 @Injectable()
 export class KeycloakService {
-  private readonly logger = new Logger('UsersService');
+  private readonly logger = new Logger('KeycloakService');
   private kcAdminClient: KeycloakAdminClient;
   constructor(
     @Inject(AdminConfigInjectionToken) private config: AdminModuleConfig,
-  ) {
-    const credentials: Credentials = {
-      grantType: 'client_credentials',
-      clientId: config.clientId,
-      clientSecret: config.clientSecret,
-    };
-    // NOTE: maybe makes sense to do the init for each request
-    // it keeps dropping on keycloak restart
-    this.init(credentials);
-  }
+  ) {}
 
   async init(credentials: Credentials) {
     this.kcAdminClient = new KeycloakAdminClient({
@@ -110,7 +101,7 @@ export class KeycloakService {
         };
       });
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error('Error in getAllUsers', error);
     }
   }
 
@@ -137,7 +128,7 @@ export class KeycloakService {
         lastLogin: new Date(lastLoginEvent?.time),
       };
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error('Error in getUserById', error);
     }
   }
 
@@ -182,7 +173,7 @@ export class KeycloakService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error('Error in getRoleById', error);
     }
   }
 
