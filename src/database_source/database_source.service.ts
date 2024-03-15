@@ -178,13 +178,34 @@ export class DatabaseSourceService {
       templates = '[' + updatedTemplate + ']';
     }
     const queryParams = [templates, dbId];
-    return await this.cassandra.executeQuery(query, queryParams);
+    await this.cassandra.executeQuery(query, queryParams);
+    return parsed.id;
   }
 
-  async updateTemplates(template: TemplateDto) {
+  async deleteTemplate(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
-    const query = `UPDATE sources SET template = ? WHERE id = ?`;
-    const queryParams = [template.template, dbId];
+    const getQuery = `SELECT template, permissions, column_mapping FROM sources WHERE id = ?`;
+    const getParams = [dbId];
+    const getResult = await this.cassandra.executeQuery(getQuery, getParams);
+    const resTemplate = JSON.parse(getResult[0].template);
+    const resColumnMapping = getResult[0].column_mapping
+      ? JSON.parse(getResult[0].column_mapping)
+      : [];
+    const resPermissions = getResult[0].permissions
+      ? JSON.parse(getResult[0].permissions)
+      : [];
+    const query = `UPDATE sources SET template = ?, permissions = ?, column_mapping = ? WHERE id = ?`;
+    const queryParams = [
+      JSON.stringify(resTemplate.filter((t) => t.id !== template.templateId)),
+      JSON.stringify(
+        resPermissions.filter((t) => t.templateId !== template.templateId),
+      ),
+      JSON.stringify(
+        resColumnMapping.filter((t) => t.templateId !== template.templateId),
+      ),
+      dbId,
+    ];
+
     return await this.cassandra.executeQuery(query, queryParams);
   }
 
@@ -198,8 +219,32 @@ export class DatabaseSourceService {
 
   async addColumnMapping(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
+    const getQuery = `SELECT column_mapping FROM sources WHERE id = ?`;
+    const getParams = [dbId];
     const query = `UPDATE sources SET column_mapping = ? WHERE id = ?`;
-    const queryParams = [template.columnMapping, dbId];
+
+    const parsed = JSON.parse(template.columnMapping);
+    const updatedMapping = JSON.stringify({
+      templateId: template.templateId,
+      mapping: parsed,
+    });
+
+    let mappings = null;
+    const getResult = await this.cassandra.executeQuery(getQuery, getParams);
+    if (
+      getResult[0].column_mapping &&
+      getResult[0].column_mapping.replace(/\s/g, '') !== '[]'
+    ) {
+      const parsedMapping = JSON.parse(getResult[0].column_mapping);
+      if (parsedMapping.some((m) => m.templateId === template.templateId)) {
+        return null;
+      }
+      mappings =
+        getResult[0].column_mapping.slice(0, -1) + ',' + updatedMapping + ']';
+    } else {
+      mappings = '[' + updatedMapping + ']';
+    }
+    const queryParams = [mappings, dbId];
     return await this.cassandra.executeQuery(query, queryParams);
   }
 

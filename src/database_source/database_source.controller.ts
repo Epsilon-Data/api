@@ -36,9 +36,9 @@ export class DatabaseSourceController {
     return this.databaseSourceService.templates(projectId);
   }
 
-  @Post('update-templates')
-  updateTemplates(@Body() template: TemplateDto) {
-    return this.databaseSourceService.updateTemplates(template);
+  @Post('delete-template')
+  deleteTemplate(@Body() template: TemplateDto) {
+    return this.databaseSourceService.deleteTemplate(template);
   }
 
   @Post('add-column-mapping')

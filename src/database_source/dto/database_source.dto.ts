@@ -19,6 +19,10 @@ export class TemplateDto {
   @IsOptional()
   @IsString()
   columnMapping: string;
+
+  @IsOptional()
+  @IsString()
+  templateId: string;
 }
 
 export class PermissionsDto {
