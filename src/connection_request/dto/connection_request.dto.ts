@@ -15,10 +15,14 @@ import {
 } from 'class-validator';
 
 class ProjectInfoDto {
+  @IsOptional()
+  @IsUUID()
+  id: string;
+
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  id: string;
+  customId: string;
 
   @IsDefined()
   @IsString()

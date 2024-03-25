@@ -29,7 +29,8 @@ export class ConnectionRequestService {
       date: request.createdDate,
       revisionInfo: request.revisionInfo,
       projectInfo: {
-        id: request.Project.customId,
+        id: request.Project.id,
+        customId: request.Project.customId,
         name: request.Project.name,
         duration: [request.Project.startDate, request.Project.endDate],
         lead: request.Project.lead,
@@ -160,7 +161,7 @@ export class ConnectionRequestService {
       dataCollectionEndDate: dto.dataInfo.collectionDuration[1],
       Project: {
         create: {
-          customId: dto.projectInfo.id,
+          customId: dto.projectInfo.customId,
           name: dto.projectInfo.name,
           lead: dto.projectInfo.lead,
           university: dto.projectInfo.university,
