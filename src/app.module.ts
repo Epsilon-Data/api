@@ -9,7 +9,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseSourceModule } from './database_source/database_source.module';
 import { CassandraModule } from './cassandra/cassandra.module';
 import { DockerModule } from './docker/docker.module';
-import { AppGateway } from './app.gateway';
 import { AdminModule } from './admin/admin.module';
 
 import configuration from './config/configuration';
@@ -61,6 +60,6 @@ import configuration from './config/configuration';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, AppGateway],
+  providers: [AppService],
 })
 export class AppModule {}

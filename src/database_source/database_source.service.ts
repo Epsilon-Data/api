@@ -30,20 +30,9 @@ export class DatabaseSourceService {
         projectName: request.Project.name,
       };
 
-      const query = `SELECT id, connect_date, status FROM sources WHERE name = ? LIMIT 1`;
-      const queryParams = [request.dbName];
+      const query = `SELECT connect_date, status FROM sources WHERE id = ?`;
+      const queryParams = [request.id];
       const result = await this.cassandra.executeQuery(query, queryParams);
-
-      if (result[0].status == 3 && !request.dbId) {
-        await this.prisma.connectionRequest.update({
-          where: {
-            dbName: request.dbName,
-          },
-          data: {
-            dbId: result[0].id,
-          },
-        });
-      }
 
       const researcherDb = result[0]
         ? {
@@ -60,7 +49,8 @@ export class DatabaseSourceService {
       }
     });
 
-    return await Promise.all(filteredList);
+    const result = await Promise.all(filteredList);
+    return result;
   }
 
   async getProjectId(projectId: string) {
@@ -290,9 +280,9 @@ export class DatabaseSourceService {
         projectId: projectId,
       },
       select: {
-        dbId: true,
+        id: true,
       },
     });
-    return request.dbId;
+    return request.id;
   }
 }

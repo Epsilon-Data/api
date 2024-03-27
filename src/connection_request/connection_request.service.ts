@@ -106,7 +106,6 @@ export class ConnectionRequestService {
           id: true,
           status: true,
           createdDate: true,
-          dbId: true,
           dbName: true,
           Project: {
             select: {
@@ -120,10 +119,10 @@ export class ConnectionRequestService {
 
       requestList = await Promise.all(
         requestList.map(async (connRequest) => {
-          const { dbName, dbId, ...requestDetails } = connRequest;
+          const { dbName, ...requestDetails } = connRequest;
           if (dbName) {
-            const query = `SELECT id, status FROM sources WHERE name = ? LIMIT 1`;
-            const queryParams = [dbName];
+            const query = `SELECT status FROM sources WHERE id = ?`;
+            const queryParams = [requestDetails.id];
             const result = await this.cassandra.executeQuery(
               query,
               queryParams,
@@ -131,16 +130,6 @@ export class ConnectionRequestService {
 
             if (result[0]) {
               requestDetails.dbStatus = result[0].status;
-              if (result[0].status == 3 && !dbId) {
-                await this.prisma.connectionRequest.update({
-                  where: {
-                    dbName: dbName,
-                  },
-                  data: {
-                    dbId: result[0].id,
-                  },
-                });
-              }
             }
           }
           return requestDetails;
@@ -174,10 +163,18 @@ export class ConnectionRequestService {
         },
       },
     };
+
+    const createdRequest = await this.prisma.connectionRequest.create({
+      data: request,
+    });
+
     let info = {};
     if (dto.databaseInfo) {
       try {
-        const result = await this.docker.runDataBroker(dto.databaseInfo);
+        const result = await this.docker.runDataBroker(
+          createdRequest.id,
+          dto.databaseInfo,
+        );
         console.log('Data broker container started successfully:', result);
         info = { status: 3 };
       } catch (error) {
@@ -194,11 +191,9 @@ export class ConnectionRequestService {
       // }
     }
 
-    return await this.prisma.connectionRequest.create({
-      data: {
-        ...request,
-        ...info,
-      },
+    return await this.prisma.connectionRequest.update({
+      where: { id: createdRequest.id },
+      data: info,
     });
   }
 
@@ -241,14 +236,17 @@ export class ConnectionRequestService {
 
     let transactions = [];
 
-    if (request.dbId) {
+    if (request.dbName) {
       let status = 2;
+      const deleteQuery = 'DELETE FROM sources WHERE id = ?';
+      const deleteQueryParams = [request.id];
+      this.cassandra.executeQuery(deleteQuery, deleteQueryParams);
       try {
-        const result = await this.docker.runDataBroker(dto.databaseInfo);
+        const result = await this.docker.runDataBroker(
+          dto.id,
+          dto.databaseInfo,
+        );
         console.log('Data broker container started successfully:', result);
-        const deleteQuery = 'DELETE FROM sources WHERE id = ?';
-        const deleteQueryParams = [request.dbId];
-        this.cassandra.executeQuery(deleteQuery, deleteQueryParams);
         status = 3;
       } catch (error) {
         console.error('Failed to start data broker container:', error);
@@ -288,9 +286,9 @@ export class ConnectionRequestService {
       },
     });
 
-    if (request.dbId) {
+    if (request.dbName) {
       const query = 'DELETE FROM sources WHERE id = ?';
-      const queryParams = [request.dbId];
+      const queryParams = [request.id];
       this.cassandra.executeQuery(query, queryParams);
     }
 
@@ -307,7 +305,7 @@ export class ConnectionRequestService {
   async approve(dto: DatabaseInfoDto, requestId: string) {
     let status = 1;
     try {
-      const result = await this.docker.runDataBroker(dto);
+      const result = await this.docker.runDataBroker(requestId, dto);
       console.log('Data broker container started successfully:', result);
       status = 3;
     } catch (error) {

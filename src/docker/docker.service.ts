@@ -10,7 +10,7 @@ export class DockerService {
     this.docker = new Docker();
   }
 
-  async runDataBroker(database: DatabaseInfoDto): Promise<string> {
+  async runDataBroker(id: string, database: DatabaseInfoDto): Promise<string> {
     const host =
       database.host == 'localhost' ? 'host.docker.internal' : database.host;
     const url = `${database.type}://${database.username}:${database.password}@${host}:${database.port}/${database.name}?sslmode=disable`;
@@ -26,6 +26,7 @@ export class DockerService {
             'CASSANDRA_USERNAME=cassandra',
             'CASSANDRA_PASSWORD=cassandra',
             'CASSANDRA_KEYSPACE=source',
+            'SOURCE_ID=' + id,
           ],
           NetworkingConfig: {
             EndpointsConfig: {

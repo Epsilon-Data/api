@@ -12,8 +12,7 @@ model ConnectionRequest {
   requestor               String?       @db.Uuid
   projectId               String?       @unique @db.Uuid
   status                  Int?          @db.SmallInt
-  dbId                    String?       @db.Uuid 
-  dbName                  String?       @db.Text @unique
+  dbName                  String?       @db.Text
   orgAdminEmail           String?       @db.Text
   dataParticipantsNum     Int?          @db.SmallInt
   dataDescription         String?       @db.Text

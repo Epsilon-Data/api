@@ -4,7 +4,6 @@ CREATE TABLE "ConnectionRequest" (
     "requestor" UUID,
     "projectId" UUID,
     "status" SMALLINT,
-    "dbId" UUID,
     "dbName" TEXT,
     "orgAdminEmail" TEXT,
     "dataParticipantsNum" SMALLINT,
@@ -38,9 +37,6 @@ CREATE TABLE "Project" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ConnectionRequest_projectId_key" ON "ConnectionRequest"("projectId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ConnectionRequest_dbName_key" ON "ConnectionRequest"("dbName");
 
 -- AddForeignKey
 ALTER TABLE "ConnectionRequest" ADD CONSTRAINT "fk_request_project_id" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
