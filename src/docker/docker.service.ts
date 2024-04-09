@@ -19,7 +19,7 @@ export class DockerService {
       this.docker.createContainer(
         {
           Image: 'go-packages-data_broker',
-          name: 'data_broker_' + database.name,
+          Name: 'data_broker_' + database.name,
           Env: [
             `DATABASE_URL=${url}`,
             'CASSANDRA_HOST=cassandra',
@@ -30,11 +30,16 @@ export class DockerService {
           ],
           NetworkingConfig: {
             EndpointsConfig: {
-              epsilon_pg_internal: {},
-              epsilon_cassandra_internal: {},
+              epsilon_pg_internal: { Links: ['pg_platform'] },
+              epsilon_cassandra_internal: { Links: ['cassandra'] },
             },
           },
           HostConfig: {
+            Detach: true,
+            PortBindings: {
+              '9042/tcp': [{ HostPort: '9042' }],
+              '5432/tcp': [{ HostPort: '5432' }],
+            },
             LogConfig: {
               Type: 'json-file',
               Config: {

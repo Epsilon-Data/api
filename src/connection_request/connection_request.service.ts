@@ -305,8 +305,8 @@ export class ConnectionRequestService {
   async approve(dto: DatabaseInfoDto, requestId: string) {
     let status = 1;
     try {
-      const result = await this.docker.runDataBroker(requestId, dto);
-      console.log('Data broker container started successfully:', result);
+      this.docker.runDataBroker(requestId, dto);
+      console.log('Data broker container started successfully.');
       status = 3;
     } catch (error) {
       console.error('Failed to start data broker container:', error);

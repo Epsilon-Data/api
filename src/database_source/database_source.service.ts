@@ -28,6 +28,7 @@ export class DatabaseSourceService {
         projectId: request.Project.id,
         projectCustomId: request.Project.customId,
         projectName: request.Project.name,
+        dbId: request.id,
       };
 
       const query = `SELECT connect_date, status FROM sources WHERE id = ?`;

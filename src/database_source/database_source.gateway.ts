@@ -28,14 +28,14 @@ export class DatabaseSourceGateway
   ) {}
   private readonly logger = new Logger(DatabaseSourceGateway.name);
 
-  @WebSocketServer() io: Server;
+  @WebSocketServer() server: Server;
 
   afterInit() {
     this.logger.log('Initialized');
   }
 
   handleConnection(client: Socket) {
-    const { sockets } = this.io.sockets;
+    const { sockets } = this.server.sockets;
     const requestOrigin = client.handshake.headers.origin;
     const trustedOrigins = this.configService.get<string[]>(
       'auth.trustedWebOrigins',
@@ -55,25 +55,20 @@ export class DatabaseSourceGateway
   @SubscribeMessage('listenToDatabaseStatuses')
   async listenToDatabaseStatuses(client: Socket) {
     const query =
-      'SELECT name, status_msg, status_percent FROM sources WHERE status = 2';
+      'SELECT id, status_msg, status_percent FROM sources WHERE status = 2 ALLOW FILTERING';
 
-    let result = await this.cassandra.executeQuery(query);
-    this.io.emit('updateStatus', { results: result });
-
-    // Poll the database for changes every 1 second
+    // Poll the database for changes every second
     const interval = setInterval(async () => {
-      const updatedResult = await this.cassandra.executeQuery(query);
-
-      if (updatedResult.length !== result.length) {
-        this.io.emit('updateStatus', { results: updatedResult });
-        // Update the result
-        result = updatedResult;
+      const result = await this.cassandra.executeQuery(query);
+      if (result.length > 0) {
+        this.server.emit('updateStatus', { results: result });
       }
-    }, 10000);
 
-    if (result.length === 0) {
-      clearInterval(interval);
-    }
+      if (result.length === 0) {
+        clearInterval(interval);
+        client.disconnect();
+      }
+    }, 2000);
 
     client.on('close', () => {
       clearInterval(interval);
