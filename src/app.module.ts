@@ -10,6 +10,7 @@ import { DatabaseSourceModule } from './database_source/database_source.module';
 import { CassandraModule } from './cassandra/cassandra.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
+import { BrowseDatasetModule } from './browse_dataset/browse_dataset.module';
 
 import configuration from './config/configuration';
 
@@ -58,6 +59,7 @@ import configuration from './config/configuration';
         };
       },
     }),
+    BrowseDatasetModule,
   ],
   controllers: [AppController],
   providers: [AppService],
