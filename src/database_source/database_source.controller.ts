@@ -1,6 +1,20 @@
-import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  MaxFileSizeValidator,
+  ParseFilePipe,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { DatabaseSourceService } from './database_source.service';
 import { PermissionsDto, TemplateDto } from './dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('database-source')
 export class DatabaseSourceController {
@@ -59,5 +73,38 @@ export class DatabaseSourceController {
   @Post('add-permissions')
   addPermissions(@Body() permissions: PermissionsDto) {
     return this.databaseSourceService.addPermissions(permissions);
+  }
+
+  @Get('settings')
+  settings(@Query('projectId') projectId: string) {
+    return this.databaseSourceService.settings(projectId, {
+      cover: true,
+      visualisations: true,
+    });
+  }
+
+  @Post('upload-cover')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadCover(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 2000000 })],
+      }),
+    )
+    file: Express.Multer.File,
+    @Query('projectId') projectId: string,
+  ) {
+    console.log(file);
+    return this.databaseSourceService.uploadCover(projectId, file);
+  }
+
+  @Post('upload-vis')
+  uploadVis(@Body() visualisations: { projectId: string; vis: string }) {
+    return this.databaseSourceService.uploadVis(visualisations);
+  }
+
+  @Delete('delete-cover')
+  deleteCover(@Query('projectId', ParseUUIDPipe) projectId: string) {
+    return this.databaseSourceService.deleteCover(projectId);
   }
 }

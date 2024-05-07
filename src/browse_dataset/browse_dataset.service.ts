@@ -9,24 +9,35 @@ export class BrowseDatasetService {
     private cassandra: CassandraService,
   ) {}
 
-  async projects() {
+  async projects(isSearch: boolean) {
     const request = await this.prisma.connectionRequest.findMany({
       select: {
         dataKeywords: true,
         createdDate: true,
+        cover: true,
         Project: true,
       },
     });
 
     const browseList = request.map((item) => {
-      return {
-        id: item.Project.id,
-        name: item.Project.name,
-        organisation: item.Project.university,
-        createdDate: item.createdDate,
-        description: item.Project.description,
-        keywords: item.dataKeywords,
-      };
+      if (isSearch) {
+        return {
+          id: item.Project.id,
+          name: item.Project.name,
+          organisation: item.Project.university,
+          createdDate: item.createdDate,
+          description: item.Project.description,
+          keywords: item.dataKeywords,
+        };
+      } else {
+        return {
+          id: item.Project.id,
+          name: item.Project.name,
+          organisation: item.Project.university,
+          createdDate: item.createdDate,
+          cover: item.cover,
+        };
+      }
     });
 
     return browseList;
@@ -39,6 +50,7 @@ export class BrowseDatasetService {
       },
       select: {
         id: true,
+        visualisations: true,
         dataDescription: true,
         dataParticipantsNum: true,
         dataKeywords: true,
@@ -82,6 +94,7 @@ export class BrowseDatasetService {
       dataKeywords: request.dataKeywords,
       dataParticipantsNum: request.dataParticipantsNum,
       archetype: activeTemplates.length > 0 ? activeTemplates[0] : null,
+      visualisations: request.visualisations,
     };
 
     return details;

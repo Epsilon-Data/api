@@ -264,6 +264,57 @@ export class DatabaseSourceService {
     return await this.cassandra.executeQuery(query, queryParams);
   }
 
+  async settings(
+    projectId: string,
+    options: { cover?: boolean; visualisations?: boolean },
+  ) {
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        projectId: projectId,
+      },
+      select: options,
+    });
+
+    return { ...request, id: projectId };
+  }
+
+  async uploadCover(projectId: string, file: Express.Multer.File) {
+    await this.prisma.connectionRequest.update({
+      where: {
+        projectId: projectId,
+      },
+      data: {
+        cover: file.buffer,
+      },
+    });
+    return file.buffer;
+  }
+
+  async uploadVis(visualisations: { projectId: string; vis: string }) {
+    await this.prisma.connectionRequest.update({
+      where: {
+        projectId: visualisations.projectId,
+      },
+      data: {
+        visualisations: visualisations.vis,
+      },
+    });
+    return visualisations.vis;
+  }
+
+  async deleteCover(projectId: string) {
+    await this.prisma.connectionRequest.update({
+      where: {
+        projectId: projectId,
+      },
+      data: {
+        cover: null,
+      },
+    });
+
+    return projectId;
+  }
+
   async convertToDiagramCode(dbId: string): Promise<string> {
     const query = `SELECT erd FROM sources WHERE id = ?`;
     const queryParams = [dbId];

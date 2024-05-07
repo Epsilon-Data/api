@@ -6,8 +6,8 @@ export class BrowseDatasetController {
   constructor(private browseDatasetService: BrowseDatasetService) {}
 
   @Get('projects')
-  async projects() {
-    return await this.browseDatasetService.projects();
+  async projects(@Query('isSearch') isSearch: boolean) {
+    return await this.browseDatasetService.projects(isSearch);
   }
 
   @Get('project-details')
