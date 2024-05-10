@@ -5,7 +5,6 @@ import {
   Get,
   MaxFileSizeValidator,
   ParseFilePipe,
-  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -104,7 +103,7 @@ export class DatabaseSourceController {
   }
 
   @Delete('delete-cover')
-  deleteCover(@Query('projectId', ParseUUIDPipe) projectId: string) {
+  deleteCover(@Query('projectId') projectId: string) {
     return this.databaseSourceService.deleteCover(projectId);
   }
 }

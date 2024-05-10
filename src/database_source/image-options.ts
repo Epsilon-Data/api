@@ -10,6 +10,6 @@ const imageFilter = (
 };
 
 export const imageOptions: MulterOptions = {
-  limits: { fileSize: 10000 },
+  limits: { fileSize: 200000 },
   fileFilter: imageFilter,
 };

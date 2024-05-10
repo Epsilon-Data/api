@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { AccessDto } from './dto';
 
 @Injectable()
 export class BrowseDatasetService {
@@ -11,6 +12,11 @@ export class BrowseDatasetService {
 
   async projects(isSearch: boolean) {
     const request = await this.prisma.connectionRequest.findMany({
+      where: {
+        status: {
+          equals: 3,
+        },
+      },
       select: {
         dataKeywords: true,
         createdDate: true,
@@ -98,5 +104,28 @@ export class BrowseDatasetService {
     };
 
     return details;
+  }
+
+  async projectSummary(projectId: string) {
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        createdDate: true,
+        Project: true,
+      },
+    });
+
+    return {
+      id: request.Project.customId,
+      name: request.Project.name,
+      organisation: request.Project.university,
+      createdDate: request.createdDate,
+    };
+  }
+
+  async applyRequest(details: AccessDto) {
+    console.log(details);
   }
 }
