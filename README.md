@@ -1,4 +1,23 @@
+# api-service
+
+API gateway for frontend applications (currently servicing as API to Data Hub frontend)
+
+## Prerequisites
+
+Install `pnpm` and `typescript` globally
+
+```bash
+npm install -g typescript pnpm
+```
+
+When cloning the repo first time:
+
+```bash
+pnpm i # installs all dependent packages under node_modules
+```
+
 ## Development
+
 1. Modify DATABASE_URL in .env to the pg_platform database url.
 
 2. Apply prisma migrations:
@@ -6,6 +25,7 @@
 ```bash
 npx prisma migrate dev
 ```
+
 Install all necessary prisma packages when prompted.
 
 3. Run in watch mode:
@@ -15,6 +35,7 @@ pnpm start:dev
 ```
 
 To apply your own migrations:
+
 ```bash
 npx prisma migrate dev --name <MIGRATION_NAME_HERE>
 ```
@@ -26,6 +47,7 @@ npx prisma studio
 ```
 
 ⚠️ **Baseline Database Migrations**⚠️
+
 1. If `pnpm/migrations` folder exists, delete, move, rename, or archive this folder.
 
 2. Run to create `migrations` directory with `0_init` as migration name:
