@@ -6,17 +6,17 @@ import {
   IsUUID,
   IsDate,
   ArrayNotEmpty,
+  IsOptional,
 } from 'class-validator';
 
-export class AccessDto {
+export class RequestDto {
   @IsDefined()
   @IsUUID()
   @IsNotEmpty()
   id: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   customId: string;
 
   @IsDefined()
@@ -29,9 +29,8 @@ export class AccessDto {
   @IsNotEmpty()
   accessPurpose: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
   requestor: string;
 
   @IsDefined()
@@ -93,6 +92,29 @@ export class AccessDto {
   @IsString()
   @IsNotEmpty()
   ethicsId: string;
+
+  @IsOptional()
+  @IsString()
+  status: string;
+
+  @IsOptional()
+  @IsDate()
+  createdDate: Date;
+
+  @IsOptional()
+  @IsString()
+  revisionInfo: string;
+}
+
+export class RevisionDto {
+  @IsDefined()
+  @IsUUID()
+  @IsNotEmpty()
+  requestId: string;
+
+  @IsDefined()
+  @IsString()
+  revisionInfo: string;
 }
 
 function transformDateString(value: any): Date {

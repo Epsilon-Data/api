@@ -14,8 +14,6 @@ CREATE TABLE "ConnectionRequest" (
     "dataCollectionStartDate" DATE,
     "dataCollectionEndDate" DATE,
     "revisionInfo" TEXT,
-    "cover" BYTEA,
-    "visualisations" JSONB,
 
     CONSTRAINT "request_pkey" PRIMARY KEY ("id")
 );
@@ -33,6 +31,8 @@ CREATE TABLE "Project" (
     "startDate" DATE,
     "endDate" DATE,
     "members" TEXT[],
+    "cover" BYTEA,
+    "visualisations" JSONB,
 
     CONSTRAINT "project_pkey" PRIMARY KEY ("id")
 );

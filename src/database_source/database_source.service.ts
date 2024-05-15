@@ -268,9 +268,9 @@ export class DatabaseSourceService {
     projectId: string,
     options: { cover?: boolean; visualisations?: boolean },
   ) {
-    const request = await this.prisma.connectionRequest.findUnique({
+    const request = await this.prisma.project.findUnique({
       where: {
-        projectId: projectId,
+        id: projectId,
       },
       select: options,
     });
@@ -279,9 +279,9 @@ export class DatabaseSourceService {
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
-    await this.prisma.connectionRequest.update({
+    await this.prisma.project.update({
       where: {
-        projectId: projectId,
+        id: projectId,
       },
       data: {
         cover: file.buffer,
@@ -291,9 +291,9 @@ export class DatabaseSourceService {
   }
 
   async uploadVis(visualisations: { projectId: string; vis: string }) {
-    await this.prisma.connectionRequest.update({
+    await this.prisma.project.update({
       where: {
-        projectId: visualisations.projectId,
+        id: visualisations.projectId,
       },
       data: {
         visualisations: visualisations.vis,
@@ -303,9 +303,9 @@ export class DatabaseSourceService {
   }
 
   async deleteCover(projectId: string) {
-    await this.prisma.connectionRequest.update({
+    await this.prisma.project.update({
       where: {
-        projectId: projectId,
+        id: projectId,
       },
       data: {
         cover: null,

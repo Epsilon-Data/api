@@ -11,6 +11,7 @@ import { CassandraModule } from './cassandra/cassandra.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
 import { BrowseDatasetModule } from './browse_dataset/browse_dataset.module';
+import { UserRequestModule } from './user_request/user_request.module';
 
 import configuration from './config/configuration';
 
@@ -60,6 +61,7 @@ import configuration from './config/configuration';
       },
     }),
     BrowseDatasetModule,
+    UserRequestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

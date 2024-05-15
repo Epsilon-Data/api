@@ -20,7 +20,6 @@ export class BrowseDatasetService {
       select: {
         dataKeywords: true,
         createdDate: true,
-        cover: true,
         Project: true,
       },
     });
@@ -41,7 +40,7 @@ export class BrowseDatasetService {
           name: item.Project.name,
           organisation: item.Project.university,
           createdDate: item.createdDate,
-          cover: item.cover,
+          cover: item.Project.cover,
         };
       }
     });
@@ -56,7 +55,6 @@ export class BrowseDatasetService {
       },
       select: {
         id: true,
-        visualisations: true,
         dataDescription: true,
         dataParticipantsNum: true,
         dataKeywords: true,
@@ -100,7 +98,7 @@ export class BrowseDatasetService {
       dataKeywords: request.dataKeywords,
       dataParticipantsNum: request.dataParticipantsNum,
       archetype: activeTemplates.length > 0 ? activeTemplates[0] : null,
-      visualisations: request.visualisations,
+      visualisations: request.Project.visualisations,
     };
 
     return details;
@@ -126,6 +124,27 @@ export class BrowseDatasetService {
   }
 
   async applyRequest(details: AccessDto) {
-    console.log(details);
+    await this.prisma.userRequest.create({
+      data: {
+        projectId: details.id,
+        accessPurpose: details.accessPurpose,
+        requestor: details.requestor,
+        requestorName: details.requestorName,
+        requestorEmail: details.email,
+        requestorOrgName: details.orgName,
+        requestorPosition: details.position,
+        projectName: details.projectName,
+        projectStartDate: details.projectDuration[0],
+        projectEndDate: details.projectDuration[1],
+        projectBackground: details.projectBackground,
+        projectObjective: details.projectObjective,
+        projectHypotheses: details.projectHypotheses,
+        projectOutcome: details.projectOutcome,
+        projectMembers: details.projectMembers,
+        ethicsId: details.ethicsId,
+        status: 1,
+      },
+    });
+    return details;
   }
 }

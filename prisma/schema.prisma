@@ -8,23 +8,21 @@ datasource db {
 }
 
 model ConnectionRequest {
-  id                      String        @id(map: "request_pkey") @default(uuid()) @db.Uuid
-  requestor               String?       @db.Uuid
-  projectId               String?       @unique @db.Uuid
-  status                  Int?          @db.SmallInt
-  dbName                  String?       @db.Text
-  orgAdminEmail           String?       @db.Text
-  dataParticipantsNum     Int?          @db.SmallInt
-  dataDescription         String?       @db.Text
+  id                      String    @id(map: "request_pkey") @default(uuid()) @db.Uuid
+  requestor               String?   @db.Uuid
+  projectId               String?   @unique @db.Uuid
+  status                  Int?      @db.SmallInt
+  dbName                  String?   @db.Text
+  orgAdminEmail           String?   @db.Text
+  dataParticipantsNum     Int?      @db.SmallInt
+  dataDescription         String?   @db.Text
   dataKeywords            String[]
-  additionalInfo          String?       @db.Text
-  createdDate             DateTime?     @default(now()) @db.Date
-  dataCollectionStartDate DateTime?     @db.Date
-  dataCollectionEndDate   DateTime?     @db.Date
-  revisionInfo            String?       @db.Text
-  cover                   Bytes?         @db.ByteA
-  visualisations          Json?
-  Project                 Project?      @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
+  additionalInfo          String?   @db.Text
+  createdDate             DateTime? @default(now()) @db.Date
+  dataCollectionStartDate DateTime? @db.Date
+  dataCollectionEndDate   DateTime? @db.Date
+  revisionInfo            String?   @db.Text
+  Project                 Project?  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
 }
 
 model Project {
@@ -39,5 +37,32 @@ model Project {
   startDate         DateTime?          @db.Date
   endDate           DateTime?          @db.Date
   members           String[]
+  cover             Bytes?             @db.ByteA
+  visualisations    Json?
   ConnectionRequest ConnectionRequest?
+  UserRequest       UserRequest[]
+}
+
+model UserRequest {
+  id                String   @id(map: "user_request_pkey") @default(uuid()) @db.Uuid
+  projectId         String   @db.Uuid
+  accessPurpose     String   @db.Text
+  requestor         String   @db.Uuid
+  requestorName     String   @db.Text
+  requestorEmail    String   @db.Text
+  requestorOrgName  String   @db.Text
+  requestorPosition String   @db.Text
+  projectName       String   @db.Text
+  projectStartDate  DateTime @db.Date
+  projectEndDate    DateTime @db.Date
+  projectBackground String   @db.Text
+  projectObjective  String   @db.Text
+  projectHypotheses String   @db.Text
+  projectOutcome    String   @db.Text
+  projectMembers    String[]
+  ethicsId          String   @db.Text
+  status            Int      @db.SmallInt
+  createdDate       DateTime @default(now()) @db.Date
+  revisionInfo            String?   @db.Text
+  Project           Project  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_request_project_id")
 }
