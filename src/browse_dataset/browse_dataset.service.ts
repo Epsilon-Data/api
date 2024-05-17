@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AccessDto } from './dto';
+import { Request } from 'express';
 
 @Injectable()
 export class BrowseDatasetService {
@@ -48,7 +49,16 @@ export class BrowseDatasetService {
     return browseList;
   }
 
-  async projectDetails(projectId: string) {
+  async projectDetails(projectId: string, requestBody: Request) {
+    const userId = requestBody.auth.payload.sub;
+
+    const isOwnProject = await this.prisma.connectionRequest.findFirst({
+      where: {
+        requestor: userId,
+        projectId: projectId,
+      },
+    });
+
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
         projectId: projectId,
@@ -99,6 +109,7 @@ export class BrowseDatasetService {
       dataParticipantsNum: request.dataParticipantsNum,
       archetype: activeTemplates.length > 0 ? activeTemplates[0] : null,
       visualisations: request.Project.visualisations,
+      isOwnProject: isOwnProject ? true : false,
     };
 
     return details;

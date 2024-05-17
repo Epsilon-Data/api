@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body, Req } from '@nestjs/common';
 import { BrowseDatasetService } from './browse_dataset.service';
 import { AccessDto } from './dto';
 
@@ -12,8 +12,8 @@ export class BrowseDatasetController {
   }
 
   @Get('project-details')
-  async projectDetails(@Query('projectId') projectId: string) {
-    return await this.browseDatasetService.projectDetails(projectId);
+  async projectDetails(@Query('projectId') projectId: string, @Req() request) {
+    return await this.browseDatasetService.projectDetails(projectId, request);
   }
 
   @Get('project-summary')
