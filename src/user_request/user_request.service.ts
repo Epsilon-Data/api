@@ -3,7 +3,7 @@ import { CassandraService } from 'src/cassandra/cassandra.service';
 import { DockerService } from 'src/docker/docker.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Request } from 'express';
-import { RevisionDto } from './dto';
+import { ProceedDto, RequestDto, RevisionDto } from './dto';
 
 @Injectable()
 export class UserRequestService {
@@ -37,6 +37,7 @@ export class UserRequestService {
         ethicsId: true,
         Project: {
           select: {
+            customId: true,
             name: true,
           },
         },
@@ -46,6 +47,7 @@ export class UserRequestService {
 
     const mappedRequest = {
       id: request.id,
+      customId: request.Project.customId,
       name: request.Project.name,
       accessPurpose: request.accessPurpose,
       requestorName: request.requestorName,
@@ -68,46 +70,68 @@ export class UserRequestService {
     return mappedRequest;
   }
 
-  async summary(request: Request) {
+  async summary(request: Request, mode: string) {
     const userId = request.auth.payload.sub;
-
-    const projectList = await this.prisma.connectionRequest.findMany({
-      where: {
-        requestor: userId,
-        status: {
-          equals: 3,
+    let requestList = [];
+    if (mode == 'sent') {
+      requestList = await this.prisma.userRequest.findMany({
+        where: {
+          requestor: userId,
         },
-      },
-      select: {
-        Project: {
-          select: {
-            id: true,
+        select: {
+          id: true,
+          requestorName: true,
+          status: true,
+          createdDate: true,
+          projectName: true,
+          Project: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-      },
-    });
-
-    const projectIdList = projectList.map((item) => item.Project.id);
-
-    const requestList = await this.prisma.userRequest.findMany({
-      where: {
-        projectId: {
-          in: projectIdList,
-        },
-      },
-      select: {
-        id: true,
-        requestorName: true,
-        status: true,
-        createdDate: true,
-        projectName: true,
-        Project: {
-          select: {
-            name: true,
+      });
+    } else {
+      const projectList = await this.prisma.connectionRequest.findMany({
+        where: {
+          requestor: userId,
+          status: {
+            equals: 3,
           },
         },
-      },
-    });
+        select: {
+          Project: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      const projectIdList = projectList.map((item) => item.Project.id);
+
+      requestList = await this.prisma.userRequest.findMany({
+        where: {
+          projectId: {
+            in: projectIdList,
+          },
+        },
+        select: {
+          id: true,
+          requestorName: true,
+          status: true,
+          createdDate: true,
+          projectName: true,
+          Project: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+    }
 
     return { requests: requestList };
   }
@@ -118,6 +142,49 @@ export class UserRequestService {
       data: {
         revisionInfo: dto.revisionInfo,
         status: 2,
+      },
+    });
+  }
+
+  async proceed(dto: ProceedDto) {
+    let status = 3;
+    if (!dto.isApproved) {
+      status = 4;
+    }
+    return await this.prisma.userRequest.update({
+      where: { id: dto.requestId },
+      data: {
+        status: status,
+        completeDate: new Date(),
+      },
+    });
+  }
+
+  async delete(requestId: string) {
+    return await this.prisma.userRequest.delete({
+      where: {
+        id: requestId,
+      },
+    });
+  }
+
+  async edit(dto: RequestDto) {
+    return await this.prisma.userRequest.update({
+      where: { id: dto.id },
+      data: {
+        accessPurpose: dto.accessPurpose,
+        requestorOrgName: dto.orgName,
+        requestorPosition: dto.position,
+        projectName: dto.projectName,
+        projectStartDate: dto.projectDuration[0],
+        projectEndDate: dto.projectDuration[1],
+        projectBackground: dto.projectBackground,
+        projectObjective: dto.projectObjective,
+        projectHypotheses: dto.projectHypotheses,
+        projectOutcome: dto.projectOutcome,
+        projectMembers: dto.projectMembers,
+        ethicsId: dto.ethicsId,
+        status: 1,
       },
     });
   }

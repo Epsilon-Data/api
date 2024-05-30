@@ -44,25 +44,26 @@ model Project {
 }
 
 model UserRequest {
-  id                String   @id(map: "user_request_pkey") @default(uuid()) @db.Uuid
-  projectId         String   @db.Uuid
-  accessPurpose     String   @db.Text
-  requestor         String   @db.Uuid
-  requestorName     String   @db.Text
-  requestorEmail    String   @db.Text
-  requestorOrgName  String   @db.Text
-  requestorPosition String   @db.Text
-  projectName       String   @db.Text
-  projectStartDate  DateTime @db.Date
-  projectEndDate    DateTime @db.Date
-  projectBackground String   @db.Text
-  projectObjective  String   @db.Text
-  projectHypotheses String   @db.Text
-  projectOutcome    String   @db.Text
+  id                String    @id(map: "user_request_pkey") @default(uuid()) @db.Uuid
+  projectId         String    @db.Uuid
+  accessPurpose     String    @db.Text
+  requestor         String    @db.Uuid
+  requestorName     String    @db.Text
+  requestorEmail    String    @db.Text
+  requestorOrgName  String    @db.Text
+  requestorPosition String    @db.Text
+  projectName       String    @db.Text
+  projectStartDate  DateTime  @db.Date
+  projectEndDate    DateTime  @db.Date
+  projectBackground String    @db.Text
+  projectObjective  String    @db.Text
+  projectHypotheses String    @db.Text
+  projectOutcome    String    @db.Text
   projectMembers    String[]
-  ethicsId          String   @db.Text
-  status            Int      @db.SmallInt
-  createdDate       DateTime @default(now()) @db.Date
-  revisionInfo            String?   @db.Text
-  Project           Project  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_request_project_id")
+  ethicsId          String    @db.Text
+  status            Int       @db.SmallInt
+  createdDate       DateTime  @default(now()) @db.Date
+  revisionInfo      String?   @db.Text
+  completeDate      DateTime? @db.Date
+  Project           Project   @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_request_project_id")
 }

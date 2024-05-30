@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { DatabaseSourceService } from './database_source.service';
 import { PermissionsDto, TemplateDto } from './dto';
+import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('database-source')
@@ -20,7 +21,7 @@ export class DatabaseSourceController {
   constructor(private databaseSourceService: DatabaseSourceService) {}
 
   @Get('list')
-  list(@Req() request) {
+  list(@Req() request: Request) {
     return this.databaseSourceService.list(request);
   }
 

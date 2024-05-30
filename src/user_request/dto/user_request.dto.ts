@@ -7,6 +7,8 @@ import {
   IsDate,
   ArrayNotEmpty,
   IsOptional,
+  IsBoolean,
+  IsNumber,
 } from 'class-validator';
 
 export class RequestDto {
@@ -62,7 +64,7 @@ export class RequestDto {
   @IsDate({ each: true })
   @ArrayNotEmpty()
   @Transform(({ value }) => value.map((item) => transformDateString(item)))
-  projectDuration: Date[];
+  projectDuration: string[];
 
   @IsDefined()
   @IsString()
@@ -94,11 +96,12 @@ export class RequestDto {
   ethicsId: string;
 
   @IsOptional()
-  @IsString()
-  status: string;
+  @IsNumber()
+  status: number;
 
   @IsOptional()
   @IsDate()
+  @Transform(({ value }) => transformDateString(value))
   createdDate: Date;
 
   @IsOptional()
@@ -115,6 +118,17 @@ export class RevisionDto {
   @IsDefined()
   @IsString()
   revisionInfo: string;
+}
+
+export class ProceedDto {
+  @IsDefined()
+  @IsUUID()
+  @IsNotEmpty()
+  requestId: string;
+
+  @IsDefined()
+  @IsBoolean()
+  isApproved: boolean;
 }
 
 function transformDateString(value: any): Date {
