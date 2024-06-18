@@ -11,10 +11,11 @@ import { CassandraModule } from './cassandra/cassandra.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
 import { BrowseDatasetModule } from './browse_dataset/browse_dataset.module';
-import { UserRequestModule } from './user_request/user_request.module';
-import { DatasetController } from './dataset/dataset.controller';
-import { DatasetService } from './dataset/dataset.service';
+import { AccessRequestModule } from './access_request/access_request.module';
 import { DatasetModule } from './dataset/dataset.module';
+import { ScriptModule } from './script/script.module';
+import { DatabaseModule } from './database/database.module';
+import { AnalysisModule } from './analysis/analysis.module';
 
 import configuration from './config/configuration';
 
@@ -64,10 +65,13 @@ import configuration from './config/configuration';
       },
     }),
     BrowseDatasetModule,
-    UserRequestModule,
+    AccessRequestModule,
     DatasetModule,
+    ScriptModule,
+    DatabaseModule,
+    AnalysisModule,
   ],
-  controllers: [AppController, DatasetController],
-  providers: [AppService, DatasetService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

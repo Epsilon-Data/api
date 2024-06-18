@@ -9,14 +9,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { UserRequestService } from './user_request.service';
+import { AccessRequestService } from './access_request.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ProceedDto, RequestDto, RevisionDto } from './dto';
 import { Request } from 'express';
 
-@Controller('user-request')
-export class UserRequestController {
-  constructor(private userRequestService: UserRequestService) {}
+@Controller('access-request')
+export class AccessRequestController {
+  constructor(private userRequestService: AccessRequestService) {}
 
   @Get('details')
   details(@Query('requestId', ParseUUIDPipe) requestId: string) {

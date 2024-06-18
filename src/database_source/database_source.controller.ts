@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  MaxFileSizeValidator,
   ParseFilePipe,
   Post,
   Query,
@@ -15,6 +14,7 @@ import { DatabaseSourceService } from './database_source.service';
 import { PermissionsDto, TemplateDto } from './dto';
 import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { coverOptions } from 'src/options';
 
 @Controller('database-source')
 export class DatabaseSourceController {
@@ -84,13 +84,9 @@ export class DatabaseSourceController {
   }
 
   @Post('upload-cover')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', coverOptions))
   async uploadCover(
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [new MaxFileSizeValidator({ maxSize: 2000000 })],
-      }),
-    )
+    @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,
     @Query('projectId') projectId: string,
   ) {

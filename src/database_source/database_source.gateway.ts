@@ -59,7 +59,7 @@ export class DatabaseSourceGateway
 
     // Poll the database for changes every second
     const interval = setInterval(async () => {
-      const result = await this.cassandra.executeQuery(query);
+      const result = await this.cassandra.query(query);
       if (result.length > 0) {
         this.server.emit('updateStatus', { results: result });
       }

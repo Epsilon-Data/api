@@ -6,7 +6,7 @@ import { Request } from 'express';
 import { ProceedDto, RequestDto, RevisionDto } from './dto';
 
 @Injectable()
-export class UserRequestService {
+export class AccessRequestService {
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,

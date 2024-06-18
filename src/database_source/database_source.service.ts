@@ -33,7 +33,7 @@ export class DatabaseSourceService {
 
       const query = `SELECT connect_date, status FROM sources WHERE id = ?`;
       const queryParams = [request.id];
-      const result = await this.cassandra.executeQuery(query, queryParams);
+      const result = await this.cassandra.query(query, queryParams);
 
       const researcherDb = result[0]
         ? {
@@ -69,7 +69,7 @@ export class DatabaseSourceService {
     const dbId = await this.findDbId(projectId);
     const tableQuery = `SELECT table_name FROM tables WHERE source_id = ? ALLOW FILTERING`;
     const tableQueryParams = [dbId];
-    const tableResult = await this.cassandra.executeQuery(
+    const tableResult = await this.cassandra.query(
       tableQuery,
       tableQueryParams,
     );
@@ -87,7 +87,7 @@ export class DatabaseSourceService {
 
     const columnQuery = `SELECT COUNT(*) FROM columns WHERE source_id = ? ALLOW FILTERING`;
     const columnQueryParams = [dbId];
-    const columnResult = await this.cassandra.executeQuery(
+    const columnResult = await this.cassandra.query(
       columnQuery,
       columnQueryParams,
     );
@@ -106,7 +106,7 @@ export class DatabaseSourceService {
     const dbId = await this.findDbId(projectId);
     const tablesQuery = `SELECT table_name FROM tables WHERE source_id = ? ALLOW FILTERING`;
     const tablesQueryParams = [dbId];
-    const tablesResult = await this.cassandra.executeQuery(
+    const tablesResult = await this.cassandra.query(
       tablesQuery,
       tablesQueryParams,
     );
@@ -115,14 +115,14 @@ export class DatabaseSourceService {
     for (const row of tablesResult) {
       const columnsQuery = `SELECT column_name, type, nullable FROM columns WHERE source_id = ? AND table_name = ? ALLOW FILTERING`;
       const columnsParam = [dbId, row.table_name];
-      const columnsResult = await this.cassandra.executeQuery(
+      const columnsResult = await this.cassandra.query(
         columnsQuery,
         columnsParam,
       );
 
       const constraintsQuery = `SELECT columns FROM constraints WHERE source_id = ? AND table_name = ? AND type IN ('PRIMARY KEY', 'UNIQUE') ALLOW FILTERING`;
       const constraintsParam = [dbId, row.table_name];
-      const constraintsResult = await this.cassandra.executeQuery(
+      const constraintsResult = await this.cassandra.query(
         constraintsQuery,
         constraintsParam,
       );
@@ -158,7 +158,7 @@ export class DatabaseSourceService {
     const updatedTemplate = JSON.stringify(parsed);
 
     let templates = null;
-    const getResult = await this.cassandra.executeQuery(getQuery, getParams);
+    const getResult = await this.cassandra.query(getQuery, getParams);
     if (
       getResult[0].template &&
       getResult[0].template.replace(/\s/g, '') !== '[]'
@@ -169,7 +169,17 @@ export class DatabaseSourceService {
       templates = '[' + updatedTemplate + ']';
     }
     const queryParams = [templates, dbId];
-    await this.cassandra.executeQuery(query, queryParams);
+    await this.cassandra.query(query, queryParams);
+
+    await this.prisma.project.update({
+      where: {
+        id: template.projectId,
+      },
+      data: {
+        lastUpdated: new Date(),
+      },
+    });
+
     return parsed.id;
   }
 
@@ -177,7 +187,7 @@ export class DatabaseSourceService {
     const dbId = await this.findDbId(template.projectId);
     const getQuery = `SELECT template, permissions, column_mapping FROM sources WHERE id = ?`;
     const getParams = [dbId];
-    const getResult = await this.cassandra.executeQuery(getQuery, getParams);
+    const getResult = await this.cassandra.query(getQuery, getParams);
     const resTemplate = JSON.parse(getResult[0].template);
     const resColumnMapping = getResult[0].column_mapping
       ? JSON.parse(getResult[0].column_mapping)
@@ -197,14 +207,25 @@ export class DatabaseSourceService {
       dbId,
     ];
 
-    return await this.cassandra.executeQuery(query, queryParams);
+    const result = await this.cassandra.query(query, queryParams);
+
+    await this.prisma.project.update({
+      where: {
+        id: template.projectId,
+      },
+      data: {
+        lastUpdated: new Date(),
+      },
+    });
+
+    return result;
   }
 
   async templates(projectId: string) {
     const dbId = await this.findDbId(projectId);
     const query = `SELECT template FROM sources WHERE id = ?`;
     const queryParams = [dbId];
-    const result = await this.cassandra.executeQuery(query, queryParams);
+    const result = await this.cassandra.query(query, queryParams);
     return result[0].template;
   }
 
@@ -221,7 +242,7 @@ export class DatabaseSourceService {
     });
 
     let mappings = null;
-    const getResult = await this.cassandra.executeQuery(getQuery, getParams);
+    const getResult = await this.cassandra.query(getQuery, getParams);
     if (
       getResult[0].column_mapping &&
       getResult[0].column_mapping.replace(/\s/g, '') !== '[]'
@@ -236,24 +257,30 @@ export class DatabaseSourceService {
       mappings = '[' + updatedMapping + ']';
     }
     const queryParams = [mappings, dbId];
-    return await this.cassandra.executeQuery(query, queryParams);
+    return await this.cassandra.query(query, queryParams);
   }
 
   async columns(projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const query = `SELECT column_name FROM columns WHERE source_id = ? ALLOW FILTERING`;
+    const query = `SELECT column_name, table_name FROM columns WHERE source_id = ? ALLOW FILTERING`;
     const queryParams = [dbId];
 
-    const result = await this.cassandra.executeQuery(query, queryParams);
+    const result = await this.cassandra.query(query, queryParams);
 
-    return result.map((row: any) => row.column_name);
+    return result.reduce(
+      (acc, row) => {
+        acc[row.column_name] = row.table_name;
+        return acc;
+      },
+      {} as { [key: string]: string },
+    );
   }
 
   async permissions(projectId: string) {
     const dbId = await this.findDbId(projectId);
     const query = `SELECT permissions FROM sources WHERE id = ?`;
     const queryParams = [dbId];
-    const result = await this.cassandra.executeQuery(query, queryParams);
+    const result = await this.cassandra.query(query, queryParams);
     return result[0].permissions;
   }
 
@@ -261,7 +288,18 @@ export class DatabaseSourceService {
     const dbId = await this.findDbId(permissions.projectId);
     const query = `UPDATE sources SET permissions = ? WHERE id = ?`;
     const queryParams = [permissions.permissions, dbId];
-    return await this.cassandra.executeQuery(query, queryParams);
+    const result = await this.cassandra.query(query, queryParams);
+
+    await this.prisma.project.update({
+      where: {
+        id: permissions.projectId,
+      },
+      data: {
+        lastUpdated: new Date(),
+      },
+    });
+
+    return result;
   }
 
   async settings(
@@ -279,12 +317,14 @@ export class DatabaseSourceService {
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
+    console.log(file);
     await this.prisma.project.update({
       where: {
         id: projectId,
       },
       data: {
         cover: file.buffer,
+        lastUpdated: new Date(),
       },
     });
     return file.buffer;
@@ -297,6 +337,7 @@ export class DatabaseSourceService {
       },
       data: {
         visualisations: visualisations.vis,
+        lastUpdated: new Date(),
       },
     });
     return visualisations.vis;
@@ -309,6 +350,7 @@ export class DatabaseSourceService {
       },
       data: {
         cover: null,
+        lastUpdated: new Date(),
       },
     });
 
@@ -318,7 +360,7 @@ export class DatabaseSourceService {
   async convertToDiagramCode(dbId: string): Promise<string> {
     const query = `SELECT erd FROM sources WHERE id = ?`;
     const queryParams = [dbId];
-    const result = await this.cassandra.executeQuery(query, queryParams);
+    const result = await this.cassandra.query(query, queryParams);
     const diagramCode = result[0].erd.replace(
       /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
       '""',

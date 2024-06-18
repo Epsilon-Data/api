@@ -18,7 +18,7 @@ export class CassandraService {
       .catch((err) => console.error('Cassandra connection error', err));
   }
 
-  async executeQuery(query: string, params?: any[]): Promise<any> {
+  async query(query: string, params?: any[]): Promise<any> {
     try {
       const result = await this.client.execute(query, params, {
         prepare: true,

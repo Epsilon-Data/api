@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "UserRequest" ADD COLUMN     "createdDate" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP;

@@ -76,7 +76,7 @@ export class BrowseDatasetService {
 
     const query = `SELECT template, permissions FROM sources WHERE id = ?`;
     const params = [request.id];
-    const result = await this.cassandra.executeQuery(query, params);
+    const result = await this.cassandra.query(query, params);
 
     let activeTemplates = [];
 
@@ -110,6 +110,7 @@ export class BrowseDatasetService {
       archetype: activeTemplates.length > 0 ? activeTemplates[0] : null,
       visualisations: request.Project.visualisations,
       isOwnProject: isOwnProject ? true : false,
+      lastUpdated: request.Project.lastUpdated,
     };
 
     return details;

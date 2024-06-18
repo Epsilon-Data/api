@@ -39,31 +39,58 @@ model Project {
   members           String[]
   cover             Bytes?             @db.ByteA
   visualisations    Json?
-  ConnectionRequest ConnectionRequest?
+  lastUpdated       DateTime           @default(now()) @db.Timestamp(6)
+  ConnectionRequest ConnectionRequest? 
   UserRequest       UserRequest[]
 }
 
 model UserRequest {
-  id                String    @id(map: "user_request_pkey") @default(uuid()) @db.Uuid
-  projectId         String    @db.Uuid
-  accessPurpose     String    @db.Text
-  requestor         String    @db.Uuid
-  requestorName     String    @db.Text
-  requestorEmail    String    @db.Text
-  requestorOrgName  String    @db.Text
-  requestorPosition String    @db.Text
-  projectName       String    @db.Text
-  projectStartDate  DateTime  @db.Date
-  projectEndDate    DateTime  @db.Date
-  projectBackground String    @db.Text
-  projectObjective  String    @db.Text
-  projectHypotheses String    @db.Text
-  projectOutcome    String    @db.Text
+  id                String     @id(map: "user_request_pkey") @default(uuid()) @db.Uuid
+  projectId         String     @db.Uuid
+  accessPurpose     String     @db.Text
+  requestor         String     @db.Uuid
+  requestorName     String     @db.Text
+  requestorEmail    String     @db.Text
+  requestorOrgName  String     @db.Text
+  requestorPosition String     @db.Text
+  projectName       String     @db.Text
+  projectStartDate  DateTime   @db.Date
+  projectEndDate    DateTime   @db.Date
+  projectBackground String     @db.Text
+  projectObjective  String     @db.Text
+  projectHypotheses String     @db.Text
+  projectOutcome    String     @db.Text
   projectMembers    String[]
-  ethicsId          String    @db.Text
-  status            Int       @db.SmallInt
-  createdDate       DateTime  @default(now()) @db.Date
-  revisionInfo      String?   @db.Text
-  completeDate      DateTime? @db.Date
-  Project           Project   @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_request_project_id")
+  ethicsId          String     @db.Text
+  status            Int        @db.SmallInt
+  createdDate       DateTime   @default(now()) @db.Date
+  revisionInfo      String?    @db.Text
+  completeDate      DateTime?  @db.Date
+  Project           Project    @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_request_project_id")
+  Analysis          Analysis[]
+}
+
+model Analysis {
+  id              String      @id(map: "analysis_pkey") @default(uuid()) @db.Uuid
+  userRequestId   String      @db.Uuid
+  name            String      @db.Text
+  createdDate     DateTime    @default(now()) @db.Date
+  lastUpdated     DateTime    @default(now()) @db.Timestamp(6)
+  lastUpdatedUser String      @db.Text
+  description     String?     @db.Text
+  UserRequest     UserRequest @relation(fields: [userRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_user_request_id")
+  Script          Script[]
+}
+
+model Script {
+  id                String   @id(map: "scripts_pkey") @default(uuid()) @db.Uuid
+  analysisId        String   @db.Uuid
+  name              String   @db.Text
+  status            Int      @db.SmallInt
+  statusMsg         String   @db.Text
+  lastUpdated       DateTime @default(now()) @db.Timestamp(6)
+  lastUpdatedUser   String   @db.Text
+  executionSettings Json?
+  script            Bytes?   @db.ByteA
+  Analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_script_analysis_id")
 }

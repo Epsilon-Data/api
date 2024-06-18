@@ -123,7 +123,7 @@ export class ConnectionRequestService {
           if (dbName) {
             const query = `SELECT status FROM sources WHERE id = ?`;
             const queryParams = [requestDetails.id];
-            const result = await this.cassandra.executeQuery(
+            const result = await this.cassandra.query(
               query,
               queryParams,
             );
@@ -240,7 +240,7 @@ export class ConnectionRequestService {
       let status = 2;
       const deleteQuery = 'DELETE FROM sources WHERE id = ?';
       const deleteQueryParams = [request.id];
-      this.cassandra.executeQuery(deleteQuery, deleteQueryParams);
+      this.cassandra.query(deleteQuery, deleteQueryParams);
       try {
         const result = await this.docker.runDataBroker(
           dto.id,
@@ -289,7 +289,7 @@ export class ConnectionRequestService {
     if (request.dbName) {
       const query = 'DELETE FROM sources WHERE id = ?';
       const queryParams = [request.id];
-      this.cassandra.executeQuery(query, queryParams);
+      this.cassandra.query(query, queryParams);
     }
 
     return await this.prisma.connectionRequest.delete({
