@@ -21,14 +21,14 @@ export class DatabaseService {
         id: true,
       },
     });
-
     const query = `SELECT type, host, port, username, password, name FROM sources WHERE id = ?`;
     const queryParams = [request.id];
     const result = await this.cassandra.query(query, queryParams);
 
     this.connection = new DataSource({
       type: result[0].type,
-      host: result[0].host,
+      host:
+        result[0].host == 'host.docker.internal' ? 'localhost' : result[0].host,
       port: result[0].port,
       username: result[0].username,
       password: result[0].password,
@@ -37,13 +37,20 @@ export class DatabaseService {
   }
 
   async initialize() {
-    this.connection
+    await this.connection
       .initialize()
       .then(() => console.log('Connected to user database'))
       .catch((err) => console.error(err));
   }
 
   async query(sql: string, parameters?: any[]): Promise<any> {
-    return this.connection.query(sql, parameters);
+    return await this.connection.query(sql, parameters);
+  }
+
+  async disconnect() {
+    await this.connection
+      .destroy()
+      .then(() => console.log('Destroyed user database'))
+      .catch((err) => console.error(err));
   }
 }

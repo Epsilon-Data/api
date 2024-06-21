@@ -15,6 +15,7 @@ import { DatasetService } from './dataset.service';
 import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { scriptOptions } from 'src/options';
+import { DescriptiveDto } from './dto';
 
 @Controller('dataset')
 export class DatasetController {
@@ -66,5 +67,10 @@ export class DatasetController {
   @Get('columns')
   getColumns(@Query('userRequestId', ParseUUIDPipe) userRequestId: string) {
     return this.datasetService.getColumns(userRequestId);
+  }
+
+  @Post('descriptive')
+  descriptiveAnalysis(@Body() dto: DescriptiveDto) {
+    return this.datasetService.descriptiveAnalysis(dto);
   }
 }

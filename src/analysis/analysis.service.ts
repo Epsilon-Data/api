@@ -3,26 +3,33 @@ import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class AnalysisService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private databaseService: DatabaseService) {}
 
-  async getColumnData(tableName: string, columnName: string): Promise<any[]> {
-    return this.databaseService.query(`SELECT ${columnName} FROM ${tableName}`);
+  setDatabaseService(databaseService: DatabaseService) {
+    this.databaseService = databaseService;
   }
 
-  async calculateMean(data: any[], columnName: string): Promise<number> {
+  private async getColumnData(
+    tableName: string,
+    columnName: string,
+  ): Promise<any[]> {
+    return await this.databaseService.query(
+      `SELECT ${columnName} FROM ${tableName}`,
+    );
+  }
+
+  private async calculateMean(
+    data: any[],
+    columnName: string,
+  ): Promise<number> {
     const sum = data.reduce((acc, row) => acc + row[columnName], 0);
     return sum / data.length;
   }
 
-  async calculateVariance(data: any[], columnName: string): Promise<number> {
-    const mean = await this.calculateMean(data, columnName);
-    const variance =
-      data.reduce((acc, row) => acc + Math.pow(row[columnName] - mean, 2), 0) /
-      data.length;
-    return variance;
-  }
-
-  async calculateMedian(data: any[], columnName: string): Promise<number> {
+  private async calculateMedian(
+    data: any[],
+    columnName: string,
+  ): Promise<number> {
     const values = data.map((row) => row[columnName]).sort((a, b) => a - b);
     const middle = Math.floor(values.length / 2);
 
@@ -33,15 +40,29 @@ export class AnalysisService {
     }
   }
 
-  async calculateMinimum(data: any[], columnName: string): Promise<number> {
+  private async calculateMode(data: any[], columnName: string): Promise<any> {
+    const frequency = await this.calculateFrequency(data, columnName);
+    const mode = Object.keys(frequency).reduce((a, b) =>
+      frequency[a] > frequency[b] ? a : b,
+    );
+    return mode;
+  }
+
+  private async calculateMinimum(
+    data: any[],
+    columnName: string,
+  ): Promise<number> {
     return Math.min(...data.map((row) => row[columnName]));
   }
 
-  async calculateMaximum(data: any[], columnName: string): Promise<number> {
+  private async calculateMaximum(
+    data: any[],
+    columnName: string,
+  ): Promise<number> {
     return Math.max(...data.map((row) => row[columnName]));
   }
 
-  async calculateStandardDeviation(
+  private async calculateStandardDeviation(
     data: any[],
     columnName: string,
   ): Promise<number> {
@@ -49,24 +70,95 @@ export class AnalysisService {
     return Math.sqrt(variance);
   }
 
-  async getCalculations(tableName: string, columnName: string): Promise<any> {
-    const data = await this.getColumnData(tableName, columnName);
+  private async calculateVariance(
+    data: any[],
+    columnName: string,
+  ): Promise<number> {
     const mean = await this.calculateMean(data, columnName);
-    const variance = await this.calculateVariance(data, columnName);
-    const median = await this.calculateMedian(data, columnName);
-    const minimum = await this.calculateMinimum(data, columnName);
-    const maximum = await this.calculateMaximum(data, columnName);
-    const standardDeviation = await this.calculateStandardDeviation(
-      data,
-      columnName,
-    );
-    return {
-      mean,
-      variance,
-      median,
-      minimum,
-      maximum,
-      standardDeviation,
-    };
+    const variance =
+      data.reduce((acc, row) => acc + Math.pow(row[columnName] - mean, 2), 0) /
+      data.length;
+    return variance;
+  }
+
+  private async calculateFrequency(
+    data: any[],
+    columnName: string,
+  ): Promise<any> {
+    const frequency = data.reduce((acc, row) => {
+      const value = row[columnName];
+      if (!value || value.length === 0) {
+        acc['invalid'] = (acc['invalid'] || 0) + 1;
+      } else {
+        acc[value] = (acc[value] || 0) + 1;
+      }
+      return acc;
+    }, {});
+    if (!frequency['invalid']) {
+      frequency['invalid'] = 0;
+    }
+    return frequency;
+  }
+
+  async getOrdinalAnalysis(
+    tableName: string,
+    columnName: string,
+    calculations: string[],
+  ): Promise<any> {
+    const data = await this.getColumnData(tableName, columnName);
+
+    const result = {};
+
+    calculations.forEach(async (calc) => {
+      switch (calc) {
+        case 'mean':
+          result[calc] = (await this.calculateMean(data, columnName)).toFixed(
+            4,
+          );
+          break;
+        case 'median':
+          result[calc] = await this.calculateMedian(data, columnName);
+          break;
+        case 'mode':
+          result[calc] = await this.calculateMode(data, columnName);
+          break;
+        case 'min':
+          result[calc] = await this.calculateMinimum(data, columnName);
+          break;
+        case 'max':
+          result[calc] = await this.calculateMaximum(data, columnName);
+          break;
+        case 'sd':
+          result[calc] = (
+            await this.calculateStandardDeviation(data, columnName)
+          ).toFixed(4);
+          break;
+        case 'var':
+          result[calc] = (
+            await this.calculateVariance(data, columnName)
+          ).toFixed(4);
+          break;
+        default:
+          console.log(`Unknown calculation: ${calc}`);
+      }
+
+      if (
+        result.hasOwnProperty(calc) &&
+        (result[calc] == undefined || isNaN(result[calc]))
+      ) {
+        result[calc] = 'N/A';
+      }
+    });
+
+    return result;
+  }
+
+  async getNominalAnalysis(
+    tableName: string,
+    columnName: string,
+  ): Promise<any> {
+    const data = await this.getColumnData(tableName, columnName);
+    const frequency = await this.calculateFrequency(data, columnName);
+    return { frequency: frequency };
   }
 }

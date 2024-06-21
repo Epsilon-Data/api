@@ -123,10 +123,7 @@ export class ConnectionRequestService {
           if (dbName) {
             const query = `SELECT status FROM sources WHERE id = ?`;
             const queryParams = [requestDetails.id];
-            const result = await this.cassandra.query(
-              query,
-              queryParams,
-            );
+            const result = await this.cassandra.query(query, queryParams);
 
             if (result[0]) {
               requestDetails.dbStatus = result[0].status;

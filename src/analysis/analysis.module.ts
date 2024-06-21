@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { AnalysisService } from './analysis.service';
 
+@Global()
 @Module({
-  providers: [AnalysisService]
+  providers: [AnalysisService],
+  exports: [AnalysisService],
 })
 export class AnalysisModule {}
