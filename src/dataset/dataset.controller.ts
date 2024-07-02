@@ -60,7 +60,7 @@ export class DatasetController {
   }
 
   @Delete('delete-script')
-  deleteCover(@Query('scriptId') scriptId: string) {
+  deleteScript(@Query('scriptId') scriptId: string) {
     return this.datasetService.deleteScript(scriptId);
   }
 
@@ -72,5 +72,15 @@ export class DatasetController {
   @Post('descriptive')
   descriptiveAnalysis(@Body() dto: DescriptiveDto) {
     return this.datasetService.descriptiveAnalysis(dto);
+  }
+
+  @Get('get-script-mapping')
+  getScriptMapping(@Query('scriptId', ParseUUIDPipe) scriptId: string) {
+    return this.datasetService.getScriptMapping(scriptId);
+  }
+
+  @Delete('delete-analysis')
+  deleteAnalysis(@Query('analysisId') analysisId: string) {
+    return this.datasetService.deleteAnalysis(analysisId);
   }
 }

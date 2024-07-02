@@ -1,5 +1,5 @@
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 
 export const coverOptions: MulterOptions = {
   limits: { fileSize: 2000000 },
@@ -12,12 +12,7 @@ export const coverOptions: MulterOptions = {
 };
 
 export const scriptOptions: MulterOptions = {
-  storage: diskStorage({
-    destination: './uploads',
-    filename: (req, file, callback) => {
-      callback(null, `${Date.now()}-${file.originalname}`);
-    },
-  }),
+  storage: memoryStorage(),
   limits: { fileSize: 5000000 },
   fileFilter: (req, file, callback) => {
     if (!file.originalname.match(/\.(R)$/)) {

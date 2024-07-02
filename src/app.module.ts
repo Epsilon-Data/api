@@ -13,7 +13,7 @@ import { AdminModule } from './admin/admin.module';
 import { BrowseDatasetModule } from './browse_dataset/browse_dataset.module';
 import { AccessRequestModule } from './access_request/access_request.module';
 import { DatasetModule } from './dataset/dataset.module';
-import { ScriptModule } from './script/script.module';
+import { DataProcessingModule } from './data_processing/data_processing.module';
 import { DatabaseModule } from './database/database.module';
 import { AnalysisModule } from './analysis/analysis.module';
 
@@ -67,7 +67,7 @@ import configuration from './config/configuration';
     BrowseDatasetModule,
     AccessRequestModule,
     DatasetModule,
-    ScriptModule,
+    DataProcessingModule,
     DatabaseModule,
     AnalysisModule,
   ],

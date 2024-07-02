@@ -97,7 +97,17 @@ export class AnalysisService {
     if (!frequency['invalid']) {
       frequency['invalid'] = 0;
     }
-    return frequency;
+
+    // sort in descending order
+    const sortedFrequency = Object.keys(frequency)
+      .filter((key) => key !== 'invalid')
+      .sort((a, b) => frequency[b] - frequency[a])
+      .reduce((obj, key) => {
+        obj[key] = frequency[key];
+        return obj;
+      }, {});
+    sortedFrequency['invalid'] = frequency['invalid'];
+    return sortedFrequency;
   }
 
   async getOrdinalAnalysis(

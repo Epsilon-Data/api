@@ -5,6 +5,8 @@ import { DatabaseSourceService } from 'src/database_source/database_source.servi
 import { DescriptiveDto } from './dto';
 import { AnalysisService } from 'src/analysis/analysis.service';
 import { DatabaseService } from 'src/database/database.service';
+import { DataProcessingService } from 'src/data_processing/data_processing.service';
+import { CassandraService } from 'src/cassandra/cassandra.service';
 
 @Injectable()
 export class DatasetService {
@@ -13,6 +15,8 @@ export class DatasetService {
     private databaseSource: DatabaseSourceService,
     private analysis: AnalysisService,
     private database: DatabaseService,
+    private script: DataProcessingService,
+    private cassandra: CassandraService,
   ) {}
 
   async list(request: Request) {
@@ -79,7 +83,13 @@ export class DatasetService {
     analysisId: string,
     file: Express.Multer.File,
   ) {
-    await this.prisma.script.create({
+    const variables = await this.script.extractCsvVariables(file.buffer);
+    const mapping = variables.reduce((obj, str) => {
+      obj[str] = null;
+      return obj;
+    }, {});
+
+    const createRequest = await this.prisma.script.create({
       data: {
         analysisId: analysisId,
         name: file.originalname,
@@ -89,13 +99,39 @@ export class DatasetService {
           request.auth.payload.given_name +
           ' ' +
           request.auth.payload.family_name,
+        mapping: mapping,
         script: file.buffer,
       },
     });
 
-    // const result = await this.script.runScript(file.path);
-    // console.log(result);
-    return file.buffer;
+    // const sourceRequest = await this.prisma.analysis.findUnique({
+    //   where: {
+    //     id: analysisId,
+    //   },
+    //   select: {
+    //     UserRequest: {
+    //       select: {
+    //         Project: {
+    //           select: {
+    //             ConnectionRequest: {
+    //               select: {
+    //                 id: true,
+    //               },
+    //             },
+    //           },
+    //         },
+    //       },
+    //     },
+    //   },
+    // });
+
+    // this.script.preprocessScript(
+    //   file.path,
+    //   sourceRequest.UserRequest.Project.ConnectionRequest.id,
+    //   createRequest.id,
+    // );
+
+    return createRequest.id;
   }
 
   async analysisDetails(analysisId: string) {
@@ -188,5 +224,85 @@ export class DatasetService {
       .catch((error) => {
         console.error(error);
       });
+  }
+
+  async getScriptMapping(scriptId: string) {
+    const request = await this.prisma.script.findUnique({
+      where: {
+        id: scriptId,
+      },
+      select: {
+        mapping: true,
+        script: true,
+        Analysis: {
+          select: {
+            UserRequest: {
+              select: {
+                Project: {
+                  select: {
+                    ConnectionRequest: {
+                      select: {
+                        id: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const query = `SELECT template, permissions FROM sources WHERE id = ?`;
+    const queryParams = [
+      request.Analysis.UserRequest.Project.ConnectionRequest.id,
+    ];
+    const result = await this.cassandra.query(query, queryParams);
+    let csvNames = [];
+    if (result[0].template && result[0].permissions) {
+      const template = JSON.parse(result[0].template);
+      const permissions = JSON.parse(result[0].permissions);
+
+      const activeTemplate = permissions.find((item) => item.active);
+      if (activeTemplate) {
+        const corrTemplate = template.find(
+          (item) => item.id === activeTemplate.templateId,
+        );
+
+        if (corrTemplate) {
+          csvNames = await corrTemplate.nodes
+            .filter((item) => item.type === 'category')
+            .map((item) => item.data.label);
+        }
+      }
+    }
+
+    return {
+      script: request.script,
+      mapping: request.mapping,
+      csv: csvNames,
+    };
+  }
+
+  async deleteAnalysis(analysisId: string) {
+    const deleteScript = this.prisma.script.deleteMany({
+      where: {
+        analysisId: analysisId,
+      },
+    });
+
+    const deleteAnalysis = this.prisma.analysis.delete({
+      where: {
+        id: analysisId,
+      },
+    });
+
+    const transaction = await this.prisma.$transaction([
+      deleteScript,
+      deleteAnalysis,
+    ]);
+
+    return transaction;
   }
 }

@@ -92,5 +92,6 @@ model Script {
   lastUpdatedUser   String   @db.Text
   executionSettings Json?
   script            Bytes?   @db.ByteA
+  mapping           Json?
   Analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_script_analysis_id")
 }
