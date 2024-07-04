@@ -83,4 +83,12 @@ export class DatasetController {
   deleteAnalysis(@Query('analysisId') analysisId: string) {
     return this.datasetService.deleteAnalysis(analysisId);
   }
+
+  @Post('add-script-mapping')
+  addScriptMapping(
+    @Query('scriptId') scriptId: string,
+    @Body() mapping: { data: string },
+  ) {
+    return this.datasetService.addScriptMapping(scriptId, mapping.data);
+  }
 }

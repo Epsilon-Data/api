@@ -30,7 +30,7 @@ export class DataProcessingService {
         result[0].host == 'host.docker.internal' ? 'localhost' : result[0].host,
     };
 
-    const scriptPath = process.cwd() + '/uploads/process.py';
+    const scriptPath = process.cwd() + '/scripts/process.py';
 
     if (result[0].column_mapping) {
       await this.prisma.script.update({

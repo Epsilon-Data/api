@@ -305,4 +305,39 @@ export class DatasetService {
 
     return transaction;
   }
+
+  async addScriptMapping(scriptId: string, mapping: string) {
+    const parsed = JSON.parse(mapping);
+
+    let hasNull = false;
+    for (const value of Object.values(parsed)) {
+      if (value === null) {
+        hasNull = true;
+        break;
+      }
+    }
+
+    if (hasNull) {
+      return await this.prisma.script.update({
+        where: {
+          id: scriptId,
+        },
+        data: {
+          mapping: JSON.parse(mapping),
+          status: 4,
+          statusMsg:
+            'Incomplete upload settings. Please check your upload settings to proceed.',
+        },
+      });
+    }
+
+    return await this.prisma.script.update({
+      where: {
+        id: scriptId,
+      },
+      data: {
+        mapping: parsed,
+      },
+    });
+  }
 }
