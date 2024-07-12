@@ -8,14 +8,16 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { DatasetService } from './dataset.service';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { scriptOptions } from 'src/options';
 import { DescriptiveDto } from './dto';
+import * as fs from 'fs';
 
 @Controller('dataset')
 export class DatasetController {
@@ -32,7 +34,7 @@ export class DatasetController {
   }
 
   @Post('create-analysis')
-  create(
+  createAnalysis(
     @Req() request: Request,
     @Body() dto: { userRequestId: string; name: string },
   ) {
@@ -75,8 +77,11 @@ export class DatasetController {
   }
 
   @Get('get-script-mapping')
-  getScriptMapping(@Query('scriptId', ParseUUIDPipe) scriptId: string) {
-    return this.datasetService.getScriptMapping(scriptId);
+  getScriptMapping(
+    @Query('scriptId', ParseUUIDPipe) scriptId: string,
+    @Req() request: Request,
+  ) {
+    return this.datasetService.getScriptMapping(scriptId, request);
   }
 
   @Delete('delete-analysis')
@@ -90,5 +95,24 @@ export class DatasetController {
     @Body() mapping: { data: string },
   ) {
     return this.datasetService.addScriptMapping(scriptId, mapping.data);
+  }
+
+  @Get('download-dataset')
+  async downloadDataset(
+    @Query('userRequestId', ParseUUIDPipe) userRequestId: string,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    const zipFilePath = await this.datasetService.downloadDataset(
+      userRequestId,
+      request,
+    );
+
+    response.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="dataset.zip"`,
+    });
+    const fileStream = fs.createReadStream(zipFilePath);
+    fileStream.pipe(response);
   }
 }

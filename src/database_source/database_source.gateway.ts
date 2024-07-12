@@ -31,7 +31,7 @@ export class DatabaseSourceGateway
   @WebSocketServer() server: Server;
 
   afterInit() {
-    this.logger.log('Initialized');
+    this.logger.log('DatabaseSourceGateway initialized');
   }
 
   handleConnection(client: Socket) {

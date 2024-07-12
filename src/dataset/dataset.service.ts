@@ -7,6 +7,7 @@ import { AnalysisService } from 'src/analysis/analysis.service';
 import { DatabaseService } from 'src/database/database.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
 import { CassandraService } from 'src/cassandra/cassandra.service';
+import * as fs from 'fs';
 
 @Injectable()
 export class DatasetService {
@@ -15,7 +16,7 @@ export class DatasetService {
     private databaseSource: DatabaseSourceService,
     private analysis: AnalysisService,
     private database: DatabaseService,
-    private script: DataProcessingService,
+    private dataProcess: DataProcessingService,
     private cassandra: CassandraService,
   ) {}
 
@@ -46,7 +47,6 @@ export class DatasetService {
   }
 
   async analysisList(userRequestId: string) {
-    this.getColumns(userRequestId);
     const requestList = await this.prisma.analysis.findMany({
       where: {
         userRequestId: userRequestId,
@@ -83,7 +83,7 @@ export class DatasetService {
     analysisId: string,
     file: Express.Multer.File,
   ) {
-    const variables = await this.script.extractCsvVariables(file.buffer);
+    const variables = await this.dataProcess.extractCsvVariables(file.buffer);
     const mapping = variables.reduce((obj, str) => {
       obj[str] = null;
       return obj;
@@ -103,27 +103,6 @@ export class DatasetService {
         script: file.buffer,
       },
     });
-
-    // const sourceRequest = await this.prisma.analysis.findUnique({
-    //   where: {
-    //     id: analysisId,
-    //   },
-    //   select: {
-    //     UserRequest: {
-    //       select: {
-    //         Project: {
-    //           select: {
-    //             ConnectionRequest: {
-    //               select: {
-    //                 id: true,
-    //               },
-    //             },
-    //           },
-    //         },
-    //       },
-    //     },
-    //   },
-    // });
 
     // this.script.preprocessScript(
     //   file.path,
@@ -183,13 +162,17 @@ export class DatasetService {
       select: {
         Project: {
           select: {
-            id: true,
+            ConnectionRequest: {
+              select: {
+                id: true,
+              },
+            },
           },
         },
       },
     });
 
-    await this.database.connect(request.Project.id);
+    await this.database.connect(request.Project.ConnectionRequest.id);
     await this.database.initialize();
     this.analysis.setDatabaseService(this.database);
 
@@ -226,8 +209,14 @@ export class DatasetService {
       });
   }
 
-  async getScriptMapping(scriptId: string) {
-    const request = await this.prisma.script.findUnique({
+  async getScriptMapping(scriptId: string, request: Request) {
+    let isResearch = false;
+    const access: { roles?: string[] } = request.auth.payload.realm_access;
+    if (access && access.roles) {
+      isResearch = access.roles.indexOf('research') !== -1;
+    }
+
+    const scriptRequest = await this.prisma.script.findUnique({
       where: {
         id: scriptId,
       },
@@ -254,33 +243,36 @@ export class DatasetService {
       },
     });
 
-    const query = `SELECT template, permissions FROM sources WHERE id = ?`;
+    const query = `SELECT permissions FROM sources WHERE id = ?`;
     const queryParams = [
-      request.Analysis.UserRequest.Project.ConnectionRequest.id,
+      scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id,
     ];
     const result = await this.cassandra.query(query, queryParams);
     let csvNames = [];
-    if (result[0].template && result[0].permissions) {
-      const template = JSON.parse(result[0].template);
+    if (result[0].permissions) {
       const permissions = JSON.parse(result[0].permissions);
 
-      const activeTemplate = permissions.find((item) => item.active);
-      if (activeTemplate) {
-        const corrTemplate = template.find(
-          (item) => item.id === activeTemplate.templateId,
-        );
+      const activePermission = permissions.find((item) => item.active);
+      if (activePermission) {
+        if (isResearch) {
+          const settings = activePermission.settings.find(
+            (item) => item.role == 'research',
+          );
 
-        if (corrTemplate) {
-          csvNames = await corrTemplate.nodes
-            .filter((item) => item.type === 'category')
-            .map((item) => item.data.label);
+          csvNames = settings.access
+            .filter(
+              (access) =>
+                access.permissions.includes('performAnalysis') &&
+                access.nodeType == 'category',
+            )
+            .map((item) => item.nodeName);
         }
       }
     }
 
     return {
-      script: request.script,
-      mapping: request.mapping,
+      script: scriptRequest.script,
+      mapping: scriptRequest.mapping,
       csv: csvNames,
     };
   }
@@ -339,5 +331,151 @@ export class DatasetService {
         mapping: parsed,
       },
     });
+  }
+
+  async downloadDataset(userRequestId: string, request: Request) {
+    let isResearch = false;
+    const access: { roles?: string[] } = request.auth.payload.realm_access;
+    if (access && access.roles) {
+      isResearch = access.roles.indexOf('research') !== -1;
+    }
+
+    const userRequest = await this.prisma.userRequest.findUnique({
+      where: {
+        id: userRequestId,
+      },
+      select: {
+        Project: {
+          select: {
+            ConnectionRequest: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const sourceId = userRequest.Project.ConnectionRequest.id;
+    const query = `SELECT template, column_mapping, permissions FROM sources WHERE id = ?`;
+    const queryParams = [sourceId];
+    const result = await this.cassandra.query(query, queryParams);
+    if (
+      result[0].template &&
+      result[0].permissions &&
+      result[0].column_mapping
+    ) {
+      const template = JSON.parse(result[0].template);
+      const permissions = JSON.parse(result[0].permissions);
+      const columnMapping = JSON.parse(result[0].column_mapping);
+      const data = fs.readFileSync(
+        `${process.cwd()}/csv/${sourceId}/mapping.json`,
+        'utf8',
+      );
+      const csvMapping = JSON.parse(data);
+
+      const activePermission = permissions.find((item) => item.active);
+      if (activePermission) {
+        const corrTemplate = template.find(
+          (item) => item.id === activePermission.templateId,
+        );
+
+        const corrColumnMapping = columnMapping.find(
+          (item) => item.templateId === activePermission.templateId,
+        );
+
+        if (corrTemplate && corrColumnMapping) {
+          if (isResearch) {
+            const settings = activePermission.settings.find(
+              (item) => item.role == 'research',
+            );
+
+            const access = settings.access.filter((access) =>
+              access.permissions.includes('performAnalysis'),
+            );
+
+            const getColumns = (nodeId: string) => {
+              const node = corrColumnMapping.mapping.find(
+                (map) => map.nodeId === nodeId,
+              );
+              return node ? node.columns : [];
+            };
+
+            const getCsvContent = async (
+              columns: { name: string; table: string }[],
+            ): Promise<string[][]> => {
+              const content: string[][] = [];
+              for (const column of columns) {
+                const csvFileName = csvMapping[column.table];
+                if (!csvFileName) continue;
+
+                const filePath = `${process.cwd()}/csv/${sourceId}/synth/${csvFileName}.csv`;
+                const data = fs.readFileSync(filePath, 'utf8');
+                const rows = data.split('\n');
+
+                // Assuming first row is header and rest are data
+                const headers = rows[0].split(',');
+                const colIndex = headers.indexOf(column.name);
+
+                if (colIndex !== -1) {
+                  rows.slice(1).forEach((row, rowIndex) => {
+                    const cells = row.split(',');
+                    if (!content[rowIndex]) {
+                      content[rowIndex] = new Array(columns.length).fill('');
+                    }
+                    content[rowIndex][
+                      columns.findIndex((col) => col.name === column.name)
+                    ] = cells[colIndex] || '';
+                  });
+                }
+              }
+              return content;
+            };
+
+            const createCsv = async (
+              categoryNode: { nodeId: string; nodeName: string },
+              columns: { name: string; table: string }[],
+            ) => {
+              const csvContent = await getCsvContent(columns);
+              const csvFileName = `${categoryNode.nodeName}.csv`;
+              const headers = columns.map((column) => column.name).join(',');
+              const rows = csvContent.map((row) => row.join(',')).join('\n');
+              const filePath = `${process.cwd()}/csv/${sourceId}/download/${csvFileName}`;
+              const dirPath = filePath.split('/').slice(0, -1).join('/');
+              if (!fs.existsSync(dirPath)) {
+                fs.mkdirSync(dirPath, { recursive: true });
+              }
+              fs.writeFileSync(filePath, `${headers}\n${rows}`);
+            };
+
+            for (const node of access) {
+              if (node.nodeType !== 'category') continue;
+              const categoryColumns = getColumns(node.nodeId);
+              const connectedEdges = corrTemplate.edges.filter(
+                (edge) =>
+                  edge.source === node.nodeId || edge.target === node.nodeId,
+              );
+              const subcategoryNodes = connectedEdges
+                .map((edge) =>
+                  edge.source === node.nodeId ? edge.target : edge.source,
+                )
+                .filter((target) =>
+                  access.some((item) => item.nodeId === target),
+                );
+
+              const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
+
+              const allColumns = [...categoryColumns, ...subcategoryColumns];
+
+              await createCsv(node, allColumns);
+            }
+          }
+        }
+        const folderPath = `${process.cwd()}/csv/${sourceId}`;
+        await this.dataProcess.compressFolder(folderPath);
+        return `${folderPath}/dataset.zip`;
+      }
+    }
   }
 }

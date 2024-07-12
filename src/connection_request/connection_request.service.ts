@@ -5,12 +5,14 @@ import { testConnection } from '@epsilon-data/epsilon-connector';
 import { Request } from 'express';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { DockerService } from 'src/docker/docker.service';
+import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,
+    private dataProcess: DataProcessingService,
     private docker: DockerService,
   ) {}
   async details(requestId: string) {
@@ -188,6 +190,8 @@ export class ConnectionRequestService {
       // }
     }
 
+    this.dataProcess.dataSynthesis(createdRequest.id);
+
     return await this.prisma.connectionRequest.update({
       where: { id: createdRequest.id },
       data: info,
@@ -308,6 +312,8 @@ export class ConnectionRequestService {
     } catch (error) {
       console.error('Failed to start data broker container:', error);
     }
+
+    this.dataProcess.dataSynthesis(requestId);
 
     return await this.prisma.connectionRequest.update({
       where: { id: requestId },

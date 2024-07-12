@@ -3,19 +3,17 @@ import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class AnalysisService {
-  constructor(private databaseService: DatabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   setDatabaseService(databaseService: DatabaseService) {
-    this.databaseService = databaseService;
+    this.database = databaseService;
   }
 
   private async getColumnData(
     tableName: string,
     columnName: string,
   ): Promise<any[]> {
-    return await this.databaseService.query(
-      `SELECT ${columnName} FROM ${tableName}`,
-    );
+    return await this.database.query(`SELECT ${columnName} FROM ${tableName}`);
   }
 
   private async calculateMean(

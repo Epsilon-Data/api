@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Client } from 'cassandra-driver';
 
 @Injectable()
 export class CassandraService {
   private client: Client;
+  private readonly logger = new Logger(CassandraService.name);
 
   constructor() {
     this.client = new Client({
@@ -14,8 +15,8 @@ export class CassandraService {
 
     this.client
       .connect()
-      .then(() => console.log('Connected to Cassandra'))
-      .catch((err) => console.error('Cassandra connection error', err));
+      .then(() => this.logger.log('Connected to Cassandra'))
+      .catch((err) => this.logger.error('Cassandra connection error', err));
   }
 
   async query(query: string, params?: any[]): Promise<any> {
