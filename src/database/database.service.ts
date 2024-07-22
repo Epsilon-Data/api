@@ -1,9 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { DataSource } from 'typeorm';
-import { createObjectCsvWriter } from 'csv-writer';
-import { join } from 'path';
-import { promises as fs } from 'fs';
 
 @Injectable()
 export class DatabaseService {
@@ -19,6 +16,7 @@ export class DatabaseService {
     const query = `SELECT type, host, port, username, password, name FROM sources WHERE id = ?`;
     const queryParams = [sourceId];
     const result = await this.cassandra.query(query, queryParams);
+    result[0].host = 'host.docker.internal' ? 'localhost' : result[0].host;
 
     this.connection = new DataSource({
       type: result[0].type,
@@ -29,6 +27,8 @@ export class DatabaseService {
       password: result[0].password,
       database: result[0].name,
     });
+
+    return result[0];
   }
 
   async initialize() {
@@ -47,57 +47,5 @@ export class DatabaseService {
       .destroy()
       .then(() => this.logger.log('Destroyed user database'))
       .catch((err) => this.logger.error(err));
-  }
-
-  async exportAllTablesToCsv(exportingTables: string[]) {
-    const tables = exportingTables || (await this.getTables());
-    let success = false;
-    for (const table of tables) {
-      const data = await this.query(`SELECT * FROM ${table}`);
-      success = await this.writeCsv(table, data, this.sourceId);
-    }
-
-    if (success) {
-      this.logger.log(
-        `Successfully exported ${tables.length} tables from user database`,
-      );
-      return this.sourceId;
-    }
-
-    return null;
-  }
-
-  private async getTables(): Promise<string[]> {
-    const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`;
-    const result = await this.query(query);
-    return result.map((row) => row.table_name);
-  }
-
-  private async writeCsv(tableName: string, data: any[], folder: string) {
-    if (data.length === 0) {
-      console.log(`No data found for table ${tableName}`);
-      return;
-    }
-
-    const directoryPath = join(process.cwd(), 'csv', folder);
-    await fs.mkdir(directoryPath, { recursive: true });
-
-    const csvWriter = createObjectCsvWriter({
-      path: join(directoryPath, `${tableName}.csv`),
-      header: Object.keys(data[0]).map((key) => ({ id: key, title: key })),
-    });
-
-    let success = false;
-
-    await csvWriter
-      .writeRecords(data)
-      .then(() => {
-        success = true;
-      })
-      .catch((err) =>
-        console.error(`Error writing CSV file for ${tableName}:`, err),
-      );
-
-    return success;
   }
 }

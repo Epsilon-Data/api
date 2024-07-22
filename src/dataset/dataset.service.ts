@@ -408,7 +408,7 @@ export class DatasetService {
               const content: string[][] = [];
               for (const column of columns) {
                 const csvFileName = csvMapping[column.table];
-                if (!csvFileName) continue;
+                if (csvFileName == undefined) continue;
 
                 const filePath = `${process.cwd()}/csv/${sourceId}/synth/${csvFileName}.csv`;
                 const data = fs.readFileSync(filePath, 'utf8');
@@ -434,6 +434,7 @@ export class DatasetService {
             };
 
             const createCsv = async (
+              dirPath: string,
               categoryNode: { nodeId: string; nodeName: string },
               columns: { name: string; table: string }[],
             ) => {
@@ -441,13 +442,15 @@ export class DatasetService {
               const csvFileName = `${categoryNode.nodeName}.csv`;
               const headers = columns.map((column) => column.name).join(',');
               const rows = csvContent.map((row) => row.join(',')).join('\n');
-              const filePath = `${process.cwd()}/csv/${sourceId}/download/${csvFileName}`;
-              const dirPath = filePath.split('/').slice(0, -1).join('/');
-              if (!fs.existsSync(dirPath)) {
-                fs.mkdirSync(dirPath, { recursive: true });
-              }
+              const filePath = `${dirPath}/${csvFileName}`;
               fs.writeFileSync(filePath, `${headers}\n${rows}`);
             };
+
+            const dirPath = `${process.cwd()}/csv/${sourceId}/download`;
+            if (fs.existsSync(dirPath)) {
+              fs.rmSync(dirPath, { recursive: true, force: true });
+            }
+            fs.mkdirSync(dirPath, { recursive: true });
 
             for (const node of access) {
               if (node.nodeType !== 'category') continue;
@@ -456,19 +459,21 @@ export class DatasetService {
                 (edge) =>
                   edge.source === node.nodeId || edge.target === node.nodeId,
               );
-              const subcategoryNodes = connectedEdges
-                .map((edge) =>
-                  edge.source === node.nodeId ? edge.target : edge.source,
-                )
-                .filter((target) =>
+              let subcategoryNodes = connectedEdges.map((edge) =>
+                edge.source === node.nodeId ? edge.target : edge.source,
+              );
+
+              if (subcategoryNodes.length > 2) {
+                subcategoryNodes = subcategoryNodes.filter((target) =>
                   access.some((item) => item.nodeId === target),
                 );
+              }
 
               const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
 
               const allColumns = [...categoryColumns, ...subcategoryColumns];
 
-              await createCsv(node, allColumns);
+              await createCsv(dirPath, node, allColumns);
             }
           }
         }

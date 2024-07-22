@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { DatabaseService } from 'src/database/database.service';
 import * as fs from 'fs';
 import * as archiver from 'archiver';
+import * as yaml from 'js-yaml';
 
 type Row = {
   table_name: string;
@@ -82,7 +83,7 @@ export class DataProcessingService {
   }
 
   async dataSynthesis(sourceId: string) {
-    const scriptPath = process.cwd() + '/scripts/data_synthesis.py';
+    const scriptPath = process.cwd() + '/scripts/synthesis.py';
 
     const constraintsQuery = `SELECT table_name, columns, type FROM constraints WHERE source_id = ? ALLOW FILTERING`;
     const constraintsQueryParams = [sourceId];
@@ -102,21 +103,21 @@ export class DataProcessingService {
     const foreignKeys = this.getForeignKeys(constraintsResult);
     const primaryKeys = this.getPrimaryKeys(constraintsResult);
 
-    await this.database.connect(sourceId);
-    await this.database.initialize();
-    const folder = await this.database.exportAllTablesToCsv(tableNames);
-    this.database.disconnect();
+    const dbDetails = await this.database.connect(sourceId);
 
-    if (folder) {
+    if (dbDetails) {
       new Promise((resolve, reject) => {
-        const args = [
-          `${process.cwd()}/csv/${folder}`,
-          JSON.stringify(tableNames),
-          JSON.stringify(foreignKeys),
-          JSON.stringify(primaryKeys),
-        ];
-        const command = `python3 '${scriptPath}' '${args.join("' '")}'`;
-        console.log(command);
+        const args = {
+          dbDetails,
+          sourceId,
+          tableNames,
+          foreignKeys,
+          primaryKeys,
+        };
+        const yamlFilePath = `${process.cwd()}/script_args.yaml`;
+        fs.writeFileSync(yamlFilePath, yaml.dump(args));
+
+        const command = `python3 '${scriptPath}' '${yamlFilePath}'`;
 
         exec(command, (error, stdout, stderr) => {
           if (error) {

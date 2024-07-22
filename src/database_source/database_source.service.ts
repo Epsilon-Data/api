@@ -317,7 +317,6 @@ export class DatabaseSourceService {
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
-    console.log(file);
     await this.prisma.project.update({
       where: {
         id: projectId,
