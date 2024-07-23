@@ -1,0 +1,43 @@
+dbDetails:
+  type: postgres
+  host: localhost
+  port: 5433
+  username: test_admin
+  password: supersecret
+  name: test
+sourceId: 3df08100-c4e2-47ce-94e6-f03acbd6ad8a
+tableNames:
+  - public.person_census_bridge
+  - public.person_census
+  - public.house_census
+  - public.person
+  - public.test
+  - public.heath_round
+  - public.person_house_bridge
+  - public.house
+  - public.health_round_bridge
+  - public.house_census_bridge
+foreignKeys:
+  public.health_round_bridge:
+    - person_id
+    - health_round_id
+  public.house_census_bridge:
+    - house_census_id
+    - house_id
+  public.person_census_bridge:
+    - person_census_id
+    - person_id
+  public.person_house_bridge:
+    - house_id
+    - person_id
+primaryKeys:
+  public.heath_round:
+    - health_round_id
+  public.person:
+    - person_id
+  public.house:
+    - house_id
+  public.person_census:
+    - person_census_id
+  public.house_census:
+    - house_census_id

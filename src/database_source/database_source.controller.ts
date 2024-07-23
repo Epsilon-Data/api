@@ -90,6 +90,7 @@ export class DatabaseSourceController {
     file: Express.Multer.File,
     @Query('projectId') projectId: string,
   ) {
+    // return { response: 'asdf' };
     return this.databaseSourceService.uploadCover(projectId, file);
   }
 

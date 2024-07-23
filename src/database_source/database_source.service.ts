@@ -4,13 +4,26 @@ import { PermissionsDto, TemplateDto } from './dto';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { Request } from 'express';
 import { v4 as UUID } from 'uuid';
+import * as AWS from 'aws-sdk';
+import * as Minio from 'minio';
 
 @Injectable()
 export class DatabaseSourceService {
+  private minioClient: Minio.Client;
+
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,
-  ) {}
+  ) {
+    this.minioClient = new Minio.Client({
+      // SWITCH TO ENV
+      endPoint: 'localhost',
+      port: 9000,
+      useSSL: false,
+      accessKey: 'RrlhYLStcvAo2wo2nrdx',
+      secretKey: 'WqK3VZ5FBenvFNfxKn4pl9DzgSimxK4B6XEKxqAa',
+    });
+  }
   async list(request: Request) {
     const userId = request.auth.payload.sub;
     const requestList = await this.prisma.connectionRequest.findMany({
@@ -317,15 +330,21 @@ export class DatabaseSourceService {
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
-    await this.prisma.project.update({
-      where: {
-        id: projectId,
-      },
-      data: {
-        cover: file.buffer,
-        lastUpdated: new Date(),
-      },
-    });
+    // await this.prisma.project.update({
+    //   where: {
+    //     id: projectId,
+    //   },
+    //   data: {
+    //     cover: file.buffer,
+    //     lastUpdated: new Date(),
+    //   },
+    // });
+    this.minioClient.putObject(
+      'testbucket', // SWITCH TO ENV
+      '/' + projectId + '/' + file.originalname,
+      file.buffer,
+      file.size,
+    );
     return file.buffer;
   }
 
