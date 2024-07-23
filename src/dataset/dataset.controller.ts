@@ -114,5 +114,9 @@ export class DatasetController {
     });
     const fileStream = fs.createReadStream(zipFilePath);
     fileStream.pipe(response);
+    fileStream.on('close', () => {
+      fs.rmSync(zipFilePath);
+      fs.rmSync('csv_files', { recursive: true, force: true });
+    });
   }
 }

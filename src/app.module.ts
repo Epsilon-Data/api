@@ -16,6 +16,7 @@ import { DatasetModule } from './dataset/dataset.module';
 import { DataProcessingModule } from './data_processing/data_processing.module';
 import { DatabaseModule } from './database/database.module';
 import { AnalysisModule } from './analysis/analysis.module';
+import { FileStorageModule } from './file_storage/file_storage.module';
 
 import configuration from './config/configuration';
 
@@ -70,6 +71,7 @@ import configuration from './config/configuration';
     DataProcessingModule,
     DatabaseModule,
     AnalysisModule,
+    FileStorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

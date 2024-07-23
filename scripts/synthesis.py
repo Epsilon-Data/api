@@ -36,7 +36,7 @@ def categorize_variables(df, threshold=10):
 def censor_string(value):
     return ''.join([char if random.random() > 0.5 else 'x' for char in value])
 
-def synthesis(df, synth_file, threshold=10):
+def synthesis(df, synth_file, prefix, threshold=10):
   numerical_vars, categorical_vars, potential_date_vars = categorize_variables(df, threshold=threshold)
 
   df_syn = pd.DataFrame()
@@ -92,7 +92,7 @@ def synthesis(df, synth_file, threshold=10):
   
   df_syn.to_csv(csv_file, index=False)
   
-  upload_to_s3(csv_file)  
+  upload_to_s3(csv_file, prefix)  
   
 
 def connect_to_db(db_details, table_names):
@@ -156,26 +156,25 @@ def combine_dataframes(db_details, prefix, table_names, foreign_keys, primary_ke
   # Separate unrelated dataframes
   for table, df in dataframes.items():
       combined_dataframes.append(df)
-
-  output_json =prefix + '-mapping.json'
+  
+  output_json ='mapping.json'
   
   with open(output_json, 'w') as f:
     json.dump(table_map, f)
   
-  upload_to_s3(output_json)
+  upload_to_s3(output_json, prefix)
   
   return combined_dataframes
 
-def upload_to_s3(file_path):
+def upload_to_s3(file_path, prefix):
   bucket = "synthetic"
   s3 = boto3.client('s3',
                     endpoint_url='http://localhost:9000',
                     aws_access_key_id='admin',
                     aws_secret_access_key='supersecret',
-                    config=Config(signature_version='s3v4'),
-                    region_name='us-east-1')
+                    config=Config(signature_version='s3v4'),)
   try:
-      s3.upload_file(file_path, bucket, file_path)
+      s3.upload_file(file_path, bucket, f'{prefix}/{file_path}')
 
       # Clean up the file after uploading
       if os.path.exists(file_path):
@@ -199,11 +198,9 @@ def main(yaml_file):
     combined = combine_dataframes(db_details, sourceId, table_names, foreign_keys, primary_keys)
   
     if len(combined) > 0:
-      synth_prefix = f'{sourceId}-synth-'
-      
       for i in range(len(combined)):
         df = combined[i]
-        synthesis(df, synth_prefix + str(i))
+        synthesis(df, f'synth-{i}', sourceId)
   
 if __name__ == "__main__":
   install_package("pandas")
