@@ -378,4 +378,18 @@ export class DataProcessingService {
       }
     }
   }
+
+  async parseCoverStream(stream: Readable): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      let buffer = '';
+      stream
+        .on('data', (chunk) => {
+          buffer += chunk;
+        })
+        .on('end', () => {
+          resolve(Buffer.from(buffer));
+        })
+        .on('error', reject);
+    });
+  }
 }

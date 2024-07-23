@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   GetObjectCommandOutput,
   ListObjectsV2Command,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
@@ -44,5 +46,31 @@ export class FileStorageService {
     const data: GetObjectCommandOutput = await this.s3.send(command);
 
     return data.Body as Readable;
+  }
+
+  async putFile(
+    bucketName: string,
+    key: string,
+    file: Express.Multer.File,
+  ): Promise<void> {
+    const params = {
+      Bucket: bucketName,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+
+    const command = new PutObjectCommand(params);
+    await this.s3.send(command);
+  }
+
+  async deleteFile(bucketName: string, key: string): Promise<void> {
+    const params = {
+      Bucket: bucketName,
+      Key: key,
+    };
+
+    const command = new DeleteObjectCommand(params);
+    await this.s3.send(command);
   }
 }

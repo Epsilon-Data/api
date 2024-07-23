@@ -4,26 +4,17 @@ import { PermissionsDto, TemplateDto } from './dto';
 import { CassandraService } from 'src/cassandra/cassandra.service';
 import { Request } from 'express';
 import { v4 as UUID } from 'uuid';
-import * as AWS from 'aws-sdk';
-import * as Minio from 'minio';
+import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 export class DatabaseSourceService {
-  private minioClient: Minio.Client;
-
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,
-  ) {
-    this.minioClient = new Minio.Client({
-      // SWITCH TO ENV
-      endPoint: 'localhost',
-      port: 9000,
-      useSSL: false,
-      accessKey: 'RrlhYLStcvAo2wo2nrdx',
-      secretKey: 'WqK3VZ5FBenvFNfxKn4pl9DzgSimxK4B6XEKxqAa',
-    });
-  }
+    private fileStorage: FileStorageService,
+    private dataProcessing: DataProcessingService,
+  ) {}
   async list(request: Request) {
     const userId = request.auth.payload.sub;
     const requestList = await this.prisma.connectionRequest.findMany({
@@ -323,28 +314,32 @@ export class DatabaseSourceService {
       where: {
         id: projectId,
       },
-      select: options,
+      select: {
+        visualisations: options.visualisations,
+      },
     });
 
-    return { ...request, id: projectId };
+    const coverStream = await this.fileStorage.getFile(
+      'cover',
+      `${projectId}/cover.jpg`,
+    );
+
+    const coverBuffer = this.dataProcessing.parseCoverStream(coverStream);
+
+    return { ...request, cover: coverBuffer, id: projectId };
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
-    // await this.prisma.project.update({
-    //   where: {
-    //     id: projectId,
-    //   },
-    //   data: {
-    //     cover: file.buffer,
-    //     lastUpdated: new Date(),
-    //   },
-    // });
-    this.minioClient.putObject(
-      'testbucket', // SWITCH TO ENV
-      '/' + projectId + '/' + file.originalname,
-      file.buffer,
-      file.size,
-    );
+    await this.prisma.project.update({
+      where: {
+        id: projectId,
+      },
+      data: {
+        lastUpdated: new Date(),
+      },
+    });
+
+    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
   }
 
@@ -367,11 +362,11 @@ export class DatabaseSourceService {
         id: projectId,
       },
       data: {
-        cover: null,
         lastUpdated: new Date(),
       },
     });
 
+    this.fileStorage.deleteFile('cover', `${projectId}`);
     return projectId;
   }
 

@@ -3,12 +3,16 @@ import { CassandraService } from 'src/cassandra/cassandra.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AccessDto } from './dto';
 import { Request } from 'express';
+import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 export class BrowseDatasetService {
   constructor(
     private prisma: PrismaService,
     private cassandra: CassandraService,
+    private fileStorage: FileStorageService,
+    private dataProcessing: DataProcessingService,
   ) {}
 
   async projects(isSearch: boolean) {
@@ -25,7 +29,7 @@ export class BrowseDatasetService {
       },
     });
 
-    const browseList = request.map((item) => {
+    const browseList = request.map(async (item) => {
       if (isSearch) {
         return {
           id: item.Project.id,
@@ -36,12 +40,17 @@ export class BrowseDatasetService {
           keywords: item.dataKeywords,
         };
       } else {
+        const coverStream = await this.fileStorage.getFile(
+          'cover',
+          `${item.Project.id}/cover.jpg`,
+        );
+        const coverBuffer = this.dataProcessing.parseCoverStream(coverStream);
         return {
           id: item.Project.id,
           name: item.Project.name,
           organisation: item.Project.university,
           createdDate: item.createdDate,
-          cover: item.Project.cover,
+          cover: coverBuffer,
         };
       }
     });

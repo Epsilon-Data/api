@@ -37,7 +37,6 @@ model Project {
   startDate         DateTime?          @db.Date
   endDate           DateTime?          @db.Date
   members           String[]
-  cover             Bytes?             @db.ByteA
   visualisations    Json?
   lastUpdated       DateTime           @default(now()) @db.Timestamp(6)
   ConnectionRequest ConnectionRequest? 

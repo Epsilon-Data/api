@@ -7,17 +7,7 @@ export class DockerService {
   private docker: Docker;
 
   constructor() {
-    this.docker = new Docker({
-      socketPath: '/home/kaigin/.docker/desktop/docker.sock',
-    });
-
-    this.docker.listImages((err, images) => {
-      if (err) {
-        console.error('Error listing images:', err);
-      } else {
-        console.log('Available images:', images);
-      }
-    });
+    this.docker = new Docker();
   }
 
   async runDataBroker(id: string, database: DatabaseInfoDto): Promise<string> {
@@ -45,11 +35,11 @@ export class DockerService {
             },
           },
           HostConfig: {
-            // Detach: true,
-            // PortBindings: {
-            //   '9042/tcp': [{ HostPort: '9042' }],
-            //   '5432/tcp': [{ HostPort: '5432' }],
-            // },
+            Detach: true,
+            PortBindings: {
+              '9042/tcp': [{ HostPort: '9042' }],
+              '5432/tcp': [{ HostPort: '5432' }],
+            },
             LogConfig: {
               Type: 'json-file',
               Config: {
