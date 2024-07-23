@@ -4,8 +4,13 @@ import { exec } from 'child_process';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DatabaseService } from 'src/database/database.service';
 import * as fs from 'fs';
-import * as archiver from 'archiver';
 import * as yaml from 'js-yaml';
+import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { parse } from 'csv-parse';
+import { Readable } from 'stream';
+import { createObjectCsvWriter } from 'csv-writer';
+import * as archiver from 'archiver';
+import { join } from 'path';
 
 type Row = {
   table_name: string;
@@ -20,6 +25,7 @@ export class DataProcessingService {
     private prisma: PrismaService,
     private cassandra: CassandraService,
     private database: DatabaseService,
+    private fileStorage: FileStorageService,
   ) {}
 
   async runScript(userPath: string): Promise<string> {
@@ -163,27 +169,213 @@ export class DataProcessingService {
     return primaryKeys;
   }
 
-  async compressFolder(folderPath: string): Promise<string> {
-    const outputFilePath = `${folderPath}/dataset.zip`;
-    const output = fs.createWriteStream(outputFilePath);
+  private async createAndZipCsvFiles(
+    files: { filename: string; data: any[] }[],
+  ): Promise<string> {
+    const csvFolderPath = 'csv_files';
+    const zipFilePath = 'dataset.zip';
+
+    if (!fs.existsSync(csvFolderPath)) {
+      fs.mkdirSync(csvFolderPath);
+    }
+
+    // Create CSV files
+    for (const file of files) {
+      if (Object.keys(file.data[0]).length === 0) continue;
+      const csvWriter = createObjectCsvWriter({
+        path: join(csvFolderPath, file.filename),
+        header: await this.extractHeaders(file.data),
+      });
+      await csvWriter.writeRecords(file.data);
+    }
+
+    // Create a zip file
+    const output = fs.createWriteStream(zipFilePath);
     const archive = archiver('zip', {
-      zlib: { level: 9 }, // Compression level
+      zlib: { level: 9 },
     });
 
     return new Promise((resolve, reject) => {
-      output.on('close', () => {
-        resolve(outputFilePath);
-      });
-
-      archive.on('error', (err) => {
-        reject(err);
-      });
+      output.on('close', () => resolve(zipFilePath));
+      archive.on('error', (err) => reject(err));
 
       archive.pipe(output);
-
-      archive.directory(`${folderPath}/download`, false);
-
+      archive.directory(csvFolderPath, false);
       archive.finalize();
     });
+  }
+
+  private async extractHeaders(data: any[]): Promise<any[]> {
+    const headers = Object.keys(data[0]);
+    return headers.map((header) => ({ id: header, title: header }));
+  }
+
+  private async parseJsonStream(stream: Readable): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let jsonString = '';
+      stream
+        .on('data', (chunk) => {
+          jsonString += chunk;
+        })
+        .on('end', () => {
+          try {
+            const jsonData = JSON.parse(jsonString);
+            resolve(jsonData);
+          } catch (err) {
+            reject(err);
+          }
+        })
+        .on('error', reject);
+    });
+  }
+
+  private async parseCsvStream(stream: Readable): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const results: any[] = [];
+      stream
+        .pipe(parse())
+        .on('data', (data) => {
+          results.push(data);
+        })
+        .on('end', () => resolve(results))
+        .on('error', reject);
+    });
+  }
+
+  async generateDownloadDataset(
+    sourceId: string,
+    isResearch: boolean,
+  ): Promise<string> {
+    const bucket = 'synthetic';
+    const query = `SELECT template, column_mapping, permissions FROM sources WHERE id = ?`;
+    const queryParams = [sourceId];
+    const result = await this.cassandra.query(query, queryParams);
+
+    if (
+      result[0].template &&
+      result[0].permissions &&
+      result[0].column_mapping
+    ) {
+      const template = JSON.parse(result[0].template);
+      const permissions = JSON.parse(result[0].permissions);
+      const columnMapping = JSON.parse(result[0].column_mapping);
+
+      const mappingStream = await this.fileStorage.getFile(
+        bucket,
+        `${sourceId}/mapping.json`,
+      );
+      const csvMapping = await this.parseJsonStream(mappingStream);
+      const activePermission = permissions.find((item) => item.active);
+      if (activePermission) {
+        const corrTemplate = template.find(
+          (item) => item.id === activePermission.templateId,
+        );
+
+        const corrColumnMapping = columnMapping.find(
+          (item) => item.templateId === activePermission.templateId,
+        );
+
+        if (corrTemplate && corrColumnMapping) {
+          if (isResearch) {
+            const settings = activePermission.settings.find(
+              (item) => item.role == 'research',
+            );
+
+            const access = settings.access.filter((access) =>
+              access.permissions.includes('performAnalysis'),
+            );
+
+            const getColumns = (nodeId: string) => {
+              const node = corrColumnMapping.mapping.find(
+                (map) => map.nodeId === nodeId,
+              );
+              return node ? node.columns : [];
+            };
+
+            const createCsvData = async (
+              csvFileName: string,
+              tableData: { [table: string]: any[] },
+              columns: { name: string; table: string }[],
+            ) => {
+              // Extract the required columns
+              const combinedData: any[] = [];
+
+              const numRows = 200;
+              const columnIndex = {};
+              for (let i = 0; i < numRows; i++) {
+                const row: any = {};
+                for (const col of columns) {
+                  if (i == 0) {
+                    columnIndex[col.name] = tableData[col.table][i].findIndex(
+                      (item) => item === col.name,
+                    );
+                  } else {
+                    if (tableData[col.table][i]) {
+                      const index = columnIndex[col.name];
+                      row[col.name] = tableData[col.table][i][index];
+                    } else {
+                      row[col.name] = '';
+                    }
+                  }
+                }
+
+                if (i != 0) {
+                  combinedData.push(row);
+                }
+              }
+
+              return { filename: csvFileName, data: combinedData };
+            };
+
+            const tableData: { [table: string]: any[] } = {};
+            for (const table of Object.keys(csvMapping)) {
+              const csvFile = csvMapping[table];
+              const csvStream = await this.fileStorage.getFile(
+                bucket,
+                `${sourceId}/synth-${csvFile}.csv`,
+              );
+              tableData[table] = await this.parseCsvStream(csvStream);
+            }
+
+            const downloadData = [];
+            for (const node of access) {
+              if (node.nodeType !== 'category') continue;
+              const categoryColumns = getColumns(node.nodeId);
+              const connectedEdges = corrTemplate.edges.filter(
+                (edge) =>
+                  edge.source === node.nodeId || edge.target === node.nodeId,
+              );
+              let subcategoryNodes = connectedEdges.map((edge) =>
+                edge.source === node.nodeId ? edge.target : edge.source,
+              );
+
+              if (subcategoryNodes.length > 2) {
+                subcategoryNodes = subcategoryNodes.filter((target) =>
+                  access.some((item) => item.nodeId === target),
+                );
+              }
+
+              const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
+
+              const allColumns = [...categoryColumns, ...subcategoryColumns];
+
+              const csvFileName = `${node.nodeName}.csv`;
+
+              const csvData = await createCsvData(
+                csvFileName,
+                tableData,
+                allColumns,
+              );
+
+              downloadData.push(csvData);
+            }
+
+            const zipFilePath = await this.createAndZipCsvFiles(downloadData);
+
+            return zipFilePath;
+          }
+        }
+      }
+    }
   }
 }

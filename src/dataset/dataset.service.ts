@@ -7,7 +7,6 @@ import { AnalysisService } from 'src/analysis/analysis.service';
 import { DatabaseService } from 'src/database/database.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
 import { CassandraService } from 'src/cassandra/cassandra.service';
-import * as fs from 'fs';
 
 @Injectable()
 export class DatasetService {
@@ -358,129 +357,12 @@ export class DatasetService {
     });
 
     const sourceId = userRequest.Project.ConnectionRequest.id;
-    const query = `SELECT template, column_mapping, permissions FROM sources WHERE id = ?`;
-    const queryParams = [sourceId];
-    const result = await this.cassandra.query(query, queryParams);
-    if (
-      result[0].template &&
-      result[0].permissions &&
-      result[0].column_mapping
-    ) {
-      const template = JSON.parse(result[0].template);
-      const permissions = JSON.parse(result[0].permissions);
-      const columnMapping = JSON.parse(result[0].column_mapping);
-      const data = fs.readFileSync(
-        `${process.cwd()}/csv/${sourceId}/mapping.json`,
-        'utf8',
-      );
-      const csvMapping = JSON.parse(data);
 
-      const activePermission = permissions.find((item) => item.active);
-      if (activePermission) {
-        const corrTemplate = template.find(
-          (item) => item.id === activePermission.templateId,
-        );
+    const result = await this.dataProcess.generateDownloadDataset(
+      sourceId,
+      isResearch,
+    );
 
-        const corrColumnMapping = columnMapping.find(
-          (item) => item.templateId === activePermission.templateId,
-        );
-
-        if (corrTemplate && corrColumnMapping) {
-          if (isResearch) {
-            const settings = activePermission.settings.find(
-              (item) => item.role == 'research',
-            );
-
-            const access = settings.access.filter((access) =>
-              access.permissions.includes('performAnalysis'),
-            );
-
-            const getColumns = (nodeId: string) => {
-              const node = corrColumnMapping.mapping.find(
-                (map) => map.nodeId === nodeId,
-              );
-              return node ? node.columns : [];
-            };
-
-            const getCsvContent = async (
-              columns: { name: string; table: string }[],
-            ): Promise<string[][]> => {
-              const content: string[][] = [];
-              for (const column of columns) {
-                const csvFileName = csvMapping[column.table];
-                if (csvFileName == undefined) continue;
-
-                const filePath = `${process.cwd()}/csv/${sourceId}/synth/${csvFileName}.csv`;
-                const data = fs.readFileSync(filePath, 'utf8');
-                const rows = data.split('\n');
-
-                // Assuming first row is header and rest are data
-                const headers = rows[0].split(',');
-                const colIndex = headers.indexOf(column.name);
-
-                if (colIndex !== -1) {
-                  rows.slice(1).forEach((row, rowIndex) => {
-                    const cells = row.split(',');
-                    if (!content[rowIndex]) {
-                      content[rowIndex] = new Array(columns.length).fill('');
-                    }
-                    content[rowIndex][
-                      columns.findIndex((col) => col.name === column.name)
-                    ] = cells[colIndex] || '';
-                  });
-                }
-              }
-              return content;
-            };
-
-            const createCsv = async (
-              dirPath: string,
-              categoryNode: { nodeId: string; nodeName: string },
-              columns: { name: string; table: string }[],
-            ) => {
-              const csvContent = await getCsvContent(columns);
-              const csvFileName = `${categoryNode.nodeName}.csv`;
-              const headers = columns.map((column) => column.name).join(',');
-              const rows = csvContent.map((row) => row.join(',')).join('\n');
-              const filePath = `${dirPath}/${csvFileName}`;
-              fs.writeFileSync(filePath, `${headers}\n${rows}`);
-            };
-
-            const dirPath = `${process.cwd()}/csv/${sourceId}/download`;
-            if (fs.existsSync(dirPath)) {
-              fs.rmSync(dirPath, { recursive: true, force: true });
-            }
-            fs.mkdirSync(dirPath, { recursive: true });
-
-            for (const node of access) {
-              if (node.nodeType !== 'category') continue;
-              const categoryColumns = getColumns(node.nodeId);
-              const connectedEdges = corrTemplate.edges.filter(
-                (edge) =>
-                  edge.source === node.nodeId || edge.target === node.nodeId,
-              );
-              let subcategoryNodes = connectedEdges.map((edge) =>
-                edge.source === node.nodeId ? edge.target : edge.source,
-              );
-
-              if (subcategoryNodes.length > 2) {
-                subcategoryNodes = subcategoryNodes.filter((target) =>
-                  access.some((item) => item.nodeId === target),
-                );
-              }
-
-              const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
-
-              const allColumns = [...categoryColumns, ...subcategoryColumns];
-
-              await createCsv(dirPath, node, allColumns);
-            }
-          }
-        }
-        const folderPath = `${process.cwd()}/csv/${sourceId}`;
-        await this.dataProcess.compressFolder(folderPath);
-        return `${folderPath}/dataset.zip`;
-      }
-    }
+    return result;
   }
 }
