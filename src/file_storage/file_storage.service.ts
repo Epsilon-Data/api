@@ -3,10 +3,12 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   GetObjectCommandOutput,
+  HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 
 @Injectable()
@@ -72,5 +74,37 @@ export class FileStorageService {
 
     const command = new DeleteObjectCommand(params);
     await this.s3.send(command);
+  }
+
+  async fileExists(bucketName: string, key: string): Promise<boolean> {
+    const params = {
+      Bucket: bucketName,
+      Key: key,
+    };
+
+    const command = new HeadObjectCommand(params);
+    try {
+      await this.s3.send(command);
+      return true;
+    } catch (error) {
+      if (error.name === 'NotFound' || error.$metadata.httpStatusCode === 404) {
+        return false;
+      }
+    }
+  }
+
+  async getFileUrl(
+    bucketName: string,
+    key: string,
+    expiresIn: number = 3600,
+  ): Promise<string> {
+    const params = {
+      Bucket: bucketName,
+      Key: key,
+    };
+
+    const command = new GetObjectCommand(params);
+    const url = await getSignedUrl(this.s3, command, { expiresIn });
+    return url;
   }
 }

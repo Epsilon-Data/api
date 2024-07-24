@@ -319,14 +319,16 @@ export class DatabaseSourceService {
       },
     });
 
-    const coverStream = await this.fileStorage.getFile(
-      'cover',
-      `${projectId}/cover.jpg`,
-    );
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
+    let cover = null;
 
-    const coverBuffer = this.dataProcessing.parseCoverStream(coverStream);
+    const exists = await this.fileStorage.fileExists(bucket, key);
+    if (exists) {
+      cover = await this.fileStorage.getFileUrl(bucket, key);
+    }
 
-    return { ...request, cover: coverBuffer, id: projectId };
+    return { ...request, cover: cover, id: projectId };
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {

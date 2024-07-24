@@ -40,22 +40,26 @@ export class BrowseDatasetService {
           keywords: item.dataKeywords,
         };
       } else {
-        const coverStream = await this.fileStorage.getFile(
-          'cover',
-          `${item.Project.id}/cover.jpg`,
-        );
-        const coverBuffer = this.dataProcessing.parseCoverStream(coverStream);
+        const bucket = 'cover';
+        const key = `${item.Project.id}/cover.jpg`;
+        let cover = null;
+
+        const exists = await this.fileStorage.fileExists(bucket, key);
+        if (exists) {
+          cover = await this.fileStorage.getFileUrl(bucket, key);
+        }
+
         return {
           id: item.Project.id,
           name: item.Project.name,
           organisation: item.Project.university,
           createdDate: item.createdDate,
-          cover: coverBuffer,
+          cover: cover,
         };
       }
     });
 
-    return browseList;
+    return Promise.all(browseList);
   }
 
   async projectDetails(projectId: string, requestBody: Request) {
