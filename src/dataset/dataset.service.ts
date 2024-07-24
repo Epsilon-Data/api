@@ -7,6 +7,7 @@ import { AnalysisService } from 'src/analysis/analysis.service';
 import { DatabaseService } from 'src/database/database.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
 import { CassandraService } from 'src/cassandra/cassandra.service';
+import { FileStorageService } from 'src/file_storage/file_storage.service';
 
 @Injectable()
 export class DatasetService {
@@ -17,6 +18,7 @@ export class DatasetService {
     private database: DatabaseService,
     private dataProcess: DataProcessingService,
     private cassandra: CassandraService,
+    private fileStorage: FileStorageService,
   ) {}
 
   async list(request: Request) {
@@ -102,7 +104,11 @@ export class DatasetService {
         script: file.buffer,
       },
     });
-
+    this.fileStorage.putFile(
+      'script',
+      `${analysisId}/${file.originalname}`,
+      file,
+    );
     // this.script.preprocessScript(
     //   file.path,
     //   sourceRequest.UserRequest.Project.ConnectionRequest.id,
