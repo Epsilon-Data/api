@@ -1,5 +1,7 @@
+import os
 import sys
-import json
+import subprocess
+import yaml
 
 static_r_code  = """
 # Install necessary packages (if not already installed)
@@ -46,27 +48,61 @@ con <- dbConnect(RPostgres::Postgres(),
 
 """
 
+def install_package(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 def prepend_script(source_details, script_path):
   script = open(script_path, 'r').read()
   script = static_r_code.format(name=source_details['name'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password']) + script
   with open(script_path, 'w') as f:
     f.write(script)
 
-def main(args):
-  if len(args) != 4:
-    print("Usage: python process.py <r_script_path> <source_details_json> <column_mapping_json>")
-    return
-
-  script_path = args[1] 
-  details_arg = args[2]
-  
-  
+def upload_to_s3(file_path, prefix):
+  bucket = "script"
+  s3 = boto3.client('s3',
+                    endpoint_url='http://localhost:9000',
+                    aws_access_key_id='admin',
+                    aws_secret_access_key='supersecret',
+                    config=Config(signature_version='s3v4'),)
   try:
-    source_details = json.loads(details_arg)
-    prepend_script(source_details, script_path)
+      s3.upload_file(file_path, bucket, f'{prefix}/{file_path}')
 
-  except json.JSONDecodeError as e:
-    print(f"Error parsing JSON: {e}")
+      # Clean up the file after uploading
+      if os.path.exists(file_path):
+          os.remove(file_path)
+
+  except Exception as e:
+      print(f"Error occurred: {e}")
+
+def get_from_s3(file_path, prefix, download_path):
+  bucket = "script"
+  s3 = boto3.client('s3',
+                    endpoint_url='http://localhost:9000',
+                    aws_access_key_id='admin',
+                    aws_secret_access_key='supersecret',
+                    config=Config(signature_version='s3v4'),)
+  try:
+    s3.download_file(bucket, f'{prefix}/{file_path}', download_path)
+
+  except Exception as e:
+      print(f"Error occurred: {e}")
+
+def main(yaml_file):
+  with open(yaml_file, 'r') as file:
+    args = yaml.safe_load(file)
+    db_details = args['dbDetails']
+    analysis_id = args['analysisId']
+    script_details = args['scriptDetails']
+    
+    script_path = f'{script_details["id"]}.R'
+  
+    get_from_s3(f'{script_details["name"]}.R', analysis_id, script_path)
+    prepend_script(db_details, script_path)
 
 if __name__ == "__main__":
-    main(sys.argv)
+  install_package("boto3")
+  
+  import boto3
+  from botocore.client import Config
+  
+  main(sys.argv[1])

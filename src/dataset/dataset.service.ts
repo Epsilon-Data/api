@@ -95,25 +95,20 @@ export class DatasetService {
         analysisId: analysisId,
         name: file.originalname,
         status: 1,
-        statusMsg: 'Script checking in progress',
+        statusMsg: 'Script checking in progress.',
         lastUpdatedUser:
           request.auth.payload.given_name +
           ' ' +
           request.auth.payload.family_name,
         mapping: mapping,
-        script: file.buffer,
       },
     });
+
     this.fileStorage.putFile(
       'script',
       `${analysisId}/${file.originalname}`,
       file,
     );
-    // this.script.preprocessScript(
-    //   file.path,
-    //   sourceRequest.UserRequest.Project.ConnectionRequest.id,
-    //   createRequest.id,
-    // );
 
     return createRequest.id;
   }
@@ -226,10 +221,11 @@ export class DatasetService {
         id: scriptId,
       },
       select: {
+        name: true,
         mapping: true,
-        script: true,
         Analysis: {
           select: {
+            id: true,
             UserRequest: {
               select: {
                 Project: {
@@ -275,8 +271,13 @@ export class DatasetService {
       }
     }
 
+    const script = await this.fileStorage.getFileUrl(
+      'script',
+      `${scriptRequest.Analysis.id}/${scriptRequest.name}`,
+    );
+
     return {
-      script: scriptRequest.script,
+      script: script,
       mapping: scriptRequest.mapping,
       csv: csvNames,
     };
@@ -320,7 +321,7 @@ export class DatasetService {
           id: scriptId,
         },
         data: {
-          mapping: JSON.parse(mapping),
+          mapping: parsed,
           status: 4,
           statusMsg:
             'Incomplete upload settings. Please check your upload settings to proceed.',
@@ -328,12 +329,48 @@ export class DatasetService {
       });
     }
 
+    const request = await this.prisma.script.findUnique({
+      where: {
+        id: scriptId,
+      },
+      select: {
+        name: true,
+        mapping: true,
+        Analysis: {
+          select: {
+            id: true,
+            UserRequest: {
+              select: {
+                Project: {
+                  select: {
+                    ConnectionRequest: {
+                      select: {
+                        id: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    this.dataProcess.preprocessScript(
+      request.Analysis.UserRequest.Project.ConnectionRequest.id,
+      request.Analysis.id,
+      { id: scriptId, name: request.name, mapping: parsed },
+    );
+
     return await this.prisma.script.update({
       where: {
         id: scriptId,
       },
       data: {
         mapping: parsed,
+        status: 1,
+        statusMsg: 'Script checking in progress.',
       },
     });
   }

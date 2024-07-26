@@ -188,19 +188,19 @@ def main(yaml_file):
   with open(yaml_file, 'r') as file:
     args = yaml.safe_load(file)
     db_details = args['dbDetails']
-    sourceId = args['sourceId']
+    source_id = args['sourceId']
     table_names = args['tableNames']
     foreign_keys = args['foreignKeys']
     primary_keys = args['primaryKeys']
   
     combined = []
     
-    combined = combine_dataframes(db_details, sourceId, table_names, foreign_keys, primary_keys)
+    combined = combine_dataframes(db_details, source_id, table_names, foreign_keys, primary_keys)
   
     if len(combined) > 0:
       for i in range(len(combined)):
         df = combined[i]
-        synthesis(df, f'synth-{i}', sourceId)
+        synthesis(df, f'synth-{i}', source_id)
   
 if __name__ == "__main__":
   install_package("pandas")

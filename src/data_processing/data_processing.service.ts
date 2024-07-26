@@ -33,26 +33,25 @@ export class DataProcessingService {
   }
 
   async preprocessScript(
-    userPath: string,
     sourceId: string,
-    scriptId: string,
+    analysisId: string,
+    scriptDetails: { id: string; name: string; mapping: any },
   ): Promise<string> {
+    const scriptPath = process.cwd() + '/scripts/process.py';
     const query = `SELECT type, host, port, username, password, name, column_mapping FROM sources WHERE id = ?`;
     const queryParams = [sourceId];
     const result = await this.cassandra.query(query, queryParams);
 
-    const sourceDetails = {
+    const dbDetails = {
       ...result[0],
       host:
         result[0].host == 'host.docker.internal' ? 'localhost' : result[0].host,
     };
 
-    const scriptPath = process.cwd() + '/scripts/process.py';
-
     if (result[0].column_mapping) {
       await this.prisma.script.update({
         where: {
-          id: scriptId,
+          id: scriptDetails.id,
         },
         data: {
           status: 2,
@@ -62,12 +61,16 @@ export class DataProcessingService {
       });
     } else {
       return new Promise((resolve, reject) => {
-        const args = [
-          process.cwd() + '/' + userPath,
-          JSON.stringify(sourceDetails),
-          JSON.stringify(result[0].column_mapping),
-        ];
-        const command = `python3 '${scriptPath}' '${args.join("' '")}'`;
+        const args = {
+          dbDetails,
+          analysisId,
+          scriptDetails,
+        };
+
+        const yamlFilePath = `${process.cwd()}/script_args.yaml`;
+        fs.writeFileSync(yamlFilePath, yaml.dump(args));
+
+        const command = `python3 '${scriptPath}' '${yamlFilePath}'`;
 
         exec(command, (error, stdout, stderr) => {
           if (error) {
