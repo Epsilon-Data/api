@@ -100,13 +100,10 @@ export class DatasetController {
   @Get('download-dataset')
   async downloadDataset(
     @Query('userRequestId', ParseUUIDPipe) userRequestId: string,
-    @Req() request: Request,
     @Res() response: Response,
   ) {
-    const zipFilePath = await this.datasetService.downloadDataset(
-      userRequestId,
-      request,
-    );
+    const zipFilePath =
+      await this.datasetService.downloadDataset(userRequestId);
 
     response.set({
       'Content-Type': 'application/zip',

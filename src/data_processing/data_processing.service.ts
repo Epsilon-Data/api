@@ -38,17 +38,21 @@ export class DataProcessingService {
     scriptDetails: { id: string; name: string; mapping: any },
   ): Promise<string> {
     const scriptPath = process.cwd() + '/scripts/process.py';
-    const query = `SELECT type, host, port, username, password, name, column_mapping FROM sources WHERE id = ?`;
+    const query = `SELECT type, host, port, username, password, name, column_mapping, permissions, template FROM sources WHERE id = ?`;
     const queryParams = [sourceId];
     const result = await this.cassandra.query(query, queryParams);
 
     const dbDetails = {
-      ...result[0],
+      type: result[0].type,
       host:
         result[0].host == 'host.docker.internal' ? 'localhost' : result[0].host,
+      port: result[0].port,
+      username: result[0].username,
+      password: result[0].password,
+      name: result[0].name,
     };
 
-    if (result[0].column_mapping) {
+    if (!result[0].column_mapping) {
       await this.prisma.script.update({
         where: {
           id: scriptDetails.id,
@@ -60,11 +64,24 @@ export class DataProcessingService {
         },
       });
     } else {
+      const template = JSON.parse(result[0].template);
+      const permissions = JSON.parse(result[0].permissions);
+      const columnMapping = JSON.parse(result[0].column_mapping);
+      const role = 'research';
+
+      const csvColumns = await this.csvColumns(
+        template,
+        permissions,
+        columnMapping,
+        role,
+      );
+
       return new Promise((resolve, reject) => {
         const args = {
           dbDetails,
           analysisId,
           scriptDetails,
+          csvColumns,
         };
 
         const yamlFilePath = `${process.cwd()}/script_args.yaml`;
@@ -245,10 +262,7 @@ export class DataProcessingService {
     });
   }
 
-  async generateDownloadDataset(
-    sourceId: string,
-    isResearch: boolean,
-  ): Promise<string> {
+  async generateDownloadDataset(sourceId: string): Promise<string> {
     const bucket = 'synthetic';
     const query = `SELECT template, column_mapping, permissions FROM sources WHERE id = ?`;
     const queryParams = [sourceId];
@@ -262,124 +276,143 @@ export class DataProcessingService {
       const template = JSON.parse(result[0].template);
       const permissions = JSON.parse(result[0].permissions);
       const columnMapping = JSON.parse(result[0].column_mapping);
+      const role = 'research';
+
+      const csvColumns = await this.csvColumns(
+        template,
+        permissions,
+        columnMapping,
+        role,
+      );
 
       const mappingStream = await this.fileStorage.getFile(
         bucket,
         `${sourceId}/mapping.json`,
       );
       const csvMapping = await this.parseJsonStream(mappingStream);
-      const activePermission = permissions.find((item) => item.active);
-      if (activePermission) {
-        const corrTemplate = template.find(
-          (item) => item.id === activePermission.templateId,
-        );
 
-        const corrColumnMapping = columnMapping.find(
-          (item) => item.templateId === activePermission.templateId,
-        );
+      const createCsvData = async (
+        csvFileName: string,
+        tableData: { [table: string]: any[] },
+        columns: { name: string; table: string }[],
+      ) => {
+        // Extract the required columns
+        const combinedData: any[] = [];
 
-        if (corrTemplate && corrColumnMapping) {
-          if (isResearch) {
-            const settings = activePermission.settings.find(
-              (item) => item.role == 'research',
-            );
-
-            const access = settings.access.filter((access) =>
-              access.permissions.includes('performAnalysis'),
-            );
-
-            const getColumns = (nodeId: string) => {
-              const node = corrColumnMapping.mapping.find(
-                (map) => map.nodeId === nodeId,
+        const numRows = 200;
+        const columnIndex = {};
+        for (let i = 0; i < numRows; i++) {
+          const row: any = {};
+          for (const col of columns) {
+            if (i == 0) {
+              columnIndex[col.name] = tableData[col.table][i].findIndex(
+                (item) => item === col.name,
               );
-              return node ? node.columns : [];
-            };
-
-            const createCsvData = async (
-              csvFileName: string,
-              tableData: { [table: string]: any[] },
-              columns: { name: string; table: string }[],
-            ) => {
-              // Extract the required columns
-              const combinedData: any[] = [];
-
-              const numRows = 200;
-              const columnIndex = {};
-              for (let i = 0; i < numRows; i++) {
-                const row: any = {};
-                for (const col of columns) {
-                  if (i == 0) {
-                    columnIndex[col.name] = tableData[col.table][i].findIndex(
-                      (item) => item === col.name,
-                    );
-                  } else {
-                    if (tableData[col.table][i]) {
-                      const index = columnIndex[col.name];
-                      row[col.name] = tableData[col.table][i][index];
-                    } else {
-                      row[col.name] = '';
-                    }
-                  }
-                }
-
-                if (i != 0) {
-                  combinedData.push(row);
-                }
+            } else {
+              if (tableData[col.table][i]) {
+                const index = columnIndex[col.name];
+                row[col.name] = tableData[col.table][i][index];
+              } else {
+                row[col.name] = '';
               }
-
-              return { filename: csvFileName, data: combinedData };
-            };
-
-            const tableData: { [table: string]: any[] } = {};
-            for (const table of Object.keys(csvMapping)) {
-              const csvFile = csvMapping[table];
-              const csvStream = await this.fileStorage.getFile(
-                bucket,
-                `${sourceId}/synth-${csvFile}.csv`,
-              );
-              tableData[table] = await this.parseCsvStream(csvStream);
             }
+          }
 
-            const downloadData = [];
-            for (const node of access) {
-              if (node.nodeType !== 'category') continue;
-              const categoryColumns = getColumns(node.nodeId);
-              const connectedEdges = corrTemplate.edges.filter(
-                (edge) =>
-                  edge.source === node.nodeId || edge.target === node.nodeId,
-              );
-              let subcategoryNodes = connectedEdges.map((edge) =>
-                edge.source === node.nodeId ? edge.target : edge.source,
-              );
-
-              if (subcategoryNodes.length > 2) {
-                subcategoryNodes = subcategoryNodes.filter((target) =>
-                  access.some((item) => item.nodeId === target),
-                );
-              }
-
-              const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
-
-              const allColumns = [...categoryColumns, ...subcategoryColumns];
-
-              const csvFileName = `${node.nodeName}.csv`;
-
-              const csvData = await createCsvData(
-                csvFileName,
-                tableData,
-                allColumns,
-              );
-
-              downloadData.push(csvData);
-            }
-
-            const zipFilePath = await this.createAndZipCsvFiles(downloadData);
-
-            return zipFilePath;
+          if (i != 0) {
+            combinedData.push(row);
           }
         }
+
+        return { filename: csvFileName, data: combinedData };
+      };
+
+      const tableData: { [table: string]: any[] } = {};
+      for (const table of Object.keys(csvMapping)) {
+        const csvFile = csvMapping[table];
+        const csvStream = await this.fileStorage.getFile(
+          bucket,
+          `${sourceId}/synth-${csvFile}.csv`,
+        );
+        tableData[table] = await this.parseCsvStream(csvStream);
+      }
+
+      const downloadData = [];
+      for (const csvName of Object.keys(csvColumns)) {
+        const corrCols = csvColumns[csvName];
+
+        const csvFileName = `${csvName}.csv`;
+
+        const csvData = await createCsvData(csvFileName, tableData, corrCols);
+
+        downloadData.push(csvData);
+      }
+
+      const zipFilePath = await this.createAndZipCsvFiles(downloadData);
+
+      return zipFilePath;
+    }
+  }
+
+  private async csvColumns(
+    template,
+    permissions,
+    columnMapping,
+    role,
+  ): Promise<any> {
+    const activePermission = permissions.find((item) => item.active);
+    if (activePermission) {
+      const corrTemplate = template.find(
+        (item) => item.id === activePermission.templateId,
+      );
+
+      const corrColumnMapping = columnMapping.find(
+        (item) => item.templateId === activePermission.templateId,
+      );
+
+      if (corrTemplate && corrColumnMapping) {
+        const settings = activePermission.settings.find(
+          (item) => item.role == role,
+        );
+
+        const access = settings.access.filter((access) =>
+          access.permissions.includes('performAnalysis'),
+        );
+
+        const getColumns = (nodeId: string) => {
+          const node = corrColumnMapping.mapping.find(
+            (map) => map.nodeId === nodeId,
+          );
+          return node ? node.columns : [];
+        };
+
+        const output = {};
+        for (const node of access) {
+          if (node.nodeType !== 'category') continue;
+          const categoryColumns = getColumns(node.nodeId);
+          const connectedEdges = corrTemplate.edges.filter(
+            (edge) =>
+              edge.source === node.nodeId || edge.target === node.nodeId,
+          );
+          let subcategoryNodes = connectedEdges.map((edge) =>
+            edge.source === node.nodeId ? edge.target : edge.source,
+          );
+
+          if (subcategoryNodes.length > 2) {
+            subcategoryNodes = subcategoryNodes.filter((target) =>
+              access.some((item) => item.nodeId === target),
+            );
+          }
+
+          const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
+
+          const allColumns = [...categoryColumns, ...subcategoryColumns];
+
+          output[`${node.nodeName}`] = allColumns;
+        }
+        return output;
       }
     }
+    return null;
   }
 
   async parseCoverStream(stream: Readable): Promise<Buffer> {

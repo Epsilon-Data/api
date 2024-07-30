@@ -3,36 +3,39 @@ import sys
 import subprocess
 import yaml
 
-static_r_code  = """
+conn_code  = """
 # Install necessary packages (if not already installed)
-#install.packages("RPostgres")
-#install.packages("DBI")
+install.packages("RPostgres")
+install.packages("DBI")
 
 # Load the packages
 library(DBI)
 library(RPostgres)
 
 # Function to fuse two data frames
-fuse_data_frames <- function(user_df, food_df) {{
+fuse_data_frames <- function(dfs) {{
   # Determine the maximum number of rows needed
-  max_rows <- max(nrow(user_df), nrow(food_df))
+  max_rows <- max(sapply(dfs, nrow))
   
   # Initialize an empty data frame with the correct number of columns
-  combined_df <- data.frame(matrix(ncol = ncol(user_df) + ncol(food_df), nrow = max_rows))
-  colnames(combined_df) <- c(colnames(user_df), colnames(food_df))
+  total_cols <- sum(sapply(dfs, ncol))
+  combined_df <- data.frame(matrix(ncol = total_cols, nrow = max_rows))
+  
+  # Set column names for the combined data frame
+  colnames(combined_df) <- unlist(lapply(dfs, colnames))
   
   # Populate the combined data frame
-  for (i in 1:max_rows) {{
-    if (i <= nrow(user_df)) {{
-      combined_df[i, 1:ncol(user_df)] <- user_df[i, ]
-    }} else {{
-      combined_df[i, 1:ncol(user_df)] <- ""
+  current_col <- 1
+  for (df in dfs) {{
+    num_cols <- ncol(df)
+    for (i in 1:max_rows) {{
+      if (i <= nrow(df)) {{
+        combined_df[i, current_col:(current_col + num_cols - 1)] <- df[i, ]
+      }} else {{
+        combined_df[i, current_col:(current_col + num_cols - 1)] <- NA
+      }}
     }}
-    if (i <= nrow(food_df)) {{
-      combined_df[i, (ncol(user_df) + 1):ncol(combined_df)] <- food_df[i, ]
-    }} else {{
-      combined_df[i, (ncol(user_df) + 1):ncol(combined_df)] <- ""
-    }}
+    current_col <- current_col + num_cols
   }}
   
   return(combined_df)
@@ -51,13 +54,60 @@ con <- dbConnect(RPostgres::Postgres(),
 def install_package(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
-def prepend_script(source_details, script_path):
-  script = open(script_path, 'r').read()
-  script = static_r_code.format(name=source_details['name'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password']) + script
-  with open(script_path, 'w') as f:
-    f.write(script)
+def gen_query_block(column_mapping):
+  block = """"""
+  
+  columns_by_table = {}
+  for node, columns in column_mapping.items():
+      for column in columns:
+          table = column['table']
+          name = column['name']
+          if table not in columns_by_table:
+              columns_by_table[table] = []
+          columns_by_table[table].append(name)
+  
+  for table, names in columns_by_table.items():
+    columns_str = '", "'.join(names)
+    block += f"{table} <- dbGetQuery(con, 'SELECT \"{columns_str}\" from {table}')\n"
+    
+  return block
 
-def upload_to_s3(file_path, prefix):
+def gen_df_block(column_mapping, script_mapping):
+  block = """"""
+  tables_by_node = {}
+  for node, columns in column_mapping.items():
+      tables = set()
+      for column in columns:
+          tables.add(column['table'])
+      tables_by_node[node] = list(tables)
+
+  for var, node in script_mapping.items():
+      if node in tables_by_node:
+          tables_str = ', '.join(tables_by_node[node])
+          block += f"{var} <- fuse_data_frames(list({tables_str}))\n"
+
+  return block
+
+def prepend_script(source_details, csv_columns, script_mapping, script_path):
+  script = open(script_path, 'r').read()
+  conn_block = conn_code.format(name=source_details['name'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password'])
+  query_block = gen_query_block(csv_columns)
+  df_block = gen_df_block(csv_columns, script_mapping)
+  
+  prepend_item = f"""
+  {conn_block}
+  
+  {query_block}
+  
+  {df_block}
+  """
+  
+  combined = prepend_item + script
+  
+  with open(script_path, 'w') as f:
+    f.write(combined)
+
+def upload_to_s3(file_path, prefix, file_name):
   bucket = "script"
   s3 = boto3.client('s3',
                     endpoint_url='http://localhost:9000',
@@ -65,7 +115,7 @@ def upload_to_s3(file_path, prefix):
                     aws_secret_access_key='supersecret',
                     config=Config(signature_version='s3v4'),)
   try:
-      s3.upload_file(file_path, bucket, f'{prefix}/{file_path}')
+      s3.upload_file(file_path, bucket, f'{prefix}/{file_name}')
 
       # Clean up the file after uploading
       if os.path.exists(file_path):
@@ -74,7 +124,7 @@ def upload_to_s3(file_path, prefix):
   except Exception as e:
       print(f"Error occurred: {e}")
 
-def get_from_s3(file_path, prefix, download_path):
+def get_from_s3(file_name, prefix, download_path):
   bucket = "script"
   s3 = boto3.client('s3',
                     endpoint_url='http://localhost:9000',
@@ -82,7 +132,8 @@ def get_from_s3(file_path, prefix, download_path):
                     aws_secret_access_key='supersecret',
                     config=Config(signature_version='s3v4'),)
   try:
-    s3.download_file(bucket, f'{prefix}/{file_path}', download_path)
+    os.makedirs(os.path.dirname(download_path), exist_ok=True)
+    s3.download_file(bucket, f'{prefix}/{file_name}', download_path)
 
   except Exception as e:
       print(f"Error occurred: {e}")
@@ -93,11 +144,13 @@ def main(yaml_file):
     db_details = args['dbDetails']
     analysis_id = args['analysisId']
     script_details = args['scriptDetails']
+    csv_cols = args['csvColumns']
     
-    script_path = f'{script_details["id"]}.R'
+    script_path = f'{os.getcwd()}/rfiles/{script_details["id"]}.R'
   
-    get_from_s3(f'{script_details["name"]}.R', analysis_id, script_path)
-    prepend_script(db_details, script_path)
+    get_from_s3(f'{script_details["name"]}', analysis_id, script_path)
+    prepend_script(db_details, csv_cols, script_details["mapping"], script_path)
+    upload_to_s3(script_path, analysis_id, f'{script_details["name"]}')
 
 if __name__ == "__main__":
   install_package("boto3")

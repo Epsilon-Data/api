@@ -94,8 +94,9 @@ export class DatasetService {
       data: {
         analysisId: analysisId,
         name: file.originalname,
-        status: 1,
-        statusMsg: 'Script checking in progress.',
+        status: 4,
+        statusMsg:
+          'Incomplete upload settings. Please check your upload settings to proceed.',
         lastUpdatedUser:
           request.auth.payload.given_name +
           ' ' +
@@ -128,11 +129,30 @@ export class DatasetService {
   }
 
   async deleteScript(scriptId: string) {
+    const request = await this.prisma.script.findUnique({
+      where: {
+        id: scriptId,
+      },
+      select: {
+        name: true,
+        Analysis: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
     await this.prisma.script.delete({
       where: {
         id: scriptId,
       },
     });
+
+    this.fileStorage.deleteFile(
+      'script',
+      `${request.Analysis.id}/${request.name}`,
+    );
 
     return scriptId;
   }
@@ -375,13 +395,7 @@ export class DatasetService {
     });
   }
 
-  async downloadDataset(userRequestId: string, request: Request) {
-    let isResearch = false;
-    const access: { roles?: string[] } = request.auth.payload.realm_access;
-    if (access && access.roles) {
-      isResearch = access.roles.indexOf('research') !== -1;
-    }
-
+  async downloadDataset(userRequestId: string) {
     const userRequest = await this.prisma.userRequest.findUnique({
       where: {
         id: userRequestId,
@@ -401,10 +415,7 @@ export class DatasetService {
 
     const sourceId = userRequest.Project.ConnectionRequest.id;
 
-    const result = await this.dataProcess.generateDownloadDataset(
-      sourceId,
-      isResearch,
-    );
+    const result = await this.dataProcess.generateDownloadDataset(sourceId);
 
     return result;
   }
