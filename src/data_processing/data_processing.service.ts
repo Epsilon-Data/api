@@ -100,11 +100,10 @@ export class DataProcessingService {
     }
   }
 
-  async extractCsvVariables(buffer: Buffer): Promise<string[]> {
-    const fileContent = buffer.toString('utf-8');
+  async extractCsvVariables(script: string): Promise<string[]> {
     const csvImportPattern =
       /(\w+)\s*<-\s*(read\.csv|read_csv|read\.csv2)\(.+\)/g;
-    const matches = [...fileContent.matchAll(csvImportPattern)];
+    const matches = [...script.matchAll(csvImportPattern)];
     return matches.map((match) => match[1]);
   }
 

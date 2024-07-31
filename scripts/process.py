@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import yaml
+import re
 
 conn_code  = """
 # Install necessary packages (if not already installed)
@@ -68,12 +69,13 @@ def gen_query_block(column_mapping):
   
   for table, names in columns_by_table.items():
     columns_str = '", "'.join(names)
-    block += f"{table} <- dbGetQuery(con, 'SELECT \"{columns_str}\" from {table}')\n"
+    table_var = table.replace('.', '_')
+    block += f"{table_var} <- dbGetQuery(con, 'SELECT \"{columns_str}\" from {table}')\n"
     
   return block
 
 def gen_df_block(column_mapping, script_mapping):
-  block = """"""
+  block = []
   tables_by_node = {}
   for node, columns in column_mapping.items():
       tables = set()
@@ -83,26 +85,28 @@ def gen_df_block(column_mapping, script_mapping):
 
   for var, node in script_mapping.items():
       if node in tables_by_node:
-          tables_str = ', '.join(tables_by_node[node])
-          block += f"{var} <- fuse_data_frames(list({tables_str}))\n"
+          tables_str = ', '.join(tables_by_node[node]).replace('.', '_')
+          block.append((var, f"{var} <- fuse_data_frames(list({tables_str}))\n"))
 
   return block
 
 def prepend_script(source_details, csv_columns, script_mapping, script_path):
-  script = open(script_path, 'r').read()
   conn_block = conn_code.format(name=source_details['name'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password'])
   query_block = gen_query_block(csv_columns)
   df_block = gen_df_block(csv_columns, script_mapping)
   
-  prepend_item = f"""
-  {conn_block}
+  with open(script_path, 'r') as f:
+    script_lines = f.readlines()
   
-  {query_block}
+  for i, line in enumerate(script_lines):
+    for var, new_line in df_block:
+        if re.search(rf'{var}\s*<-\s*read\.csv|read_csv|read\.csv2', line):
+            script_lines[i] = new_line
+            break
   
-  {df_block}
-  """
+  prepend_item = f"{conn_block}\n{query_block}\n"
   
-  combined = prepend_item + script
+  combined = prepend_item + ''.join(script_lines)
   
   with open(script_path, 'w') as f:
     f.write(combined)
@@ -150,7 +154,7 @@ def main(yaml_file):
   
     get_from_s3(f'{script_details["name"]}', analysis_id, script_path)
     prepend_script(db_details, csv_cols, script_details["mapping"], script_path)
-    upload_to_s3(script_path, analysis_id, f'{script_details["name"]}')
+    upload_to_s3(script_path, analysis_id, f'prepend-{script_details["name"]}')
 
 if __name__ == "__main__":
   install_package("boto3")

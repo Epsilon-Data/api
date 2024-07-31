@@ -84,7 +84,8 @@ export class DatasetService {
     analysisId: string,
     file: Express.Multer.File,
   ) {
-    const variables = await this.dataProcess.extractCsvVariables(file.buffer);
+    const fileContent = file.buffer.toString('utf-8');
+    const variables = await this.dataProcess.extractCsvVariables(fileContent);
     const mapping = variables.reduce((obj, str) => {
       obj[str] = null;
       return obj;
@@ -149,10 +150,22 @@ export class DatasetService {
       },
     });
 
-    this.fileStorage.deleteFile(
+    await this.fileStorage.deleteFile(
       'script',
       `${request.Analysis.id}/${request.name}`,
     );
+
+    const isPrepend = await this.fileStorage.fileExists(
+      'script',
+      `${request.Analysis.id}/prepend-${request.name}`,
+    );
+
+    if (isPrepend) {
+      await this.fileStorage.deleteFile(
+        'script',
+        `${request.Analysis.id}/prepend-${request.name}`,
+      );
+    }
 
     return scriptId;
   }
