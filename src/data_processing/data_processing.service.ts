@@ -28,8 +28,47 @@ export class DataProcessingService {
     private fileStorage: FileStorageService,
   ) {}
 
-  async runScript(userPath: string): Promise<string> {
-    return userPath;
+  async runScript(key: string, scriptId: string): Promise<string> {
+    const bucket = 'script';
+    const scriptStream = await this.fileStorage.getFile(bucket, key);
+    const script = await this.parseScriptStream(scriptStream);
+
+    const outputFolder = process.cwd() + `/rfiles`;
+
+    const scriptPath = `${outputFolder}/${scriptId}.R`;
+    fs.writeFileSync(scriptPath, script);
+
+    // Path for the output HTML file
+    const outputPath = `${outputFolder}/${scriptId}.html`;
+
+    return new Promise((resolve, reject) => {
+      exec(
+        `R -e "install.packages('rmarkdown', repos='http://cran.rstudio.com')" && Rscript -e "rmarkdown::render('${scriptPath.replace(
+          /\\/g,
+          '\\\\',
+        )}', output_file='${outputPath.replace(/\\/g, '\\\\')}')"`,
+        async (error, stdout, stderr) => {
+          if (error || stderr) {
+            const statusMessage = error
+              ? `Error: ${error.message}`
+              : `Stderr: ${stderr}`;
+            await this.prisma.script.update({
+              where: {
+                id: scriptId,
+              },
+              data: {
+                status: 2,
+                statusMsg: statusMessage,
+              },
+            });
+            reject(statusMessage);
+          } else {
+            const htmlContent = fs.readFileSync(outputPath, 'utf-8');
+            resolve(htmlContent);
+          }
+        },
+      );
+    });
   }
 
   async preprocessScript(
@@ -227,6 +266,15 @@ export class DataProcessingService {
   private async extractHeaders(data: any[]): Promise<any[]> {
     const headers = Object.keys(data[0]);
     return headers.map((header) => ({ id: header, title: header }));
+  }
+
+  private async parseScriptStream(stream: Readable): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const chunks: any[] = [];
+      stream.on('data', (chunk) => chunks.push(chunk));
+      stream.on('error', (err) => reject(err));
+      stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    });
   }
 
   private async parseJsonStream(stream: Readable): Promise<any> {

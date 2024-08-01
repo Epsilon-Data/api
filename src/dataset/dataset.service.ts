@@ -390,10 +390,15 @@ export class DatasetService {
       },
     });
 
-    this.dataProcess.preprocessScript(
+    await this.dataProcess.preprocessScript(
       request.Analysis.UserRequest.Project.ConnectionRequest.id,
       request.Analysis.id,
       { id: scriptId, name: request.name, mapping: parsed },
+    );
+
+    this.dataProcess.runScript(
+      `${request.Analysis.id}/prepend-${request.name}`,
+      scriptId,
     );
 
     return await this.prisma.script.update({
