@@ -11,6 +11,7 @@ import { Readable } from 'stream';
 import { createObjectCsvWriter } from 'csv-writer';
 import * as archiver from 'archiver';
 import { join } from 'path';
+import * as path from 'path';
 
 type Row = {
   table_name: string;
@@ -28,9 +29,14 @@ export class DataProcessingService {
     private fileStorage: FileStorageService,
   ) {}
 
-  async runScript(key: string, scriptId: string): Promise<string> {
+  async runScript(analysisId: string, scriptName: string, scriptId: string) {
     const bucket = 'script';
-    const scriptStream = await this.fileStorage.getFile(bucket, key);
+    const resBucket = 'script-result';
+    const scriptStream = await this.fileStorage.getFile(
+      bucket,
+      `${analysisId}/prepend-${scriptName}`,
+    );
+
     const script = await this.parseScriptStream(scriptStream);
 
     const outputFolder = process.cwd() + `/rfiles`;
@@ -41,9 +47,9 @@ export class DataProcessingService {
     // Path for the output HTML file
     const outputPath = `${outputFolder}/${scriptId}.html`;
 
-    return new Promise((resolve, reject) => {
+    await new Promise((resolve) => {
       exec(
-        `R -e "install.packages('rmarkdown', repos='http://cran.rstudio.com')" && Rscript -e "rmarkdown::render('${scriptPath.replace(
+        `R -e "options(repos = c(CRAN = 'http://cran.rstudio.com')); install.packages('rmarkdown', repos='http://cran.rstudio.com')" && Rscript -e "rmarkdown::render('${scriptPath.replace(
           /\\/g,
           '\\\\',
         )}', output_file='${outputPath.replace(/\\/g, '\\\\')}')"`,
@@ -61,9 +67,17 @@ export class DataProcessingService {
                 statusMsg: statusMessage,
               },
             });
-            reject(statusMessage);
           } else {
             const htmlContent = fs.readFileSync(outputPath, 'utf-8');
+            const multerFile = this.createMulterFile(outputPath, htmlContent);
+            await this.fileStorage.putFile(
+              resBucket,
+              `${analysisId}/${scriptName}`.replace(/\.r$/, '.html'),
+              multerFile,
+            );
+
+            fs.unlinkSync(scriptPath);
+            fs.unlinkSync(outputPath);
             resolve(htmlContent);
           }
         },
@@ -474,5 +488,25 @@ export class DataProcessingService {
         })
         .on('error', reject);
     });
+  }
+
+  private createMulterFile(
+    filePath: string,
+    content: string,
+  ): Express.Multer.File {
+    const fileBuffer = Buffer.from(content, 'utf-8');
+    const multerFile: Express.Multer.File = {
+      fieldname: 'file',
+      originalname: path.basename(filePath),
+      encoding: '7bit',
+      mimetype: 'text/html',
+      size: fileBuffer.length,
+      buffer: fileBuffer,
+      destination: '',
+      filename: path.basename(filePath),
+      path: filePath,
+      stream: fs.createReadStream(filePath),
+    };
+    return multerFile;
   }
 }

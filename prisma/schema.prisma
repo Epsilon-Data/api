@@ -92,4 +92,5 @@ model Script {
   executionSettings Json?
   mapping           Json?
   Analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_script_analysis_id")
+  @@unique([analysisId, name])
 }

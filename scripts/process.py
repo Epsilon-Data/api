@@ -5,6 +5,7 @@ import yaml
 import re
 
 conn_code  = """
+options(repos = c(CRAN = 'http://cran.rstudio.com'))
 # Install necessary packages (if not already installed)
 install.packages("RPostgres")
 install.packages("DBI")
@@ -90,13 +91,36 @@ def gen_df_block(column_mapping, script_mapping):
 
   return block
 
+def detect_libraries(script_lines):
+    library_pattern = re.compile(r'^\s*library\((\w+)\)')
+    require_pattern = re.compile(r'^\s*require\((\w+)\)')
+    
+    libraries = set()
+    for line in script_lines:
+        lib_match = library_pattern.search(line)
+        req_match = require_pattern.search(line)
+        if lib_match:
+            libraries.add(lib_match.group(1))
+        elif req_match:
+            libraries.add(req_match.group(1))
+    
+    return libraries
+  
+def gen_install_packages_block(libraries):
+    install_lines = [f"if (!require('{lib}')) install.packages('{lib}', dependencies=TRUE)" for lib in libraries]
+    return '\n'.join(install_lines)
+
 def prepend_script(source_details, csv_columns, script_mapping, script_path):
   conn_block = conn_code.format(name=source_details['name'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password'])
   query_block = gen_query_block(csv_columns)
   df_block = gen_df_block(csv_columns, script_mapping)
+
   
   with open(script_path, 'r') as f:
     script_lines = f.readlines()
+  
+  libraries = detect_libraries(script_lines)
+  install_block = gen_install_packages_block(libraries)
   
   for i, line in enumerate(script_lines):
     for var, new_line in df_block:
@@ -104,7 +128,7 @@ def prepend_script(source_details, csv_columns, script_mapping, script_path):
             script_lines[i] = new_line
             break
   
-  prepend_item = f"{conn_block}\n{query_block}\n"
+  prepend_item = f"{install_block}\n{conn_block}\n{query_block}\n"
   
   combined = prepend_item + ''.join(script_lines)
   

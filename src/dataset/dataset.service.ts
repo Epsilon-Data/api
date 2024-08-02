@@ -91,8 +91,21 @@ export class DatasetService {
       return obj;
     }, {});
 
-    const createRequest = await this.prisma.script.create({
-      data: {
+    const createRequest = await this.prisma.script.upsert({
+      where: {
+        analysisId_name: { analysisId: analysisId, name: file.originalname },
+      },
+      update: {
+        status: 4,
+        statusMsg:
+          'Incomplete upload settings. Please check your upload settings to proceed.',
+        lastUpdatedUser:
+          request.auth.payload.given_name +
+          ' ' +
+          request.auth.payload.family_name,
+        mapping: mapping,
+      },
+      create: {
         analysisId: analysisId,
         name: file.originalname,
         status: 4,
@@ -339,7 +352,6 @@ export class DatasetService {
 
   async addScriptMapping(scriptId: string, mapping: string) {
     const parsed = JSON.parse(mapping);
-
     let hasNull = false;
     for (const value of Object.values(parsed)) {
       if (value === null) {
@@ -396,12 +408,7 @@ export class DatasetService {
       { id: scriptId, name: request.name, mapping: parsed },
     );
 
-    this.dataProcess.runScript(
-      `${request.Analysis.id}/prepend-${request.name}`,
-      scriptId,
-    );
-
-    return await this.prisma.script.update({
+    await this.prisma.script.update({
       where: {
         id: scriptId,
       },
@@ -411,6 +418,12 @@ export class DatasetService {
         statusMsg: 'Script checking in progress.',
       },
     });
+
+    await this.dataProcess.runScript(
+      request.Analysis.id,
+      request.name,
+      scriptId,
+    );
   }
 
   async downloadDataset(userRequestId: string) {
