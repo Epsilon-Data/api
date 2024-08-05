@@ -174,7 +174,7 @@ def main(yaml_file):
     script_details = args['scriptDetails']
     csv_cols = args['csvColumns']
     
-    script_path = f'{os.getcwd()}/rfiles/{script_details["id"]}.R'
+    script_path = f'{os.getcwd()}/temp_files/{script_details["id"]}.R'
   
     get_from_s3(f'{script_details["name"]}', analysis_id, script_path)
     prepend_script(db_details, csv_cols, script_details["mapping"], script_path)

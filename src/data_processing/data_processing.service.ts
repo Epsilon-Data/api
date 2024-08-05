@@ -39,7 +39,7 @@ export class DataProcessingService {
 
     const script = await this.parseScriptStream(scriptStream);
 
-    const outputFolder = process.cwd() + `/rfiles`;
+    const outputFolder = process.cwd() + `/temp_files`;
 
     const scriptPath = `${outputFolder}/${scriptId}.R`;
     fs.writeFileSync(scriptPath, script);
@@ -47,17 +47,21 @@ export class DataProcessingService {
     // Path for the output HTML file
     const outputPath = `${outputFolder}/${scriptId}.html`;
 
+    const args = {
+      scriptPath,
+      outputPath,
+      scriptName,
+    };
+
+    const yamlFilePath = `${process.cwd()}/script_args.yaml`;
+    fs.writeFileSync(yamlFilePath, yaml.dump(args));
+
     await new Promise((resolve) => {
       exec(
-        `R -e "options(repos = c(CRAN = 'http://cran.rstudio.com')); install.packages('rmarkdown', repos='http://cran.rstudio.com')" && Rscript -e "rmarkdown::render('${scriptPath.replace(
-          /\\/g,
-          '\\\\',
-        )}', output_file='${outputPath.replace(/\\/g, '\\\\')}')"`,
-        async (error, stdout, stderr) => {
-          if (error || stderr) {
-            const statusMessage = error
-              ? `Error: ${error.message}`
-              : `Stderr: ${stderr}`;
+        `Rscript ${process.cwd()}/scripts/execute.R ${yamlFilePath}`,
+        async (error) => {
+          if (error) {
+            const statusMessage = `Error: ${error.message}`;
             await this.prisma.script.update({
               where: {
                 id: scriptId,
@@ -68,11 +72,20 @@ export class DataProcessingService {
               },
             });
           } else {
+            await this.prisma.script.update({
+              where: {
+                id: scriptId,
+              },
+              data: {
+                status: 3,
+                statusMsg: 'Script validated successfully',
+              },
+            });
             const htmlContent = fs.readFileSync(outputPath, 'utf-8');
             const multerFile = this.createMulterFile(outputPath, htmlContent);
             await this.fileStorage.putFile(
               resBucket,
-              `${analysisId}/${scriptName}`.replace(/\.r$/, '.html'),
+              `${analysisId}/${scriptName}`.replace('.R', '.html'),
               multerFile,
             );
 

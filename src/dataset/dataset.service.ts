@@ -143,6 +143,8 @@ export class DatasetService {
   }
 
   async deleteScript(scriptId: string) {
+    const bucket = 'script';
+    const resBucket = 'script-result';
     const request = await this.prisma.script.findUnique({
       where: {
         id: scriptId,
@@ -164,19 +166,31 @@ export class DatasetService {
     });
 
     await this.fileStorage.deleteFile(
-      'script',
+      bucket,
       `${request.Analysis.id}/${request.name}`,
     );
 
     const isPrepend = await this.fileStorage.fileExists(
-      'script',
+      bucket,
       `${request.Analysis.id}/prepend-${request.name}`,
+    );
+
+    const isResult = await this.fileStorage.fileExists(
+      resBucket,
+      `${request.Analysis.id}/${request.name}`.replace('.R', '.html'),
     );
 
     if (isPrepend) {
       await this.fileStorage.deleteFile(
-        'script',
+        bucket,
         `${request.Analysis.id}/prepend-${request.name}`,
+      );
+    }
+
+    if (isResult) {
+      await this.fileStorage.deleteFile(
+        resBucket,
+        `${request.Analysis.id}/${request.name}`.replace('.R', '.html'),
       );
     }
 
