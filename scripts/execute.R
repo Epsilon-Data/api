@@ -31,6 +31,27 @@ title: "{scriptName} Report"
 output: html_document
 ---
 
+<button id="downloadPDF" onclick="generatePDF()" style="background-color: DodgerBlue; color: white; border-radius: 10px; border: none; padding: 10px; cursor: pointer;">Download Report (PDF)</button>
+<br>
+
+<!-- Include html2pdf.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+<script>
+function generatePDF() {{
+  var element = document.body;
+  var opt = {{
+    margin:       1,
+    filename:     "report.pdf",
+    image:        {{ type: "jpeg", quality: 0.98 }},
+    html2canvas:  {{ scale: 2 }},
+    jsPDF:        {{ unit: "in", format: "letter", orientation: "portrait" }}
+  }};
+  html2pdf().from(element).set(opt).save();
+}}
+</script>
+
+
 ```{{r setup, include=FALSE}}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 include_plots <- FALSE

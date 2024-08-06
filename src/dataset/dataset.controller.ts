@@ -116,4 +116,9 @@ export class DatasetController {
       fs.rmSync('csv_files', { recursive: true, force: true });
     });
   }
+
+  @Get('view-report')
+  async viewReport(@Query('scriptId', ParseUUIDPipe) scriptId: string) {
+    return await this.datasetService.viewReport(scriptId);
+  }
 }

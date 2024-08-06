@@ -464,4 +464,29 @@ export class DatasetService {
 
     return result;
   }
+
+  async viewReport(scriptId: string) {
+    const script = await this.prisma.script.findUnique({
+      where: {
+        id: scriptId,
+      },
+      select: {
+        name: true,
+        Analysis: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    const analysisId = script.Analysis.id;
+
+    const url = await this.fileStorage.getFileUrl(
+      'script-result',
+      `${analysisId}/${script.name}`.replace('.R', '.html'),
+    );
+
+    return url;
+  }
 }
