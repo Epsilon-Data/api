@@ -7,7 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ConnectionRequestModule } from './connection_request/connection_request.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseSourceModule } from './database_source/database_source.module';
-import { CassandraModule } from './cassandra/cassandra.module';
+import { AtlasModule } from './atlas/atlas.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
 import { BrowseDatasetModule } from './browse_dataset/browse_dataset.module';
@@ -44,7 +44,7 @@ import configuration from './config/configuration';
     ConnectionRequestModule,
     PrismaModule,
     DatabaseSourceModule,
-    CassandraModule,
+    AtlasModule,
     DockerModule,
     AdminModule.forRootAsync({
       imports: [ConfigModule],
