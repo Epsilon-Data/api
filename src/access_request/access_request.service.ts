@@ -1,17 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { CassandraService } from 'src/cassandra/cassandra.service';
-import { DockerService } from 'src/docker/docker.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Request } from 'express';
 import { ProceedDto, RequestDto, RevisionDto } from './dto';
 
 @Injectable()
 export class AccessRequestService {
-  constructor(
-    private prisma: PrismaService,
-    private cassandra: CassandraService,
-    private docker: DockerService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
   async details(requestId: string) {
     const request = await this.prisma.userRequest.findUnique({
       where: {

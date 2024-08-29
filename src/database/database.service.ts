@@ -1,21 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CassandraService } from 'src/cassandra/cassandra.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 import { DataSource } from 'typeorm';
 
 @Injectable()
 export class DatabaseService {
   private connection;
-  private sourceId;
 
   private readonly logger = new Logger(DatabaseService.name);
 
-  constructor(private cassandra: CassandraService) {}
+  constructor(private atlas: AtlasService) {}
 
   async connect(sourceId: string) {
-    this.sourceId = sourceId;
-    const query = `SELECT type, host, port, username, password, name FROM sources WHERE id = ?`;
-    const queryParams = [sourceId];
-    const result = await this.cassandra.query(query, queryParams);
+    const result = await this.atlas.get('/entity/guid/' + sourceId);
+    //TODO: get type, host, port, username, password, name
     result[0].host = 'host.docker.internal' ? 'localhost' : result[0].host;
 
     this.connection = new DataSource({

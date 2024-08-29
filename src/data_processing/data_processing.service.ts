@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CassandraService } from 'src/cassandra/cassandra.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 import { exec } from 'child_process';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DatabaseService } from 'src/database/database.service';
@@ -24,7 +24,7 @@ export class DataProcessingService {
   private script;
   constructor(
     private prisma: PrismaService,
-    private cassandra: CassandraService,
+    private atlas: AtlasService,
     private database: DatabaseService,
     private fileStorage: FileStorageService,
   ) {}
@@ -104,21 +104,28 @@ export class DataProcessingService {
     scriptDetails: { id: string; name: string; mapping: any },
   ): Promise<string> {
     const scriptPath = process.cwd() + '/scripts/process.py';
-    const query = `SELECT type, host, port, username, password, name, column_mapping, permissions, template FROM sources WHERE id = ?`;
-    const queryParams = [sourceId];
-    const result = await this.cassandra.query(query, queryParams);
 
+    const dbResult = await this.atlas.get('/entity/guid/' + sourceId);
+
+    const instanceId = dbResult.instance.guid;
+
+    const dsResult = await this.atlas.get('/entity/guid/' + instanceId);
+
+    // TODO: get password
     const dbDetails = {
-      type: result[0].type,
+      type: dsResult.entity.attributes.rdbms_type,
       host:
-        result[0].host == 'host.docker.internal' ? 'localhost' : result[0].host,
-      port: result[0].port,
-      username: result[0].username,
-      password: result[0].password,
-      name: result[0].name,
+        dsResult.entity.attributes.hostname == 'host.docker.internal'
+          ? 'localhost'
+          : dsResult.entity.attributes.hostname,
+      port: dsResult.entity.attributes.port,
+      username: dbResult.entity.attributes.owner,
+      // password: result.password,
+      name: dbResult.entity.attributes.name,
     };
 
-    if (!result[0].column_mapping) {
+    // TODO: get column_mapping, template, permissions
+    if (!dbResult.column_mapping) {
       await this.prisma.script.update({
         where: {
           id: scriptDetails.id,
@@ -130,9 +137,9 @@ export class DataProcessingService {
         },
       });
     } else {
-      const template = JSON.parse(result[0].template);
-      const permissions = JSON.parse(result[0].permissions);
-      const columnMapping = JSON.parse(result[0].column_mapping);
+      const template = JSON.parse(dbResult.template);
+      const permissions = JSON.parse(dbResult.permissions);
+      const columnMapping = JSON.parse(dbResult.column_mapping);
       const role = 'research';
 
       const csvColumns = await this.csvColumns(
@@ -176,19 +183,11 @@ export class DataProcessingService {
   async dataSynthesis(sourceId: string) {
     const scriptPath = process.cwd() + '/scripts/synthesis.py';
 
-    const constraintsQuery = `SELECT table_name, columns, type FROM constraints WHERE source_id = ? ALLOW FILTERING`;
-    const constraintsQueryParams = [sourceId];
-    const constraintsResult = await this.cassandra.query(
-      constraintsQuery,
-      constraintsQueryParams,
-    );
+    //TODO: get constraints: table_name, column, type
+    const constraintsResult = await this.atlas.get('/entity/guid/' + sourceId);
 
-    const tablesQuery = `SELECT table_name FROM tables WHERE source_id = ? ALLOW FILTERING`;
-    const tablesQueryParams = [sourceId];
-    const tablesResult = await this.cassandra.query(
-      tablesQuery,
-      tablesQueryParams,
-    );
+    //TODO: get tables: table_name
+    const tablesResult = await this.atlas.get('/entity/guid/' + sourceId);
 
     const tableNames = tablesResult.map((table) => table.table_name);
     const foreignKeys = this.getForeignKeys(constraintsResult);
@@ -338,9 +337,9 @@ export class DataProcessingService {
 
   async generateDownloadDataset(sourceId: string): Promise<string> {
     const bucket = 'synthetic';
-    const query = `SELECT template, column_mapping, permissions FROM sources WHERE id = ?`;
-    const queryParams = [sourceId];
-    const result = await this.cassandra.query(query, queryParams);
+
+    //TODO: get sources: template, column_mapping, permissions
+    const result = await this.atlas.get('/entity/guid/' + sourceId);
 
     if (
       result[0].template &&

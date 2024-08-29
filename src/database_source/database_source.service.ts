@@ -1,19 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PermissionsDto, TemplateDto } from './dto';
-import { CassandraService } from 'src/cassandra/cassandra.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 import { Request } from 'express';
-import { v4 as UUID } from 'uuid';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
-import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 export class DatabaseSourceService {
   constructor(
     private prisma: PrismaService,
-    private cassandra: CassandraService,
+    private atlas: AtlasService,
     private fileStorage: FileStorageService,
-    private dataProcessing: DataProcessingService,
   ) {}
   async list(request: Request) {
     const userId = request.auth.payload.sub;
@@ -27,7 +24,7 @@ export class DatabaseSourceService {
       },
     });
 
-    const filteredList = requestList.map(async (request) => {
+    const filteredList = await requestList.map(async (request) => {
       const project = {
         projectId: request.Project.id,
         projectCustomId: request.Project.customId,
@@ -35,15 +32,16 @@ export class DatabaseSourceService {
         dbId: request.id,
       };
 
-      const query = `SELECT connect_date, status FROM sources WHERE id = ?`;
-      const queryParams = [request.id];
-      const result = await this.cassandra.query(query, queryParams);
+      const result = await this.atlas.get('/entity/guid/' + request.id);
 
-      const researcherDb = result[0]
+      const researcherDb = result
         ? {
             databaseName: request.dbName,
-            connectDate: result[0].connect_date,
-            sourceStatus: result[0].status,
+            connectDate: result.entity.createTime,
+            crawlStatus: result.entity.attributes.crawl_status,
+            lastUpdated: result.entity.updateTime,
+            statusMsg: result.entity.attributes.status_msg,
+            statusPercent: result.entity.attributes.status_percent,
           }
         : null;
       if (researcherDb) {
@@ -71,35 +69,47 @@ export class DatabaseSourceService {
 
   async summary(projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const tableQuery = `SELECT table_name FROM tables WHERE source_id = ? ALLOW FILTERING`;
-    const tableQueryParams = [dbId];
-    const tableResult = await this.cassandra.query(
-      tableQuery,
-      tableQueryParams,
+    const tableParams = {
+      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+    };
+    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+
+    const schemaParams = {
+      query: `from rdbms_db where instance.__guid = "${dbId}" select __guid, __state`,
+    };
+
+    const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+
+    const activeTables = tableResult.entities.filter(
+      (entity: any) => entity.status === 'ACTIVE',
     );
 
-    const schemasSet = new Set<string>();
+    let columnCount = 0;
 
-    tableResult.forEach((row) => {
-      const tableNameParts = row.table_name.split('.');
-      if (tableNameParts.length > 1) {
-        schemasSet.add(tableNameParts[0]);
+    for (const table of activeTables) {
+      const guid = table.guid;
+
+      const params = {
+        query: `from rdbms_table where __guid = "${guid}" select columns`,
+      };
+      const result = await this.atlas.get('/search/dsl', params);
+
+      if (result.entities) {
+        const activeColumns = result.entities.filter(
+          (entity: any) => entity.status === 'ACTIVE',
+        );
+        columnCount += activeColumns.length;
       }
-    });
+    }
 
-    const numSchemas = schemasSet.size;
-
-    const columnQuery = `SELECT COUNT(*) FROM columns WHERE source_id = ? ALLOW FILTERING`;
-    const columnQueryParams = [dbId];
-    const columnResult = await this.cassandra.query(
-      columnQuery,
-      columnQueryParams,
-    );
+    const schemaCount = schemaResult.attributes.values.filter(
+      (item) => item[1] === 'ACTIVE',
+    ).length;
 
     const overall = {
-      schemaCount: numSchemas,
-      totalTableCount: tableResult.length,
-      totalColCount: columnResult[0].count,
+      schemaCount: schemaCount,
+      totalTableCount: activeTables.length,
+      totalColCount: columnCount,
     };
 
     const diagram = await this.convertToDiagramCode(dbId);
@@ -108,42 +118,55 @@ export class DatabaseSourceService {
 
   async tables(projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const tablesQuery = `SELECT table_name FROM tables WHERE source_id = ? ALLOW FILTERING`;
-    const tablesQueryParams = [dbId];
-    const tablesResult = await this.cassandra.query(
-      tablesQuery,
-      tablesQueryParams,
+    const tableParams = {
+      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+    };
+    const tablesResult = await this.atlas.get('/search/dsl', tableParams);
+
+    const activeTables = tablesResult.entities.filter(
+      (entity: any) => entity.status === 'ACTIVE',
     );
 
     const resultArray = [];
-    for (const row of tablesResult) {
-      const columnsQuery = `SELECT column_name, type, nullable FROM columns WHERE source_id = ? AND table_name = ? ALLOW FILTERING`;
-      const columnsParam = [dbId, row.table_name];
-      const columnsResult = await this.cassandra.query(
-        columnsQuery,
-        columnsParam,
+    for (const table of activeTables) {
+      const guid = table.guid;
+      const columnsParams = {
+        query: `from rdbms_table where __guid = "${guid}" select columns`,
+      };
+      const columnsResult = await this.atlas.get('/search/dsl', columnsParams);
+      const activeColumns = columnsResult.entities.filter(
+        (entity: any) => entity.status === 'ACTIVE',
       );
 
-      const constraintsQuery = `SELECT columns FROM constraints WHERE source_id = ? AND table_name = ? AND type IN ('PRIMARY KEY', 'UNIQUE') ALLOW FILTERING`;
-      const constraintsParam = [dbId, row.table_name];
-      const constraintsResult = await this.cassandra.query(
-        constraintsQuery,
-        constraintsParam,
+      const schemaParams = {
+        query: `from rdbms_table where __guid = "${guid}" select db`,
+      };
+      const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+
+      const columns = await Promise.all(
+        activeColumns.map(async (column) => {
+          const params = {
+            ignoreRelationships: true,
+          };
+          const result = await this.atlas.get(
+            '/entity/guid/' + column.guid,
+            params,
+          );
+
+          return {
+            name: result.entity.attributes.name,
+            type: result.entity.attributes.data_type,
+            nullable: result.entity.attributes.isNullable,
+            primary: result.entity.attributes.isPrimaryKey,
+          };
+        }),
       );
 
-      const [schemaName, tableName] = row.table_name.split('.');
       const tableInfo = {
-        name: tableName,
-        colCount: columnsResult.length,
-        schema: schemaName,
-        columns: columnsResult.map((column) => ({
-          name: column.column_name,
-          type: column.type,
-          nullable: column.nullable,
-          primary: constraintsResult.some((constraint) =>
-            constraint.columns.includes(column.column_name),
-          ),
-        })),
+        name: table.attributes.name,
+        colCount: activeColumns.length,
+        schema: schemaResult.entities[0].attributes.name,
+        columns: columns,
       };
       resultArray.push(tableInfo);
     }
@@ -153,27 +176,167 @@ export class DatabaseSourceService {
 
   async addTemplate(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
-    const getQuery = `SELECT template FROM sources WHERE id = ?`;
-    const getParams = [dbId];
-    const query = `UPDATE sources SET template = ? WHERE id = ?`;
 
     const parsed = JSON.parse(template.template);
-    parsed.id = UUID();
-    const updatedTemplate = JSON.stringify(parsed);
 
-    let templates = null;
-    const getResult = await this.cassandra.query(getQuery, getParams);
-    if (
-      getResult[0].template &&
-      getResult[0].template.replace(/\s/g, '') !== '[]'
-    ) {
-      templates =
-        getResult[0].template.slice(0, -1) + ',' + updatedTemplate + ']';
-    } else {
-      templates = '[' + updatedTemplate + ']';
+    const archetypeBody = {
+      entity: {
+        typeName: 'archetype',
+        status: 'ACTIVE',
+        attributes: {
+          owner: 'user',
+          qualifiedName: parsed.name,
+          isActive: true,
+        },
+        relationshipAttributes: {
+          instance: {
+            guid: dbId,
+            typeName: 'rdbms_instance',
+          },
+        },
+      },
+    };
+
+    const result = await this.atlas.post('/entity', archetypeBody);
+    const archetypeId = Object.values(result.guidAssignments)[0];
+
+    const object = parsed.nodes.filter((node: any) => node.type === 'object');
+
+    const catList = parsed.nodes.filter(
+      (node: any) => node.type === 'category',
+    );
+
+    const subcatList = parsed.nodes.filter(
+      (node: any) => node.type === 'subcategory',
+    );
+
+    const objectBody = {
+      typeName: 'archetype_object',
+      status: 'ACTIVE',
+      attributes: {
+        displayName: object[0].data.label,
+        name: object[0].data.label,
+        owner: 'user',
+        qualifiedName: `${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
+        position: {
+          x: object[0].position.x,
+          y: object[0].position.y,
+        },
+        label: object[0].data.label,
+        width: object[0].width,
+        height: object[0].height,
+        selected: false,
+        dragging: false,
+      },
+      relationshipAttributes: {
+        archetype: {
+          guid: archetypeId,
+          typeName: 'archetype',
+        },
+      },
+    };
+
+    const objectResult = await this.atlas.post('/entity/bulk', {
+      entities: [objectBody],
+    });
+    const objectId = Object.values(objectResult.guidAssignments)[0];
+
+    const catBodyList = [];
+    for (const node of catList) {
+      const catBody = {
+        typeName: 'archetype_category',
+        status: 'ACTIVE',
+        attributes: {
+          displayName: node.data.label,
+          name: node.data.label,
+          owner: 'user',
+          qualifiedName: `${node.data.label.replace(' ', '_')}@${node.id}`,
+          position: {
+            x: node.position.x,
+            y: node.position.y,
+          },
+          label: node.data.label,
+          width: node.width,
+          height: node.height,
+          selected: false,
+          dragging: false,
+        },
+        relationshipAttributes: {
+          archetype: {
+            guid: archetypeId,
+            typeName: 'archetype',
+          },
+          object: {
+            guid: objectId,
+            type: 'archetype_object',
+          },
+        },
+      };
+
+      catBodyList.push(catBody);
     }
-    const queryParams = [templates, dbId];
-    await this.cassandra.query(query, queryParams);
+
+    const catResult = await this.atlas.post('/entity/bulk', {
+      entities: catBodyList,
+    });
+
+    const catIdList = {};
+
+    for (const cat of catResult.mutatedEntities.CREATE) {
+      const name = cat.attributes.qualifiedName.split('@');
+      catIdList[name[1]] = cat.guid;
+    }
+
+    const subcatBodyList = [];
+
+    for (const node of subcatList) {
+      const relatedEdge = parsed.edges.filter(
+        (edge: any) => edge.source == node.id || edge.target == node.id,
+      );
+
+      const categoryId =
+        relatedEdge[0].source == node.id
+          ? catIdList[relatedEdge[0].target]
+          : catIdList[relatedEdge[0].source];
+
+      const subcatBody = {
+        typeName: 'archetype_subcategory',
+        status: 'ACTIVE',
+        attributes: {
+          displayName: node.data.label,
+          name: node.data.label,
+          owner: 'user',
+          qualifiedName: `${node.data.label.replace(' ', '_')}@${node.id}`,
+          position: {
+            x: node.position.x,
+            y: node.position.y,
+          },
+          label: node.data.label,
+          width: node.width,
+          height: node.height,
+          selected: false,
+          dragging: false,
+        },
+        relationshipAttributes: {
+          archetype: {
+            guid: archetypeId,
+            typeName: 'archetype',
+          },
+          category: {
+            guid: categoryId,
+            type: 'archetype_category',
+          },
+        },
+      };
+
+      subcatBodyList.push(subcatBody);
+    }
+
+    if (subcatBodyList.length > 0) {
+      await this.atlas.post('/entity/bulk', {
+        entities: subcatBodyList,
+      });
+    }
 
     await this.prisma.project.update({
       where: {
@@ -184,34 +347,13 @@ export class DatabaseSourceService {
       },
     });
 
-    return parsed.id;
+    return archetypeId;
   }
 
   async deleteTemplate(template: TemplateDto) {
-    const dbId = await this.findDbId(template.projectId);
-    const getQuery = `SELECT template, permissions, column_mapping FROM sources WHERE id = ?`;
-    const getParams = [dbId];
-    const getResult = await this.cassandra.query(getQuery, getParams);
-    const resTemplate = JSON.parse(getResult[0].template);
-    const resColumnMapping = getResult[0].column_mapping
-      ? JSON.parse(getResult[0].column_mapping)
-      : [];
-    const resPermissions = getResult[0].permissions
-      ? JSON.parse(getResult[0].permissions)
-      : [];
-    const query = `UPDATE sources SET template = ?, permissions = ?, column_mapping = ? WHERE id = ?`;
-    const queryParams = [
-      JSON.stringify(resTemplate.filter((t) => t.id !== template.templateId)),
-      JSON.stringify(
-        resPermissions.filter((t) => t.templateId !== template.templateId),
-      ),
-      JSON.stringify(
-        resColumnMapping.filter((t) => t.templateId !== template.templateId),
-      ),
-      dbId,
-    ];
-
-    const result = await this.cassandra.query(query, queryParams);
+    const result = await this.atlas.delete(
+      '/entity/guid/' + template.templateId,
+    );
 
     await this.prisma.project.update({
       where: {
@@ -227,73 +369,133 @@ export class DatabaseSourceService {
 
   async templates(projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const query = `SELECT template FROM sources WHERE id = ?`;
-    const queryParams = [dbId];
-    const result = await this.cassandra.query(query, queryParams);
-    return result[0].template;
+    const params = {
+      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName`,
+    };
+    const result = await this.atlas.get('/search/dsl', params);
+
+    const activeTemplates = result.attributes.values.filter(
+      (item) => item[0] === 'ACTIVE',
+    );
+    this.columns(projectId);
+
+    return activeTemplates;
   }
 
   async addColumnMapping(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
-    const getQuery = `SELECT column_mapping FROM sources WHERE id = ?`;
-    const getParams = [dbId];
-    const query = `UPDATE sources SET column_mapping = ? WHERE id = ?`;
-
     const parsed = JSON.parse(template.columnMapping);
-    const updatedMapping = JSON.stringify({
-      templateId: template.templateId,
-      mapping: parsed,
-    });
 
-    let mappings = null;
-    const getResult = await this.cassandra.query(getQuery, getParams);
-    if (
-      getResult[0].column_mapping &&
-      getResult[0].column_mapping.replace(/\s/g, '') !== '[]'
-    ) {
-      const parsedMapping = JSON.parse(getResult[0].column_mapping);
-      if (parsedMapping.some((m) => m.templateId === template.templateId)) {
-        return null;
+    const tableParams = {
+      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+    };
+
+    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+
+    const activeTables = tableResult.entities.filter(
+      (entity: any) => entity.status === 'ACTIVE',
+    );
+
+    for (const node of parsed) {
+      const params = {
+        'attr:qualifiedName': `${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
+      };
+
+      const result = await this.atlas.get(
+        `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
+        params,
+      );
+
+      result.entity.relationshipAttributes.columns = [];
+
+      for (const col of node.columns) {
+        const tableGuid = activeTables.find(
+          (table: any) => table.attributes.name === col.table,
+        ).guid;
+
+        const colParams = {
+          query: `from rdbms_column where table.__guid = "${tableGuid}"`,
+        };
+        const colResult = await this.atlas.get('/search/dsl', colParams);
+
+        const activeColumns = colResult.entities.filter(
+          (entity: any) => entity.status === 'ACTIVE',
+        );
+
+        const columnEntity = activeColumns.find(
+          (column: any) => column.attributes.name === col.name,
+        );
+
+        const relationship = await this.atlas.get(
+          `/types/relationshipdef/name/archetype_${node.nodeType}_rdbms_columns`,
+        );
+
+        const columnInfo = {
+          guid: columnEntity.guid,
+          typeName: 'rdbms_column',
+          entityStatus: 'ACTIVE',
+          relationshipType: `archetype_${node.nodeType}_rdbms_columns`,
+          relationshipGuid: relationship.guid,
+          relationshipStatus: 'ACTIVE',
+        };
+
+        result.entity.relationshipAttributes.columns.push(columnInfo);
       }
-      mappings =
-        getResult[0].column_mapping.slice(0, -1) + ',' + updatedMapping + ']';
-    } else {
-      mappings = '[' + updatedMapping + ']';
+
+      await this.atlas.post('/entity', result);
     }
-    const queryParams = [mappings, dbId];
-    return await this.cassandra.query(query, queryParams);
   }
 
   async columns(projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const query = `SELECT column_name, table_name FROM columns WHERE source_id = ? ALLOW FILTERING`;
-    const queryParams = [dbId];
 
-    const result = await this.cassandra.query(query, queryParams);
+    const tableParams = {
+      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+    };
+    const tableResult = await this.atlas.get('/search/dsl', tableParams);
 
-    return result.reduce(
-      (acc, row) => {
-        acc[row.column_name] = row.table_name;
-        return acc;
-      },
-      {} as { [key: string]: string },
+    const activeTables = tableResult.entities.filter(
+      (entity: any) => entity.status === 'ACTIVE',
     );
+
+    const output = {};
+
+    for (const table of activeTables) {
+      const guid = table.guid;
+      const tableName = table.attributes.name;
+
+      const params = {
+        query: `from rdbms_table where __guid = "${guid}" select columns`,
+      };
+      const result = await this.atlas.get('/search/dsl', params);
+
+      if (result.entities) {
+        const activeColumns = result.entities.filter(
+          (entity: any) => entity.status === 'ACTIVE',
+        );
+
+        for (const col of activeColumns) {
+          output[col.attributes.name] = tableName;
+        }
+      }
+    }
+
+    return output;
   }
 
   async permissions(projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const query = `SELECT permissions FROM sources WHERE id = ?`;
-    const queryParams = [dbId];
-    const result = await this.cassandra.query(query, queryParams);
+    const result = await this.atlas.get('/entity/guid/' + dbId);
+    //TODO: get permissions
     return result[0].permissions;
   }
 
   async addPermissions(permissions: PermissionsDto) {
     const dbId = await this.findDbId(permissions.projectId);
-    const query = `UPDATE sources SET permissions = ? WHERE id = ?`;
-    const queryParams = [permissions.permissions, dbId];
-    const result = await this.cassandra.query(query, queryParams);
-
+    const result = await this.atlas.put('/entity/guid/' + dbId, {
+      permissions: permissions.permissions,
+    });
+    //TODO: update permissions
     await this.prisma.project.update({
       where: {
         id: permissions.projectId,
@@ -373,14 +575,18 @@ export class DatabaseSourceService {
   }
 
   async convertToDiagramCode(dbId: string): Promise<string> {
-    const query = `SELECT erd FROM sources WHERE id = ?`;
-    const queryParams = [dbId];
-    const result = await this.cassandra.query(query, queryParams);
-    const diagramCode = result[0].erd.replace(
-      /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
-      '""',
-    );
-    return diagramCode;
+    const params = {
+      ignoreRelationships: true,
+    };
+    const result = await this.atlas.get('/entity/guid/' + dbId, params);
+    if (result.entity.attributes.erd) {
+      const diagramCode = result.entity.attributes.erd.replace(
+        /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
+        '""',
+      );
+      return diagramCode;
+    }
+    return '';
   }
 
   async findDbId(projectId: string) {

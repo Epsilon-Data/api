@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { lastValueFrom } from 'rxjs';
+import axios from 'axios';
 
 @Injectable()
 export class AtlasService {
@@ -9,7 +8,7 @@ export class AtlasService {
   private password = 'admin';
   private readonly logger = new Logger(AtlasService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor() {}
 
   createAuthHeader(): string {
     const token = Buffer.from(`${this.username}:${this.password}`).toString(
@@ -21,51 +20,61 @@ export class AtlasService {
   async get(endpoint: string, params?: any): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader = this.createAuthHeader();
-    const response = await lastValueFrom(
-      this.httpService.get(url, {
+    try {
+      const response = await axios.get(url, {
         params,
         headers: { Authorization: authHeader },
-      }),
-    );
-
-    return response.data;
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(`GET request to ${url} failed: ${error.message}`);
+      throw error;
+    }
   }
 
   async post(endpoint: string, body: any, params?: any): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader = this.createAuthHeader();
-    const response = await lastValueFrom(
-      this.httpService.post(url, body, {
+    try {
+      const response = await axios.post(url, body, {
         params,
         headers: { Authorization: authHeader },
-      }),
-    );
-
-    return response.data;
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(`POST request to ${url} failed: ${error.message}`);
+      throw error;
+    }
   }
 
   async put(endpoint: string, body: any, params?: any): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader = this.createAuthHeader();
-    const response = await lastValueFrom(
-      this.httpService.put(url, body, {
+    try {
+      const response = await axios.put(url, body, {
         params,
         headers: { Authorization: authHeader },
-      }),
-    );
-    return response.data;
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(`PUT request to ${url} failed: ${error.message}`);
+      throw error;
+    }
   }
 
   async delete(endpoint: string, params?: any): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader = this.createAuthHeader();
-    const response = await lastValueFrom(
-      this.httpService.delete(url, {
+    try {
+      const response = await axios.delete(url, {
         params,
         headers: { Authorization: authHeader },
-      }),
-    );
-    return response.data;
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(`DELETE request to ${url} failed: ${error.message}`);
+      throw error;
+    }
   }
 
   getCurrentDate() {

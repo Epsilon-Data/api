@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { Request } from 'express';
-import { CassandraService } from 'src/cassandra/cassandra.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 import { DockerService } from 'src/docker/docker.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
@@ -11,7 +11,7 @@ import { DataProcessingService } from 'src/data_processing/data_processing.servi
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
-    private cassandra: CassandraService,
+    private atlas: AtlasService,
     private dataProcess: DataProcessingService,
     private docker: DockerService,
   ) {}
@@ -118,22 +118,6 @@ export class ConnectionRequestService {
           },
         },
       });
-
-      requestList = await Promise.all(
-        requestList.map(async (connRequest) => {
-          const { dbName, ...requestDetails } = connRequest;
-          if (dbName) {
-            const query = `SELECT status FROM sources WHERE id = ?`;
-            const queryParams = [requestDetails.id];
-            const result = await this.cassandra.query(query, queryParams);
-
-            if (result[0]) {
-              requestDetails.dbStatus = result[0].status;
-            }
-          }
-          return requestDetails;
-        }),
-      );
     }
     return { requests: requestList };
   }
@@ -239,9 +223,8 @@ export class ConnectionRequestService {
 
     if (request.dbName) {
       let status = 2;
-      const deleteQuery = 'DELETE FROM sources WHERE id = ?';
-      const deleteQueryParams = [request.id];
-      this.cassandra.query(deleteQuery, deleteQueryParams);
+      await this.atlas.delete('/entity/guid/' + request.id);
+
       try {
         const result = await this.docker.runDataBroker(
           dto.id,
@@ -288,9 +271,7 @@ export class ConnectionRequestService {
     });
 
     if (request.dbName) {
-      const query = 'DELETE FROM sources WHERE id = ?';
-      const queryParams = [request.id];
-      this.cassandra.query(query, queryParams);
+      await this.atlas.delete('/entity/guid/' + request.id);
     }
 
     return await this.prisma.connectionRequest.delete({

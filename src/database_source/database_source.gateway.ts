@@ -10,8 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 
 import { Server, Socket } from 'socket.io';
-import { CassandraService } from 'src/cassandra/cassandra.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 
 @WebSocketGateway({
   cors: {
@@ -23,8 +22,7 @@ export class DatabaseSourceGateway
 {
   constructor(
     private readonly configService: ConfigService,
-    private cassandra: CassandraService,
-    private prisma: PrismaService,
+    private atlas: AtlasService,
   ) {}
   private readonly logger = new Logger(DatabaseSourceGateway.name);
 
@@ -52,23 +50,48 @@ export class DatabaseSourceGateway
     this.logger.log(`Client id:${client.id} disconnected`);
   }
 
+  async generateStatusList(output: any) {
+    const modResult = await Promise.all(
+      output.entities.map(async (entity) => {
+        const details = await this.atlas.get('/entity/guid/' + entity.guid);
+
+        return {
+          id: entity.guid,
+          crawlStatus: details.entity.attributes.crawl_status,
+          statusMsg: details.entity.attributes.status_msg,
+          statusPercent: details.entity.attributes.status_percent,
+        };
+      }),
+    );
+
+    return modResult;
+  }
+
   @SubscribeMessage('listenToDatabaseStatuses')
   async listenToDatabaseStatuses(client: Socket) {
-    const query =
-      'SELECT id, status_msg, status_percent FROM sources WHERE status = 2 ALLOW FILTERING';
-
-    // Poll the database for changes every second
     const interval = setInterval(async () => {
-      const result = await this.cassandra.query(query);
-      if (result.length > 0) {
-        this.server.emit('updateStatus', { results: result });
-      }
+      let params = {
+        query: 'from rdbms_instance where crawl_status = 2',
+      };
 
-      if (result.length === 0) {
+      let result = await this.atlas.get('/search/dsl', params);
+
+      if (result.entities) {
+        const modResult = await this.generateStatusList(result);
+        this.server.emit('updateStatus', { results: modResult });
+      } else {
+        params = {
+          query: 'from rdbms_instance where crawl_status = 3',
+        };
+        result = await this.atlas.get('/search/dsl', params);
+
+        const modResult = await this.generateStatusList(result);
+
+        this.server.emit('updateStatus', { results: modResult });
         clearInterval(interval);
         client.disconnect();
       }
-    }, 2000);
+    }, 10000);
 
     client.on('close', () => {
       clearInterval(interval);

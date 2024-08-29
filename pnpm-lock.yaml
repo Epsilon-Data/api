@@ -23,9 +23,6 @@ importers:
       '@epsilon-data/keycloak-admin-client':
         specifier: ^24.0.3
         version: 24.0.3
-      '@nestjs/axios':
-        specifier: ^3.0.2
-        version: 3.0.2(@nestjs/common@10.3.10(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.1.14)(rxjs@7.8.1))(axios@1.7.3)(rxjs@7.8.1)
       '@nestjs/common':
         specifier: ^10.3.10
         version: 10.3.10(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.1.14)(rxjs@7.8.1)
@@ -59,6 +56,9 @@ importers:
       argon2:
         specifier: ^0.31.2
         version: 0.31.2
+      axios:
+        specifier: ^1.7.3
+        version: 1.7.3
       base64url:
         specifier: ^3.0.1
         version: 3.0.1
@@ -723,13 +723,6 @@ packages:
   '@mapbox/node-pre-gyp@1.0.11':
     resolution: {integrity: sha512-Yhlar6v9WQgUp/He7BdgzOz8lqMQ8sU+jkCq7Wx8Myc5YFJLbEe7lgui/V7G1qB1DJykHSGwreceSaD60Y0PUQ==}
     hasBin: true
-
-  '@nestjs/axios@3.0.2':
-    resolution: {integrity: sha512-Z6GuOUdNQjP7FX+OuV2Ybyamse+/e0BFdTWBX5JxpBDKA+YkdLynDgG6HTF04zy6e9zPa19UX0WA2VDoehwhXQ==}
-    peerDependencies:
-      '@nestjs/common': ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0
-      axios: ^1.3.1
-      rxjs: ^6.0.0 || ^7.0.0
 
   '@nestjs/cli@10.4.1':
     resolution: {integrity: sha512-83zFEKjmUdnvhGMRKUKy4AOQ6ZeoBqwC/yVlREdFGLusYF9055gh8TXLWTCL+V+SX47Ec7XrSusA/m3JTK1Wzg==}
@@ -5489,12 +5482,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
-
-  '@nestjs/axios@3.0.2(@nestjs/common@10.3.10(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.1.14)(rxjs@7.8.1))(axios@1.7.3)(rxjs@7.8.1)':
-    dependencies:
-      '@nestjs/common': 10.3.10(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.1.14)(rxjs@7.8.1)
-      axios: 1.7.3
-      rxjs: 7.8.1
 
   '@nestjs/cli@10.4.1':
     dependencies:

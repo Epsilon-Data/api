@@ -1,18 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { CassandraService } from 'src/cassandra/cassandra.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AccessDto } from './dto';
 import { Request } from 'express';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
-import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 export class BrowseDatasetService {
   constructor(
     private prisma: PrismaService,
-    private cassandra: CassandraService,
+    private atlas: AtlasService,
     private fileStorage: FileStorageService,
-    private dataProcessing: DataProcessingService,
   ) {}
 
   async projects(isSearch: boolean) {
@@ -87,9 +85,8 @@ export class BrowseDatasetService {
       },
     });
 
-    const query = `SELECT template, permissions FROM sources WHERE id = ?`;
-    const params = [request.id];
-    const result = await this.cassandra.query(query, params);
+    const result = await this.atlas.get('/entity/guid/', request.id);
+    //TODO: get template and permissions
 
     let activeTemplates = [];
 

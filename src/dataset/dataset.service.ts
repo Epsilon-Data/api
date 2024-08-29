@@ -6,7 +6,7 @@ import { DescriptiveDto } from './dto';
 import { AnalysisService } from 'src/analysis/analysis.service';
 import { DatabaseService } from 'src/database/database.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
-import { CassandraService } from 'src/cassandra/cassandra.service';
+import { AtlasService } from 'src/atlas/atlas.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class DatasetService {
     private analysis: AnalysisService,
     private database: DatabaseService,
     private dataProcess: DataProcessingService,
-    private cassandra: CassandraService,
+    private atlas: AtlasService,
     private fileStorage: FileStorageService,
   ) {}
 
@@ -304,11 +304,11 @@ export class DatasetService {
       },
     });
 
-    const query = `SELECT permissions FROM sources WHERE id = ?`;
-    const queryParams = [
-      scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id,
-    ];
-    const result = await this.cassandra.query(query, queryParams);
+    const result = await this.atlas.get(
+      '/entity/guid/' +
+        scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id,
+    );
+    //TODO: get permissions
     let csvNames = [];
     if (result[0].permissions) {
       const permissions = JSON.parse(result[0].permissions);
