@@ -1,0 +1,14 @@
+# Files
+.env
+.env.*
+*.env
+.git
+.gitignore
+npm-debug.log
+README.md
+
+# Directories
+node_modules
+lib
+build
+dist
