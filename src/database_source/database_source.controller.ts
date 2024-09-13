@@ -45,6 +45,11 @@ export class DatabaseSourceController {
     return this.databaseSourceService.addTemplate(template);
   }
 
+  @Get('template-names')
+  templateNames(@Query('projectId') projectId: string) {
+    return this.databaseSourceService.templateNames(projectId);
+  }
+
   @Get('templates')
   templates(@Query('projectId') projectId: string) {
     return this.databaseSourceService.templates(projectId);

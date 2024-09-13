@@ -11,18 +11,21 @@ export class DatabaseService {
   constructor(private atlas: AtlasService) {}
 
   async connect(sourceId: string) {
-    const result = await this.atlas.get('/entity/guid/' + sourceId);
-    //TODO: get type, host, port, username, password, name
-    result[0].host = 'host.docker.internal' ? 'localhost' : result[0].host;
+    const params = {
+      ignoreRelationships: true,
+    };
+    const result = await this.atlas.get('/entity/guid/' + sourceId, params);
 
     this.connection = new DataSource({
-      type: result[0].type,
+      type: result.type,
       host:
-        result[0].host == 'host.docker.internal' ? 'localhost' : result[0].host,
-      port: result[0].port,
-      username: result[0].username,
-      password: result[0].password,
-      database: result[0].name,
+        result.entity.attributes.hostname == 'host.docker.internal'
+          ? 'localhost'
+          : result.entity.attributes.hostname,
+      port: result.entity.attributes.port,
+      username: result.entity.attributes.username,
+      password: result.entity.attributes.password,
+      database: result.entity.attributes.name,
     });
 
     return result[0];

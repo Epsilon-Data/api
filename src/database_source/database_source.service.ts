@@ -217,7 +217,7 @@ export class DatabaseSourceService {
         displayName: object[0].data.label,
         name: object[0].data.label,
         owner: 'user',
-        qualifiedName: `${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
+        qualifiedName: `${archetypeId}@${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
         position: {
           x: object[0].position.x,
           y: object[0].position.y,
@@ -250,7 +250,7 @@ export class DatabaseSourceService {
           displayName: node.data.label,
           name: node.data.label,
           owner: 'user',
-          qualifiedName: `${node.data.label.replace(' ', '_')}@${node.id}`,
+          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
           position: {
             x: node.position.x,
             y: node.position.y,
@@ -284,7 +284,7 @@ export class DatabaseSourceService {
 
     for (const cat of catResult.mutatedEntities.CREATE) {
       const name = cat.attributes.qualifiedName.split('@');
-      catIdList[name[1]] = cat.guid;
+      catIdList[name[2]] = cat.guid;
     }
 
     const subcatBodyList = [];
@@ -306,7 +306,7 @@ export class DatabaseSourceService {
           displayName: node.data.label,
           name: node.data.label,
           owner: 'user',
-          qualifiedName: `${node.data.label.replace(' ', '_')}@${node.id}`,
+          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
           position: {
             x: node.position.x,
             y: node.position.y,
@@ -367,19 +367,94 @@ export class DatabaseSourceService {
     return result;
   }
 
-  async templates(projectId: string) {
+  async templateNames(projectId: string) {
     const dbId = await this.findDbId(projectId);
     const params = {
       query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName`,
     };
     const result = await this.atlas.get('/search/dsl', params);
 
-    const activeTemplates = result.attributes.values.filter(
-      (item) => item[0] === 'ACTIVE',
-    );
-    this.columns(projectId);
+    let activeTemplates = [];
+    if (result.attributes) {
+      activeTemplates = result.attributes.values.filter(
+        (item) => item[0] === 'ACTIVE',
+      );
+    }
 
     return activeTemplates;
+  }
+
+  async templates(projectId: string) {
+    const activeTemplates = await this.templateNames(projectId);
+
+    const output = [];
+    for (const template of activeTemplates) {
+      const templateGuid = template[1];
+      const templateName = template[2];
+
+      const templateInfo = {
+        id: templateGuid,
+        name: templateName,
+        nodes: [],
+        edges: [],
+      };
+
+      const templateEntity = await this.atlas.get(
+        `/entity/guid/${templateGuid}`,
+      );
+
+      for (const key in templateEntity.referredEntities) {
+        const entity = templateEntity.referredEntities[key];
+
+        if (entity.typeName.includes('archetype_')) {
+          const splitted = entity.attributes.qualifiedName.split('@');
+          const node = {
+            id: splitted[2],
+            position: {
+              x: entity.attributes.position.x,
+              y: entity.attributes.position.y,
+            },
+            data: {
+              label: entity.attributes.displayName,
+            },
+            type: entity.typeName.replace('archetype_', ''),
+            width: entity.attributes.width,
+            height: entity.attributes.height,
+            selected: false,
+            positionAbsolute: {
+              x: entity.attributes.position.x,
+              y: entity.attributes.position.y,
+            },
+            dragging: false,
+          };
+          templateInfo.nodes.push(node);
+
+          if (entity.typeName != 'archetype_object') {
+            const edge = {
+              source: splitted[2],
+              target: '',
+              sourceHandle: null,
+              targetHandle: null,
+              id: '',
+            };
+
+            const name =
+              entity.typeName == 'archetype_category'
+                ? entity.relationshipAttributes.object.qualifiedName
+                : entity.relationshipAttributes.category.qualifiedName;
+
+            edge.target = name.split('@')[2];
+            edge.id = `edge_${edge.source}_${edge.target}`;
+
+            templateInfo.edges.push(edge);
+          }
+        }
+      }
+
+      output.push(templateInfo);
+    }
+
+    return output;
   }
 
   async addColumnMapping(template: TemplateDto) {
@@ -398,13 +473,17 @@ export class DatabaseSourceService {
 
     for (const node of parsed) {
       const params = {
-        'attr:qualifiedName': `${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
+        'attr:qualifiedName': `${template.templateId}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
       };
 
       const result = await this.atlas.get(
         `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
         params,
       );
+
+      if (result.entity.relationshipAttributes.columns.length !== 0) {
+        continue;
+      }
 
       result.entity.relationshipAttributes.columns = [];
 
@@ -484,18 +563,277 @@ export class DatabaseSourceService {
   }
 
   async permissions(projectId: string) {
-    const dbId = await this.findDbId(projectId);
-    const result = await this.atlas.get('/entity/guid/' + dbId);
-    //TODO: get permissions
-    return result[0].permissions;
+    const activeTemplates = await this.templateNames(projectId);
+
+    const output = [];
+    for (const template of activeTemplates) {
+      const templateGuid = template[1];
+
+      const templateInfo = {
+        templateId: templateGuid,
+        active: true,
+        settings: [
+          {
+            role: 'research',
+            access: [],
+          },
+          {
+            role: 'govOrg',
+            access: [],
+          },
+          {
+            role: 'others',
+            access: [],
+          },
+        ],
+      };
+
+      const templateEntity = await this.atlas.get(
+        `/entity/guid/${templateGuid}`,
+      );
+
+      templateInfo.active = templateEntity.entity.attributes.isActive;
+
+      for (const key in templateEntity.referredEntities) {
+        const entity = templateEntity.referredEntities[key];
+
+        if (
+          entity.typeName.includes('archetype_') &&
+          entity.status === 'ACTIVE'
+        ) {
+          if (
+            entity.relationshipAttributes.permissions === undefined ||
+            entity.relationshipAttributes.permissions.length === 0
+          ) {
+            continue;
+          }
+
+          const splitted = entity.attributes.qualifiedName.split('@');
+          const node = {
+            nodeId: splitted[2],
+            nodeName: entity.attributes.name,
+            nodeType: entity.typeName.replace('archetype_', ''),
+            permissions: [],
+          };
+
+          for (const permission of entity.relationshipAttributes.permissions) {
+            if (permission.relationshipStatus !== 'ACTIVE') {
+              continue;
+            }
+
+            node.permissions.push(permission.displayText);
+
+            const permissionType = permission.qualifiedName.split('@')[1];
+
+            const settings = templateInfo.settings.find(
+              (setting: any) => setting.role === permissionType,
+            );
+
+            const isExist = settings.access.some(
+              (node) =>
+                node.nodeId == splitted[2] &&
+                node.nodeName == entity.attributes.name,
+            );
+
+            if (!isExist) {
+              settings.access.push(node);
+            } else {
+              const index = settings.access.findIndex(
+                (node) =>
+                  node.nodeId == splitted[2] &&
+                  node.nodeName == entity.attributes.displayName,
+              );
+
+              if (
+                !settings.access[index].permissions.includes(
+                  permission.displayText,
+                )
+              ) {
+                settings.access[index].permissions.push(permission.displayText);
+              }
+            }
+
+            templateInfo.settings = templateInfo.settings.map((s: any) =>
+              s.role === permissionType ? settings : s,
+            );
+          }
+        }
+      }
+
+      output.push(templateInfo);
+    }
+
+    return output;
   }
 
   async addPermissions(permissions: PermissionsDto) {
-    const dbId = await this.findDbId(permissions.projectId);
-    const result = await this.atlas.put('/entity/guid/' + dbId, {
-      permissions: permissions.permissions,
-    });
-    //TODO: update permissions
+    const parsed = JSON.parse(permissions.permissions);
+
+    for (const permission of parsed) {
+      const templateGuid = permission.templateId;
+
+      const templateEntity = await this.atlas.get(
+        `/entity/guid/${templateGuid}`,
+      );
+
+      templateEntity.entity.attributes.isActive = permission.active;
+
+      const templateNodesGuid = [];
+
+      for (const key in templateEntity.referredEntities) {
+        const entity = templateEntity.referredEntities[key];
+
+        if (
+          entity.typeName.includes('archetype_') &&
+          entity.status === 'ACTIVE'
+        ) {
+          templateNodesGuid.push(key);
+        }
+      }
+
+      const getGuid = (name: string) => {
+        for (const key in templateEntity.referredEntities) {
+          if (
+            templateEntity.referredEntities[key].attributes.qualifiedName ==
+            name
+          ) {
+            return key;
+          }
+        }
+      };
+
+      await this.atlas.post('/entity', templateEntity);
+
+      if (permission.active) {
+        const activeParams = {
+          query: `from permission where __state = "ACTIVE"`,
+        };
+
+        const activeResult = await this.atlas.get('/search/dsl', activeParams);
+
+        if (activeResult.entities) {
+          let guidList = [];
+          for (const entity of activeResult.entities) {
+            const params = {
+              minExtInfo: true,
+            };
+
+            const permissionEntity = await this.atlas.get(
+              `/entity/guid/${entity.guid}`,
+              params,
+            );
+
+            const objects =
+              permissionEntity.entity.relationshipAttributes.object.filter(
+                (o) => templateNodesGuid.includes(o.guid),
+              );
+
+            const categories =
+              permissionEntity.entity.relationshipAttributes.category.filter(
+                (s) => templateNodesGuid.includes(s.guid),
+              );
+            const subcategories =
+              permissionEntity.entity.relationshipAttributes.subcategory.filter(
+                (c) => templateNodesGuid.includes(c.guid),
+              );
+
+            const combined = [...objects, ...categories, ...subcategories];
+            guidList = [...guidList, ...combined.map((c) => c.guid)];
+          }
+
+          guidList = Array.from(new Set(guidList));
+
+          for (const guid of guidList) {
+            const entity = await this.atlas.get(`/entity/guid/${guid}`);
+
+            entity.entity.attributes.permissions = [];
+            entity.entity.relationshipAttributes.permissions = [];
+            await this.atlas.post('/entity', entity);
+          }
+        }
+
+        for (const setting of permission.settings) {
+          const role = setting.role;
+
+          for (const node of setting.access) {
+            const nodeType = `archetype_${node.nodeType}`;
+            const nodeGuid = await getGuid(
+              `${templateGuid}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
+            );
+
+            for (const permission of node.permissions) {
+              const permissionName = `permission_${permission}@${role}`;
+              const permissionParams = {
+                query: `from permission where qualifiedName = "${permissionName}" and __state = "ACTIVE" limit 1`,
+              };
+
+              const permissionResult = await this.atlas.get(
+                '/search/dsl',
+                permissionParams,
+              );
+
+              if (permissionResult.entities) {
+                const permissionGuid = permissionResult.entities[0].guid;
+
+                const relationshipBody = {
+                  typeName: `${nodeType}_permissions`,
+                  attributes: {
+                    permissions: nodeGuid,
+                    object: permissionGuid,
+                  },
+                  provenanceType: 0,
+                  end1: {
+                    guid: nodeGuid,
+                  },
+                  end2: {
+                    guid: permissionGuid,
+                  },
+                  status: 'ACTIVE',
+                };
+
+                await this.atlas.post('/relationship', relationshipBody);
+              } else {
+                const permissionBody = {
+                  entity: {
+                    typeName: 'permission',
+                    status: 'ACTIVE',
+                    attributes: {
+                      owner: 'user',
+                      qualifiedName: `permission_${permission}@${role}`,
+                      name: permission,
+                    },
+                    relationshipAttributes: {
+                      object: [],
+                      category: [],
+                      subcategory: [],
+                    },
+                  },
+                };
+
+                const relationship = await this.atlas.get(
+                  `/types/relationshipdef/name/${nodeType}_permissions`,
+                );
+                const relationshipInfo = {
+                  guid: nodeGuid,
+                  typeName: nodeType,
+                  entityStatus: 'ACTIVE',
+                  relationshipType: `${nodeType}_permissions`,
+                  relationshipGuid: relationship.guid,
+                  relationshipStatus: 'ACTIVE',
+                };
+
+                permissionBody.entity.relationshipAttributes[
+                  node.nodeType
+                ].push(relationshipInfo);
+
+                await this.atlas.post('/entity', permissionBody);
+              }
+            }
+          }
+        }
+      }
+    }
+
     await this.prisma.project.update({
       where: {
         id: permissions.projectId,
@@ -504,8 +842,6 @@ export class DatabaseSourceService {
         lastUpdated: new Date(),
       },
     });
-
-    return result;
   }
 
   async settings(

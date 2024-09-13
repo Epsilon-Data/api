@@ -85,20 +85,72 @@ export class BrowseDatasetService {
       },
     });
 
-    const result = await this.atlas.get('/entity/guid/', request.id);
-    //TODO: get template and permissions
+    const params = {
+      query: `from archetype where instance.__guid = "${request.id}" select isActive, __state, __guid, qualifiedName`,
+    };
+    const result = await this.atlas.get('/search/dsl', params);
 
-    let activeTemplates = [];
+    const activeTemplate = result.attributes.values.find(
+      (item) => item[0] === true && item[1] === 'ACTIVE',
+    );
 
-    if (result[0].template && result[0].permissions) {
-      const templateList = JSON.parse(result[0].template);
-      const permissionsList = JSON.parse(result[0].permissions);
-      activeTemplates = templateList.filter((template) =>
-        permissionsList.some(
-          (permission) =>
-            permission.templateId === template.id && permission.active,
-        ),
-      );
+    const templateGuid = activeTemplate[2];
+    const templateName = activeTemplate[3];
+
+    const templateInfo = {
+      id: templateGuid,
+      name: templateName,
+      nodes: [],
+      edges: [],
+    };
+
+    const templateEntity = await this.atlas.get(`/entity/guid/${templateGuid}`);
+    for (const key in templateEntity.referredEntities) {
+      const entity = templateEntity.referredEntities[key];
+
+      if (entity.typeName.includes('archetype_')) {
+        const splitted = entity.attributes.qualifiedName.split('@');
+        const node = {
+          id: splitted[2],
+          position: {
+            x: entity.attributes.position.x,
+            y: entity.attributes.position.y,
+          },
+          data: {
+            label: entity.attributes.displayName,
+          },
+          type: entity.typeName.replace('archetype_', ''),
+          width: entity.attributes.width,
+          height: entity.attributes.height,
+          selected: false,
+          positionAbsolute: {
+            x: entity.attributes.position.x,
+            y: entity.attributes.position.y,
+          },
+          dragging: false,
+        };
+        templateInfo.nodes.push(node);
+
+        if (entity.typeName != 'archetype_object') {
+          const edge = {
+            source: splitted[2],
+            target: '',
+            sourceHandle: null,
+            targetHandle: null,
+            id: '',
+          };
+
+          const name =
+            entity.typeName == 'archetype_category'
+              ? entity.relationshipAttributes.object.qualifiedName
+              : entity.relationshipAttributes.category.qualifiedName;
+
+          edge.target = name.split('@')[2];
+          edge.id = `edge_${edge.source}_${edge.target}`;
+
+          templateInfo.edges.push(edge);
+        }
+      }
     }
 
     const details = {
@@ -117,7 +169,7 @@ export class BrowseDatasetService {
       ],
       dataKeywords: request.dataKeywords,
       dataParticipantsNum: request.dataParticipantsNum,
-      archetype: activeTemplates.length > 0 ? activeTemplates[0] : null,
+      archetype: templateInfo ? templateInfo : null,
       visualisations: request.Project.visualisations,
       isOwnProject: isOwnProject ? true : false,
       lastUpdated: request.Project.lastUpdated,

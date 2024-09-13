@@ -124,8 +124,11 @@ export class DataProcessingService {
       name: dbResult.entity.attributes.name,
     };
 
-    // TODO: get column_mapping, template, permissions
-    if (!dbResult.column_mapping) {
+    const role = 'research';
+
+    const csvColumns = await this.csvColumns(sourceId, role);
+
+    if (csvColumns == null) {
       await this.prisma.script.update({
         where: {
           id: scriptDetails.id,
@@ -137,18 +140,6 @@ export class DataProcessingService {
         },
       });
     } else {
-      const template = JSON.parse(dbResult.template);
-      const permissions = JSON.parse(dbResult.permissions);
-      const columnMapping = JSON.parse(dbResult.column_mapping);
-      const role = 'research';
-
-      const csvColumns = await this.csvColumns(
-        template,
-        permissions,
-        columnMapping,
-        role,
-      );
-
       return new Promise((resolve, reject) => {
         const args = {
           dbDetails,
@@ -184,12 +175,18 @@ export class DataProcessingService {
     const scriptPath = process.cwd() + '/scripts/synthesis.py';
 
     //TODO: get constraints: table_name, column, type
+    //Add foreign keys to rdbms_columns?
     const constraintsResult = await this.atlas.get('/entity/guid/' + sourceId);
 
-    //TODO: get tables: table_name
-    const tablesResult = await this.atlas.get('/entity/guid/' + sourceId);
+    const tablesParams = {
+      query: `from rdbms_db where instance.__guid = "${sourceId}" select tables`,
+    };
 
-    const tableNames = tablesResult.map((table) => table.table_name);
+    const tablesResult = await this.atlas.get('/search/dsl', tablesParams);
+
+    const tableNames = tablesResult.entities.map(
+      (table) => table.attributes.name,
+    );
     const foreignKeys = this.getForeignKeys(constraintsResult);
     const primaryKeys = this.getPrimaryKeys(constraintsResult);
 
@@ -232,7 +229,7 @@ export class DataProcessingService {
         row.columns.forEach((item) => {
           if (!checkSet.has(item)) {
             foreignKeys[row.table_name].push(item);
-            checkSet.add(item); // Update the set to include the newly added item
+            checkSet.add(item);
           }
         });
       }
@@ -338,26 +335,11 @@ export class DataProcessingService {
   async generateDownloadDataset(sourceId: string): Promise<string> {
     const bucket = 'synthetic';
 
-    //TODO: get sources: template, column_mapping, permissions
-    const result = await this.atlas.get('/entity/guid/' + sourceId);
+    const role = 'research';
 
-    if (
-      result[0].template &&
-      result[0].permissions &&
-      result[0].column_mapping
-    ) {
-      const template = JSON.parse(result[0].template);
-      const permissions = JSON.parse(result[0].permissions);
-      const columnMapping = JSON.parse(result[0].column_mapping);
-      const role = 'research';
+    const csvColumns = await this.csvColumns(sourceId, role);
 
-      const csvColumns = await this.csvColumns(
-        template,
-        permissions,
-        columnMapping,
-        role,
-      );
-
+    if (csvColumns != null) {
       const mappingStream = await this.fileStorage.getFile(
         bucket,
         `${sourceId}/mapping.json`,
@@ -426,66 +408,91 @@ export class DataProcessingService {
     }
   }
 
-  private async csvColumns(
-    template,
-    permissions,
-    columnMapping,
-    role,
-  ): Promise<any> {
-    const activePermission = permissions.find((item) => item.active);
-    if (activePermission) {
-      const corrTemplate = template.find(
-        (item) => item.id === activePermission.templateId,
-      );
+  private async csvColumns(sourceId, role): Promise<any> {
+    const params = {
+      query: `from archetype where instance.__guid = "${sourceId}" select isActive, __state, __guid, qualifiedName`,
+    };
+    const result = await this.atlas.get('/search/dsl', params);
 
-      const corrColumnMapping = columnMapping.find(
-        (item) => item.templateId === activePermission.templateId,
-      );
+    const activeTemplate = result.attributes.values.find(
+      (item) => item[0] === true && item[1] === 'ACTIVE',
+    );
 
-      if (corrTemplate && corrColumnMapping) {
-        const settings = activePermission.settings.find(
-          (item) => item.role == role,
+    const activeTemplateId = activeTemplate[2];
+
+    if (!activeTemplate) return null;
+
+    const permissionName = `permission_performAnalysis@${role}`;
+
+    const permissionParams = {
+      query: `from permission where qualifiedName like "${permissionName}" select __guid`,
+    };
+    const permissionResult = await this.atlas.get(
+      '/search/dsl',
+      permissionParams,
+    );
+
+    const permissionGuid = permissionResult.attributes.values[0][0];
+
+    const templateEntity = await this.atlas.get(
+      `/entity/guid/${activeTemplateId}`,
+    );
+
+    const getColumns = async (columnIdList: string[]) => {
+      const output = [];
+
+      for (const columnId of columnIdList) {
+        const columnEntity = await this.atlas.get(`/entity/guid/${columnId}`);
+        output.push({
+          name: columnEntity.entity.attributes.name,
+          table: columnEntity.entity.relationshipAttributes.table.displayText,
+        });
+      }
+
+      return output;
+    };
+
+    const output = {};
+    for (const key in templateEntity.referredEntities) {
+      const entity = templateEntity.referredEntities[key];
+
+      if (entity.typeName == 'archetype_category') {
+        const hasPermission = entity.attributes.permissions.some(
+          (item) => item.guid === permissionGuid,
         );
-
-        const access = settings.access.filter((access) =>
-          access.permissions.includes('performAnalysis'),
-        );
-
-        const getColumns = (nodeId: string) => {
-          const node = corrColumnMapping.mapping.find(
-            (map) => map.nodeId === nodeId,
-          );
-          return node ? node.columns : [];
-        };
-
-        const output = {};
-        for (const node of access) {
-          if (node.nodeType !== 'category') continue;
-          const categoryColumns = getColumns(node.nodeId);
-          const connectedEdges = corrTemplate.edges.filter(
-            (edge) =>
-              edge.source === node.nodeId || edge.target === node.nodeId,
-          );
-          let subcategoryNodes = connectedEdges.map((edge) =>
-            edge.source === node.nodeId ? edge.target : edge.source,
-          );
-
-          if (subcategoryNodes.length > 2) {
-            subcategoryNodes = subcategoryNodes.filter((target) =>
-              access.some((item) => item.nodeId === target),
-            );
-          }
-
-          const subcategoryColumns = subcategoryNodes.flatMap(getColumns);
-
-          const allColumns = [...categoryColumns, ...subcategoryColumns];
-
-          output[`${node.nodeName}`] = allColumns;
+        if (!hasPermission) {
+          continue;
         }
-        return output;
+
+        const allColumns = [];
+        const columnIdList = entity.relationshipAttributes.columns.map(
+          (item) => item.guid,
+        );
+        const categoryColumns = await getColumns(columnIdList);
+        allColumns.push(...categoryColumns);
+
+        if (entity.attributes.subcategories) {
+          const subcategoryIdList = entity.attributes.subcategories.map(
+            (item) => item.guid,
+          );
+
+          for (const subcategoryId of subcategoryIdList) {
+            const subcategoryEntity = await this.atlas.get(
+              `/entity/guid/${subcategoryId}`,
+            );
+            const columnIdList =
+              subcategoryEntity.relationshipAttributes.columns.map(
+                (item) => item.guid,
+              );
+            const subcategoryColumns = await getColumns(columnIdList);
+            allColumns.push(...subcategoryColumns);
+          }
+        }
+        output[`${entity.attributes.name}`] = allColumns;
       }
     }
-    return null;
+
+    return output;
   }
 
   async parseCoverStream(stream: Readable): Promise<Buffer> {

@@ -304,29 +304,46 @@ export class DatasetService {
       },
     });
 
-    const result = await this.atlas.get(
-      '/entity/guid/' +
-        scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id,
-    );
-    //TODO: get permissions
-    let csvNames = [];
-    if (result[0].permissions) {
-      const permissions = JSON.parse(result[0].permissions);
+    const sourceId =
+      scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id;
+    const params = {
+      query: `from archetype where instance.__guid = "${sourceId}" and __state = "ACTIVE" and isActive = true`,
+    };
 
-      const activePermission = permissions.find((item) => item.active);
-      if (activePermission) {
+    const result = await this.atlas.get('/search/dsl', params);
+
+    const archetypeId = result.entities[0].guid;
+
+    const archetypeEntity = await this.atlas.get(`/entity/guid/${archetypeId}`);
+
+    const csvNames = [];
+
+    for (const key in archetypeEntity.referredEntities) {
+      const entity = archetypeEntity.referredEntities[key];
+
+      if (
+        entity.typeName == 'archetype_category' &&
+        entity.status == 'ACTIVE'
+      ) {
+        if (
+          entity.relationshipAttributes.permissions === undefined ||
+          entity.relationshipAttributes.permissions.length === 0
+        ) {
+          continue;
+        }
+
+        let permissionName = 'permission_performAnalysis';
         if (isResearch) {
-          const settings = activePermission.settings.find(
-            (item) => item.role == 'research',
+          permissionName = `${permissionName}@research`;
+        }
+
+        const hasPerformAnalysis =
+          entity.relationshipAttributes.permissions.some(
+            (permission) => permission.qualifiedName == permissionName,
           );
 
-          csvNames = settings.access
-            .filter(
-              (access) =>
-                access.permissions.includes('performAnalysis') &&
-                access.nodeType == 'category',
-            )
-            .map((item) => item.nodeName);
+        if (hasPerformAnalysis) {
+          csvNames.push(entity.attributes.name);
         }
       }
     }

@@ -71,7 +71,7 @@ export class DatabaseSourceGateway
   async listenToDatabaseStatuses(client: Socket) {
     const interval = setInterval(async () => {
       let params = {
-        query: 'from rdbms_instance where crawl_status = 2',
+        query: 'from rdbms_instance where crawl_status = 1 or crawl_status = 2',
       };
 
       let result = await this.atlas.get('/search/dsl', params);
