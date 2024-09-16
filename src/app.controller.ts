@@ -1,6 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import { AuthGuard } from './auth/auth.guard';
 
 @Controller()
 export class AppController {
@@ -10,9 +9,8 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
-  @Get('test')
-  @UseGuards(new AuthGuard('api.hub.read'))
-  async getTest(): Promise<string> {
-    return 'Success';
+  @Get('health')
+  getTest() {
+    return { status: 'OK', title: 'Epsilon API Hub' };
   }
 }

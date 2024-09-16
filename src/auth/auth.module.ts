@@ -3,6 +3,7 @@ import {
   MiddlewareConsumer,
   Module,
   NestModule,
+  RequestMethod,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
@@ -35,6 +36,7 @@ export class AuthModule implements NestModule {
           audience: this.configService.get<string>('auth.audience'),
         }),
       )
+      .exclude({ path: 'health', method: RequestMethod.GET })
       .forRoutes('*');
   }
 
