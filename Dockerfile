@@ -4,7 +4,7 @@ FROM node:20.9.0-alpine AS workspace
 
 # private git packages
 ARG GITHUB_TOKEN
-ENV GITHUB_TOKEN=$GITHUB_TOKEN
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 
 WORKDIR /app
 RUN npm install -g pnpm
