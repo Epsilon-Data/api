@@ -24,4 +24,4 @@ RUN pnpm build
 FROM build AS deploy
 ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
-RUN pnpm db:prepare && pnpm start:prod
+RUN pnpm run
