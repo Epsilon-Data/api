@@ -23,7 +23,7 @@ export default () => ({
       'http://localhost:8080/realms/EPSILON',
     realm: env.EPSILON_AUTH_REALM || 'EPSILON',
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
-    scopePrefix: env.EPSILON_AUTH_SCOPE_PREFIX || 'api.permissions',
+    scopePrefix: env.EPSILON_ADMIN_AUTH_SCOPE_PREFIX || 'api.permissions',
     clientId: env.EPSILON_ADMIN_API_CLIENT_ID || 'epsilon-admin-api',
     clientSecret:
       env.EPSILON_ADMIN_API_CLIENT_SECRET || '25WNchjDUsl9LWL6gZLLUaTQ1uIWMYMn',

@@ -1,20 +1,25 @@
 # Start with a node 20 image with package info
 # Installs *all* pnpm packages and runs build script
-FROM node:20.9.0-alpine as workspace
+FROM node:20.9.0-alpine AS workspace
+
+# private git packages
+ARG GITHUB_TOKEN
+ENV GITHUB_TOKEN=$GITHUB_TOKEN
+
 WORKDIR /app
 RUN npm install -g pnpm
 COPY [".", "/app/"]
 # TODO: add .npmrc file
 # RUN pnpm login --scope=@epsilon-data --registry=https://npm.pkg.github.com
-RUN pnpm install --prod --no-optional
+RUN pnpm install
 
 # build app
-FROM workspace as build
+FROM workspace AS build
 WORKDIR /app
 # ARG APP
 ENV NODE_ENV=production
 # RUN pnpm build:${APP}
 RUN pnpm build
 
-FROM build as deploy
+FROM build AS deploy
 RUN pnpm db:prepare && pnpm start:prod
