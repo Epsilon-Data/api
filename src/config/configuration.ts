@@ -8,8 +8,7 @@ export default () => ({
       env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://localhost:3000',
     ],
     issuerBaseURL:
-      env.EPSILON_AUTH_ISSUER_BASE_URL ||
-      'http://localhost:8080/realms/EPSILON',
+      env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/EPSILON',
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
     scopePrefix: env.EPSILON_AUTH_SCOPE_PREFIX || 'api.test',
     cookiePrefix: env.EPSILON_AUTH_COOKIE_PREFIX || 'epsilon',
@@ -18,9 +17,7 @@ export default () => ({
       'e2c8470d07a8dcdcd07267e353e32805d87dd560ce93e2fae5c1869b7118e5a9',
   },
   admin: {
-    issuerBaseURL:
-      env.EPSILON_AUTH_ISSUER_BASE_URL ||
-      'http://localhost:8080/realms/EPSILON',
+    issuerBaseURL: env.EPSILON_AUTH_ISSUER_BASE_URL || 'http://localhost:8080',
     realm: env.EPSILON_AUTH_REALM || 'EPSILON',
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
     scopePrefix: env.EPSILON_ADMIN_AUTH_SCOPE_PREFIX || 'api.permissions',

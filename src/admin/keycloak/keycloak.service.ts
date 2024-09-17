@@ -31,7 +31,7 @@ export class KeycloakService {
 
   async init(credentials: Credentials) {
     this.kcAdminClient = new KeycloakAdminClient({
-      baseUrl: new URL(this.config.issuerBaseURL).origin,
+      baseUrl: this.config.issuerBaseURL,
       realmName: this.config.realm,
     });
     await this.kcAdminClient.auth(credentials);
