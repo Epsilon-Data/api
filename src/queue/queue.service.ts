@@ -27,7 +27,18 @@ export class QueueService {
       templateId: template.templateId,
       projectId: template.projectId,
     };
-    return await this.atlasQueue.add('process-delete-template', postData, {
+    return await this.atlasQueue.add('process-delete-archetype', postData, {
+      attempts: 5,
+      backoff: 10000,
+    });
+  }
+
+  async addPermissionsJob(permissions: string, projectId: string) {
+    const postData = {
+      permissions: permissions,
+      projectId: projectId,
+    };
+    return await this.atlasQueue.add('process-add-permissions', postData, {
       attempts: 5,
       backoff: 10000,
     });
