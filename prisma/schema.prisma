@@ -26,21 +26,22 @@ model ConnectionRequest {
 }
 
 model Project {
-  id                String             @id(map: "project_pkey") @default(uuid()) @db.Uuid
-  customId          String?            @db.Text
-  name              String?            @db.Text
-  lead              String?            @db.Text
-  university        String?            @db.Text
-  faculty           String?            @db.Text
-  ethicsId          String?            @db.Text
-  description       String?            @db.Text
-  startDate         DateTime?          @db.Date
-  endDate           DateTime?          @db.Date
-  members           String[]
-  visualisations    Json?
-  lastUpdated       DateTime           @default(now()) @db.Timestamp(6)
-  ConnectionRequest ConnectionRequest? 
-  UserRequest       UserRequest[]
+  id                 String             @id(map: "project_pkey") @default(uuid()) @db.Uuid
+  customId           String?            @db.Text
+  name               String?            @db.Text
+  lead               String?            @db.Text
+  university         String?            @db.Text
+  faculty            String?            @db.Text
+  ethicsId           String?            @db.Text
+  description        String?            @db.Text
+  startDate          DateTime?          @db.Date
+  endDate            DateTime?          @db.Date
+  members            String[]
+  visualisations     Json?
+  lastUpdated        DateTime           @default(now()) @db.Timestamp(6)
+  templateDeleteJobs String[]
+  ConnectionRequest  ConnectionRequest?
+  UserRequest        UserRequest[]
 }
 
 model UserRequest {
@@ -92,5 +93,6 @@ model Script {
   executionSettings Json?
   mapping           Json?
   Analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_script_analysis_id")
+
   @@unique([analysisId, name])
 }
