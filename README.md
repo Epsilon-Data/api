@@ -33,7 +33,10 @@ Install all necessary prisma packages when prompted.
 ```bash
 pnpm start:dev
 ```
+### MinIO
+Access [MinIO Console](http://localhost:9002/) to manage the server in browser.
 
+### Prisma
 To apply your own migrations:
 
 ```bash
