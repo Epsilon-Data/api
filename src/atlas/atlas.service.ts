@@ -1,19 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AtlasService {
-  private baseUrl = 'http://localhost:21000/api/atlas/v2';
-  private username = 'admin';
-  private password = 'admin';
+  private baseUrl: string;
+  private password: string;
   private readonly logger = new Logger(AtlasService.name);
 
-  constructor() {}
+  constructor(config: ConfigService) {
+    this.baseUrl = `${config.get('ATLAS_URI')}/api/atlas/v2`;
+    this.password = config.get('ATLAS_ADMIN_PASSWORD');
+  }
 
   createAuthHeader(): string {
-    const token = Buffer.from(`${this.username}:${this.password}`).toString(
-      'base64',
-    );
+    const token = Buffer.from(`admin:${this.password}`).toString('base64');
     return `Basic ${token}`;
   }
 
@@ -53,7 +54,10 @@ export class AtlasService {
     try {
       const response = await axios.put(url, body, {
         params,
-        headers: { Authorization: authHeader },
+        headers: {
+          Authorization: authHeader,
+          'Content-Type': 'application/json',
+        },
       });
       return response.data;
     } catch (error) {

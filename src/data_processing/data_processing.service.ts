@@ -107,20 +107,16 @@ export class DataProcessingService {
 
     const dbResult = await this.atlas.get('/entity/guid/' + sourceId);
 
-    const instanceId = dbResult.instance.guid;
-
-    const dsResult = await this.atlas.get('/entity/guid/' + instanceId);
-
     // TODO: get password
     const dbDetails = {
-      type: dsResult.entity.attributes.rdbms_type,
+      type: dbResult.entity.attributes.rdbms_type,
       host:
-        dsResult.entity.attributes.hostname == 'host.docker.internal'
+        dbResult.entity.attributes.hostname == 'host.docker.internal'
           ? 'localhost'
-          : dsResult.entity.attributes.hostname,
-      port: dsResult.entity.attributes.port,
-      username: dbResult.entity.attributes.owner,
-      // password: result.password,
+          : dbResult.entity.attributes.hostname,
+      port: dbResult.entity.attributes.port,
+      username: dbResult.entity.attributes.owner, //TODO: get username
+      password: '', //TODO: get password
       name: dbResult.entity.attributes.name,
     };
 
@@ -410,7 +406,7 @@ export class DataProcessingService {
 
   private async csvColumns(sourceId, role): Promise<any> {
     const params = {
-      query: `from archetype where instance.__guid = "${sourceId}" select isActive, __state, __guid, qualifiedName`,
+      query: `from archetype where instance.__guid = "${sourceId}" select is_active, __state, __guid`,
     };
     const result = await this.atlas.get('/search/dsl', params);
 

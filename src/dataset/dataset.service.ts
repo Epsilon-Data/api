@@ -307,7 +307,7 @@ export class DatasetService {
     const sourceId =
       scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id;
     const params = {
-      query: `from archetype where instance.__guid = "${sourceId}" and __state = "ACTIVE" and isActive = true`,
+      query: `from archetype where instance.__guid = "${sourceId}" and __state = "ACTIVE" and is_active = true`,
     };
 
     const result = await this.atlas.get('/search/dsl', params);

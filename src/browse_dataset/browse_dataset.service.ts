@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AccessDto } from './dto';
-import { Request } from 'express';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 
 @Injectable()
@@ -60,9 +59,7 @@ export class BrowseDatasetService {
     return Promise.all(browseList);
   }
 
-  async projectDetails(projectId: string, requestBody: Request) {
-    const userId = requestBody.auth.payload.sub;
-
+  async projectDetails(userId: string, projectId: string) {
     const isOwnProject = await this.prisma.connectionRequest.findFirst({
       where: {
         requestor: userId,
@@ -86,7 +83,7 @@ export class BrowseDatasetService {
     });
 
     const params = {
-      query: `from archetype where instance.__guid = "${request.id}" select isActive, __state, __guid, qualifiedName`,
+      query: `from archetype where instance.__guid = "${request.id}" select is_active, __state, __guid, qualifiedName`,
     };
     const result = await this.atlas.get('/search/dsl', params);
 
@@ -95,7 +92,7 @@ export class BrowseDatasetService {
     );
 
     const templateGuid = activeTemplate[2];
-    const templateName = activeTemplate[3];
+    const templateName = activeTemplate[3].split('@', 2)[1];
 
     const templateInfo = {
       id: templateGuid,
@@ -109,12 +106,12 @@ export class BrowseDatasetService {
       const entity = templateEntity.referredEntities[key];
 
       if (entity.typeName.includes('archetype_')) {
-        const splitted = entity.attributes.qualifiedName.split('@');
+        const splitted = entity.attributes.qualifiedName.split('@', 3);
         const node = {
           id: splitted[2],
           position: {
-            x: entity.attributes.position.x,
-            y: entity.attributes.position.y,
+            x: Number(entity.attributes.position.x),
+            y: Number(entity.attributes.position.y),
           },
           data: {
             label: entity.attributes.displayName,
@@ -124,8 +121,8 @@ export class BrowseDatasetService {
           height: entity.attributes.height,
           selected: false,
           positionAbsolute: {
-            x: entity.attributes.position.x,
-            y: entity.attributes.position.y,
+            x: Number(entity.attributes.position.x),
+            y: Number(entity.attributes.position.y),
           },
           dragging: false,
         };

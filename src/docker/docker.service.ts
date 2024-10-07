@@ -26,7 +26,6 @@ export class DockerService {
             'CASSANDRA_USERNAME=cassandra',
             'CASSANDRA_PASSWORD=cassandra',
             'CASSANDRA_KEYSPACE=source',
-            'SOURCE_ID=' + id,
           ],
           NetworkingConfig: {
             EndpointsConfig: {
