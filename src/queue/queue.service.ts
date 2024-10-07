@@ -1,0 +1,49 @@
+import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+import { TemplateDto } from 'src/database_source/dto/database_source.dto';
+
+@Injectable()
+export class QueueService {
+  constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
+
+  async addArchetypeJob(template: TemplateDto, dbId: string) {
+    const parsedMapping = JSON.parse(template.columnMapping);
+    const parsedTemplate = JSON.parse(template.template);
+    const postData = {
+      projectId: template.projectId,
+      columnMapping: parsedMapping,
+      template: parsedTemplate,
+      dbId: dbId,
+    };
+    return await this.atlasQueue.add('process-add-archetype', postData, {
+      attempts: 5,
+      backoff: 10000,
+    });
+  }
+
+  async deleteTemplateJob(template: TemplateDto) {
+    const postData = {
+      templateId: template.templateId,
+      projectId: template.projectId,
+    };
+    return await this.atlasQueue.add('process-delete-template', postData, {
+      attempts: 5,
+      backoff: 10000,
+    });
+  }
+
+  async getJobResult(jobId: number | string) {
+    const job = await this.atlasQueue.getJob(jobId);
+    if (!job) {
+      return { message: 'Job not found or still processing' };
+    }
+
+    const result = await job.finished();
+    return { jobId, result };
+  }
+
+  async getJob(jobId: number | string) {
+    return await this.atlasQueue.getJob(jobId);
+  }
+}

@@ -51,6 +51,8 @@ export class DatabaseSourceGateway
   }
 
   async generateStatusList(output: any) {
+    if (!output.entities) return [];
+
     const modResult = await Promise.all(
       output.entities.map(async (entity) => {
         const details = await this.atlas.get('/entity/guid/' + entity.guid);
@@ -88,6 +90,7 @@ export class DatabaseSourceGateway
         const modResult = await this.generateStatusList(result);
 
         this.server.emit('updateStatus', { results: modResult });
+
         clearInterval(interval);
         client.disconnect();
       }

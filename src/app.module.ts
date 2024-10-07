@@ -17,6 +17,7 @@ import { DataProcessingModule } from './data_processing/data_processing.module';
 import { DatabaseModule } from './database/database.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { FileStorageModule } from './file_storage/file_storage.module';
+import { QueueModule } from './queue/queue.module';
 
 import configuration from './config/configuration';
 
@@ -72,6 +73,7 @@ import configuration from './config/configuration';
     DatabaseModule,
     AnalysisModule,
     FileStorageModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -4,6 +4,7 @@ import { PermissionsDto, TemplateDto } from './dto';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { Request } from 'express';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { QueueService } from 'src/queue/queue.service';
 
 @Injectable()
 export class DatabaseSourceService {
@@ -11,6 +12,7 @@ export class DatabaseSourceService {
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
+    private readonly queue: QueueService,
   ) {}
   async list(request: Request) {
     const userId = request.auth.payload.sub;
@@ -174,197 +176,18 @@ export class DatabaseSourceService {
     return resultArray;
   }
 
-  async addTemplate(template: TemplateDto) {
-    const dbId = await this.findDbId(template.projectId);
-
-    const parsed = JSON.parse(template.template);
-
-    const archetypeBody = {
-      entity: {
-        typeName: 'archetype',
-        status: 'ACTIVE',
-        attributes: {
-          owner: 'user',
-          qualifiedName: parsed.name,
-          isActive: true,
-        },
-        relationshipAttributes: {
-          instance: {
-            guid: dbId,
-            typeName: 'rdbms_instance',
-          },
-        },
-      },
-    };
-
-    const result = await this.atlas.post('/entity', archetypeBody);
-    const archetypeId = Object.values(result.guidAssignments)[0];
-
-    const object = parsed.nodes.filter((node: any) => node.type === 'object');
-
-    const catList = parsed.nodes.filter(
-      (node: any) => node.type === 'category',
-    );
-
-    const subcatList = parsed.nodes.filter(
-      (node: any) => node.type === 'subcategory',
-    );
-
-    const objectBody = {
-      typeName: 'archetype_object',
-      status: 'ACTIVE',
-      attributes: {
-        displayName: object[0].data.label,
-        name: object[0].data.label,
-        owner: 'user',
-        qualifiedName: `${archetypeId}@${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
-        position: {
-          x: object[0].position.x,
-          y: object[0].position.y,
-        },
-        label: object[0].data.label,
-        width: object[0].width,
-        height: object[0].height,
-        selected: false,
-        dragging: false,
-      },
-      relationshipAttributes: {
-        archetype: {
-          guid: archetypeId,
-          typeName: 'archetype',
-        },
-      },
-    };
-
-    const objectResult = await this.atlas.post('/entity/bulk', {
-      entities: [objectBody],
-    });
-    const objectId = Object.values(objectResult.guidAssignments)[0];
-
-    const catBodyList = [];
-    for (const node of catList) {
-      const catBody = {
-        typeName: 'archetype_category',
-        status: 'ACTIVE',
-        attributes: {
-          displayName: node.data.label,
-          name: node.data.label,
-          owner: 'user',
-          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
-          },
-          label: node.data.label,
-          width: node.width,
-          height: node.height,
-          selected: false,
-          dragging: false,
-        },
-        relationshipAttributes: {
-          archetype: {
-            guid: archetypeId,
-            typeName: 'archetype',
-          },
-          object: {
-            guid: objectId,
-            type: 'archetype_object',
-          },
-        },
-      };
-
-      catBodyList.push(catBody);
-    }
-
-    const catResult = await this.atlas.post('/entity/bulk', {
-      entities: catBodyList,
-    });
-
-    const catIdList = {};
-
-    for (const cat of catResult.mutatedEntities.CREATE) {
-      const name = cat.attributes.qualifiedName.split('@');
-      catIdList[name[2]] = cat.guid;
-    }
-
-    const subcatBodyList = [];
-
-    for (const node of subcatList) {
-      const relatedEdge = parsed.edges.filter(
-        (edge: any) => edge.source == node.id || edge.target == node.id,
-      );
-
-      const categoryId =
-        relatedEdge[0].source == node.id
-          ? catIdList[relatedEdge[0].target]
-          : catIdList[relatedEdge[0].source];
-
-      const subcatBody = {
-        typeName: 'archetype_subcategory',
-        status: 'ACTIVE',
-        attributes: {
-          displayName: node.data.label,
-          name: node.data.label,
-          owner: 'user',
-          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
-          },
-          label: node.data.label,
-          width: node.width,
-          height: node.height,
-          selected: false,
-          dragging: false,
-        },
-        relationshipAttributes: {
-          archetype: {
-            guid: archetypeId,
-            typeName: 'archetype',
-          },
-          category: {
-            guid: categoryId,
-            type: 'archetype_category',
-          },
-        },
-      };
-
-      subcatBodyList.push(subcatBody);
-    }
-
-    if (subcatBodyList.length > 0) {
-      await this.atlas.post('/entity/bulk', {
-        entities: subcatBodyList,
-      });
-    }
-
-    await this.prisma.project.update({
-      where: {
-        id: template.projectId,
-      },
-      data: {
-        lastUpdated: new Date(),
-      },
-    });
-
-    return archetypeId;
-  }
-
   async deleteTemplate(template: TemplateDto) {
-    const result = await this.atlas.delete(
-      '/entity/guid/' + template.templateId,
-    );
-
+    const job = await this.queue.deleteTemplateJob(template);
     await this.prisma.project.update({
       where: {
         id: template.projectId,
       },
       data: {
-        lastUpdated: new Date(),
+        templateDeleteJobs: {
+          push: job.id.toString(),
+        },
       },
     });
-
-    return result;
   }
 
   async templateNames(projectId: string) {
@@ -374,11 +197,45 @@ export class DatabaseSourceService {
     };
     const result = await this.atlas.get('/search/dsl', params);
 
+    const deleteJobsResult = await this.prisma.project.findUnique({
+      where: {
+        id: projectId,
+      },
+      select: {
+        templateDeleteJobs: true,
+      },
+    });
+
+    const deleteJobs = deleteJobsResult.templateDeleteJobs;
+    const deletingTemplates = [];
+    if (deleteJobsResult.templateDeleteJobs.length != 0) {
+      for (let i = 0; i < deleteJobsResult.templateDeleteJobs.length; i++) {
+        const job = await this.queue.getJob(
+          deleteJobsResult.templateDeleteJobs[i],
+        );
+        const state = await job.getState();
+
+        if (state === 'completed') {
+          await job.remove();
+          delete deleteJobs[i];
+        } else {
+          const data = job.data;
+          deletingTemplates.push(data.templateId);
+        }
+      }
+    }
+
     let activeTemplates = [];
     if (result.attributes) {
-      activeTemplates = result.attributes.values.filter(
-        (item) => item[0] === 'ACTIVE',
-      );
+      activeTemplates = result.attributes.values
+        .filter(
+          (item) =>
+            item[0] === 'ACTIVE' && !deletingTemplates.includes(item[1]),
+        )
+        .map((item) => {
+          item[2] = item[2].split('@', 2)[1];
+          return item;
+        });
     }
 
     return activeTemplates;
@@ -411,8 +268,8 @@ export class DatabaseSourceService {
           const node = {
             id: splitted[2],
             position: {
-              x: entity.attributes.position.x,
-              y: entity.attributes.position.y,
+              x: Number(entity.attributes.position.x),
+              y: Number(entity.attributes.position.y),
             },
             data: {
               label: entity.attributes.displayName,
@@ -422,8 +279,8 @@ export class DatabaseSourceService {
             height: entity.attributes.height,
             selected: false,
             positionAbsolute: {
-              x: entity.attributes.position.x,
-              y: entity.attributes.position.y,
+              x: Number(entity.attributes.position.x),
+              y: Number(entity.attributes.position.y),
             },
             dragging: false,
           };
@@ -457,72 +314,10 @@ export class DatabaseSourceService {
     return output;
   }
 
-  async addColumnMapping(template: TemplateDto) {
+  async addArchetype(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
-    const parsed = JSON.parse(template.columnMapping);
 
-    const tableParams = {
-      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
-    };
-
-    const tableResult = await this.atlas.get('/search/dsl', tableParams);
-
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
-
-    for (const node of parsed) {
-      const params = {
-        'attr:qualifiedName': `${template.templateId}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
-      };
-
-      const result = await this.atlas.get(
-        `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
-        params,
-      );
-
-      if (result.entity.relationshipAttributes.columns.length !== 0) {
-        continue;
-      }
-
-      result.entity.relationshipAttributes.columns = [];
-
-      for (const col of node.columns) {
-        const tableGuid = activeTables.find(
-          (table: any) => table.attributes.name === col.table,
-        ).guid;
-
-        const colParams = {
-          query: `from rdbms_column where table.__guid = "${tableGuid}"`,
-        };
-        const colResult = await this.atlas.get('/search/dsl', colParams);
-
-        const activeColumns = colResult.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
-        );
-
-        const columnEntity = activeColumns.find(
-          (column: any) => column.attributes.name === col.name,
-        );
-
-        const relationship = await this.atlas.get(
-          `/types/relationshipdef/name/archetype_${node.nodeType}_rdbms_columns`,
-        );
-
-        const columnInfo = {
-          guid: columnEntity.guid,
-          typeName: 'rdbms_column',
-          entityStatus: 'ACTIVE',
-          relationshipType: `archetype_${node.nodeType}_rdbms_columns`,
-          relationshipGuid: relationship.guid,
-          relationshipStatus: 'ACTIVE',
-        };
-
-        result.entity.relationshipAttributes.columns.push(columnInfo);
-      }
-
-      await this.atlas.post('/entity', result);
-    }
+    await this.queue.addArchetypeJob(template, dbId);
   }
 
   async columns(projectId: string) {
@@ -592,7 +387,7 @@ export class DatabaseSourceService {
         `/entity/guid/${templateGuid}`,
       );
 
-      templateInfo.active = templateEntity.entity.attributes.isActive;
+      templateInfo.active = templateEntity.entity.attributes.is_active;
 
       for (const key in templateEntity.referredEntities) {
         const entity = templateEntity.referredEntities[key];
@@ -676,8 +471,6 @@ export class DatabaseSourceService {
         `/entity/guid/${templateGuid}`,
       );
 
-      templateEntity.entity.attributes.isActive = permission.active;
-
       const templateNodesGuid = [];
 
       for (const key in templateEntity.referredEntities) {
@@ -702,7 +495,12 @@ export class DatabaseSourceService {
         }
       };
 
-      await this.atlas.post('/entity', templateEntity);
+      const params = { name: 'is_active' };
+      await this.atlas.put(
+        `/entity/guid/${templateGuid}`,
+        JSON.stringify(permission.active ? 'true' : 'false'),
+        params,
+      );
 
       if (permission.active) {
         const activeParams = {
@@ -725,30 +523,35 @@ export class DatabaseSourceService {
 
             const objects =
               permissionEntity.entity.relationshipAttributes.object.filter(
-                (o) => templateNodesGuid.includes(o.guid),
+                (o) =>
+                  templateNodesGuid.includes(o.guid) &&
+                  o.relationshipStatus === 'ACTIVE',
               );
 
             const categories =
               permissionEntity.entity.relationshipAttributes.category.filter(
-                (s) => templateNodesGuid.includes(s.guid),
+                (s) =>
+                  templateNodesGuid.includes(s.guid) &&
+                  s.relationshipStatus === 'ACTIVE',
               );
             const subcategories =
               permissionEntity.entity.relationshipAttributes.subcategory.filter(
-                (c) => templateNodesGuid.includes(c.guid),
+                (c) =>
+                  templateNodesGuid.includes(c.guid) &&
+                  c.relationshipStatus === 'ACTIVE',
               );
 
             const combined = [...objects, ...categories, ...subcategories];
-            guidList = [...guidList, ...combined.map((c) => c.guid)];
+            guidList = [
+              ...guidList,
+              ...combined.map((c) => c.relationshipGuid),
+            ];
           }
 
           guidList = Array.from(new Set(guidList));
 
           for (const guid of guidList) {
-            const entity = await this.atlas.get(`/entity/guid/${guid}`);
-
-            entity.entity.attributes.permissions = [];
-            entity.entity.relationshipAttributes.permissions = [];
-            await this.atlas.post('/entity', entity);
+            await this.atlas.delete(`/relationship/guid/${guid}`);
           }
         }
 
@@ -761,7 +564,9 @@ export class DatabaseSourceService {
               `${templateGuid}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
             );
 
-            for (const permission of node.permissions) {
+            const uniquePermissions = [...new Set(node.permissions)];
+
+            for (const permission of uniquePermissions) {
               const permissionName = `permission_${permission}@${role}`;
               const permissionParams = {
                 query: `from permission where qualifiedName = "${permissionName}" and __state = "ACTIVE" limit 1`,
@@ -775,23 +580,32 @@ export class DatabaseSourceService {
               if (permissionResult.entities) {
                 const permissionGuid = permissionResult.entities[0].guid;
 
-                const relationshipBody = {
-                  typeName: `${nodeType}_permissions`,
-                  attributes: {
-                    permissions: nodeGuid,
-                    object: permissionGuid,
-                  },
-                  provenanceType: 0,
-                  end1: {
-                    guid: nodeGuid,
-                  },
-                  end2: {
-                    guid: permissionGuid,
-                  },
-                  status: 'ACTIVE',
-                };
+                const permissionEntity = await this.atlas.get(
+                  `/entity/guid/${permissionGuid}`,
+                );
 
-                await this.atlas.post('/relationship', relationshipBody);
+                const hasRelationship =
+                  permissionEntity.entity.relationshipAttributes[
+                    `${node.nodeType}`
+                  ].some(
+                    (p: any) =>
+                      p.guid === nodeGuid && p.relationshipStatus === 'ACTIVE',
+                  );
+
+                if (!hasRelationship) {
+                  const relationshipBody = {
+                    typeName: `${nodeType}_permissions`,
+                    end1: {
+                      guid: nodeGuid,
+                    },
+                    end2: {
+                      guid: permissionGuid,
+                    },
+                    status: 'ACTIVE',
+                  };
+
+                  await this.atlas.post('/relationship', relationshipBody);
+                }
               } else {
                 const permissionBody = {
                   entity: {

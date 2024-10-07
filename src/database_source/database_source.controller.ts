@@ -40,11 +40,6 @@ export class DatabaseSourceController {
     return this.databaseSourceService.tables(projectId);
   }
 
-  @Post('add-template')
-  addTemplate(@Body() template: TemplateDto) {
-    return this.databaseSourceService.addTemplate(template);
-  }
-
   @Get('template-names')
   templateNames(@Query('projectId') projectId: string) {
     return this.databaseSourceService.templateNames(projectId);
@@ -60,9 +55,9 @@ export class DatabaseSourceController {
     return this.databaseSourceService.deleteTemplate(template);
   }
 
-  @Post('add-column-mapping')
-  addColumnMapping(@Body() template: TemplateDto) {
-    return this.databaseSourceService.addColumnMapping(template);
+  @Post('add-archetype')
+  addArchetype(@Body() template: TemplateDto) {
+    return this.databaseSourceService.addArchetype(template);
   }
 
   @Get('columns')
