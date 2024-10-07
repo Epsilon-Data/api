@@ -137,8 +137,9 @@ def prepend_script(source_details, csv_columns, script_mapping, script_path):
 
 def upload_to_s3(file_path, prefix, file_name):
   bucket = "script"
+  uri = os.getenv('S3_URI')
   s3 = boto3.client('s3',
-                    endpoint_url='http://localhost:9000',
+                    endpoint_url=uri if uri else os.getenv('S3_URI'),
                     aws_access_key_id='admin',
                     aws_secret_access_key='supersecret',
                     config=Config(signature_version='s3v4'),)
@@ -154,8 +155,9 @@ def upload_to_s3(file_path, prefix, file_name):
 
 def get_from_s3(file_name, prefix, download_path):
   bucket = "script"
+  uri = os.getenv('S3_URI')
   s3 = boto3.client('s3',
-                    endpoint_url='http://localhost:9000',
+                    endpoint_url= uri if uri else os.getenv('S3_URI'),
                     aws_access_key_id='admin',
                     aws_secret_access_key='supersecret',
                     config=Config(signature_version='s3v4'),)
@@ -182,8 +184,12 @@ def main(yaml_file):
 
 if __name__ == "__main__":
   install_package("boto3")
+  install_package("python-dotenv")
   
   import boto3
   from botocore.client import Config
+  from dotenv import load_dotenv
+  
+  load_dotenv()
   
   main(sys.argv[1])

@@ -168,8 +168,9 @@ def combine_dataframes(db_details, prefix, table_names, foreign_keys, primary_ke
 
 def upload_to_s3(file_path, prefix):
   bucket = "synthetic"
+  uri = os.getenv('S3_URI')
   s3 = boto3.client('s3',
-                    endpoint_url='http://localhost:9000',
+                    endpoint_url=uri if uri else os.getenv('S3_URI'),
                     aws_access_key_id='admin',
                     aws_secret_access_key='supersecret',
                     config=Config(signature_version='s3v4'),)
@@ -207,7 +208,8 @@ if __name__ == "__main__":
   install_package("psycopg2")
   install_package("sqlalchemy")
   install_package("boto3")
-    
+  install_package("python-dotenv")
+  
   import json
   from sqlalchemy import create_engine
   import pandas as pd
@@ -216,5 +218,8 @@ if __name__ == "__main__":
   import random
   import boto3
   from botocore.client import Config
+  from dotenv import load_dotenv
+  
+  load_dotenv()
   
   main(sys.argv[1])

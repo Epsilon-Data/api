@@ -10,14 +10,15 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class FileStorageService {
   private readonly s3: S3Client;
 
-  constructor() {
+  constructor(config: ConfigService) {
     this.s3 = new S3Client({
-      endpoint: 'http://localhost:9000',
+      endpoint: config.get('S3_URI') || config.get('S3_URI'),
       credentials: {
         accessKeyId: 'admin',
         secretAccessKey: 'supersecret',
