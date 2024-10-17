@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Request } from 'express';
 import { ProceedDto, RequestDto, RevisionDto } from './dto';
 
 @Injectable()
@@ -64,68 +63,66 @@ export class AccessRequestService {
     return mappedRequest;
   }
 
-  async summary(request: Request, mode: string) {
-    const userId = request.auth.payload.sub;
-    let requestList = [];
-    if (mode == 'sent') {
-      requestList = await this.prisma.userRequest.findMany({
-        where: {
-          requestor: userId,
-        },
-        select: {
-          id: true,
-          requestorName: true,
-          status: true,
-          createdDate: true,
-          projectName: true,
-          Project: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      });
-    } else {
-      const projectList = await this.prisma.connectionRequest.findMany({
-        where: {
-          requestor: userId,
-          status: {
-            equals: 3,
-          },
-        },
-        select: {
-          Project: {
-            select: {
-              id: true,
-            },
-          },
-        },
-      });
+  async summary(userId: string) {
+    const requestList = { sent: [], receive: [] };
 
-      const projectIdList = projectList.map((item) => item.Project.id);
+    requestList.sent = await this.prisma.userRequest.findMany({
+      where: {
+        requestor: userId,
+      },
+      select: {
+        id: true,
+        requestorName: true,
+        status: true,
+        createdDate: true,
+        projectName: true,
+        Project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
 
-      requestList = await this.prisma.userRequest.findMany({
-        where: {
-          projectId: {
-            in: projectIdList,
+    const projectList = await this.prisma.connectionRequest.findMany({
+      where: {
+        requestor: userId,
+        status: {
+          equals: 3,
+        },
+      },
+      select: {
+        Project: {
+          select: {
+            id: true,
           },
         },
-        select: {
-          id: true,
-          requestorName: true,
-          status: true,
-          createdDate: true,
-          projectName: true,
-          Project: {
-            select: {
-              id: true,
-              name: true,
-            },
+      },
+    });
+
+    const projectIdList = projectList.map((item) => item.Project.id);
+
+    requestList.receive = await this.prisma.userRequest.findMany({
+      where: {
+        projectId: {
+          in: projectIdList,
+        },
+      },
+      select: {
+        id: true,
+        requestorName: true,
+        status: true,
+        createdDate: true,
+        projectName: true,
+        Project: {
+          select: {
+            id: true,
+            name: true,
           },
         },
-      });
-    }
+      },
+    });
 
     return { requests: requestList };
   }
