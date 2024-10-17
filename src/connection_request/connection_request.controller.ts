@@ -27,8 +27,8 @@ export class ConnectionRequestController {
 
   @Get('summary')
   @UseGuards(new AuthGuard('api.hub.read'))
-  summary(@Req() request) {
-    return this.connectionRequestService.summary(request);
+  summary(@Query('userId') userId: string, @Query('email') email: string) {
+    return this.connectionRequestService.summary(userId, email);
   }
 
   @Post('create')

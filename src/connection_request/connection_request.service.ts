@@ -70,55 +70,46 @@ export class ConnectionRequestService {
     return { ...mappedRequest, ...info };
   }
 
-  async summary(request: Request) {
-    // check if user is admin
-    let isAdmin = false;
-    const access: { roles?: string[] } = request.auth.payload.realm_access;
-    if (access && access.roles) {
-      isAdmin = access.roles.indexOf('admin') !== -1;
-    }
+  async summary(userId: string, email: string) {
+    const requestList = { sent: [], receive: [] };
 
-    const userId = request.auth.payload.sub;
-    let requestList = [];
-    if (isAdmin) {
-      const userEmail = request.auth.payload.email;
-      requestList = await this.prisma.connectionRequest.findMany({
-        where: {
-          orgAdminEmail: userEmail,
-        },
-        select: {
-          id: true,
-          requestor: true,
-          status: true,
-          createdDate: true,
-          Project: {
-            select: {
-              customId: true,
-              name: true,
-            },
+    requestList.receive = await this.prisma.connectionRequest.findMany({
+      where: {
+        orgAdminEmail: email,
+      },
+      select: {
+        id: true,
+        requestor: true,
+        status: true,
+        createdDate: true,
+        Project: {
+          select: {
+            customId: true,
+            name: true,
           },
         },
-      });
-    } else {
-      requestList = await this.prisma.connectionRequest.findMany({
-        where: {
-          requestor: userId,
-        },
-        select: {
-          id: true,
-          status: true,
-          createdDate: true,
-          dbName: true,
-          Project: {
-            select: {
-              id: true,
-              customId: true,
-              name: true,
-            },
+      },
+    });
+
+    requestList.sent = await this.prisma.connectionRequest.findMany({
+      where: {
+        requestor: userId,
+      },
+      select: {
+        id: true,
+        status: true,
+        createdDate: true,
+        dbName: true,
+        Project: {
+          select: {
+            id: true,
+            customId: true,
+            name: true,
           },
         },
-      });
-    }
+      },
+    });
+
     return { requests: requestList };
   }
 
