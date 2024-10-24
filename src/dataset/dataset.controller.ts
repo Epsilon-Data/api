@@ -24,8 +24,8 @@ export class DatasetController {
   constructor(private datasetService: DatasetService) {}
 
   @Get('list')
-  list(@Req() request: Request) {
-    return this.datasetService.list(request);
+  list(@Query('userId', ParseUUIDPipe) userId: string) {
+    return this.datasetService.list(userId);
   }
 
   @Get('analysis-list')
@@ -62,7 +62,7 @@ export class DatasetController {
   }
 
   @Delete('delete-script')
-  deleteScript(@Query('scriptId') scriptId: string) {
+  deleteScript(@Query('scriptId', ParseUUIDPipe) scriptId: string) {
     return this.datasetService.deleteScript(scriptId);
   }
 
@@ -85,13 +85,13 @@ export class DatasetController {
   }
 
   @Delete('delete-analysis')
-  deleteAnalysis(@Query('analysisId') analysisId: string) {
+  deleteAnalysis(@Query('analysisId', ParseUUIDPipe) analysisId: string) {
     return this.datasetService.deleteAnalysis(analysisId);
   }
 
   @Post('add-script-mapping')
   addScriptMapping(
-    @Query('scriptId') scriptId: string,
+    @Query('scriptId', ParseUUIDPipe) scriptId: string,
     @Body() mapping: { data: string },
   ) {
     return this.datasetService.addScriptMapping(scriptId, mapping.data);

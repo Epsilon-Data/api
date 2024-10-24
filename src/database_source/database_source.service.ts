@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PermissionsDto, TemplateDto } from './dto';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { Request } from 'express';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { QueueService } from 'src/queue/queue.service';
 
@@ -14,8 +13,7 @@ export class DatabaseSourceService {
     private fileStorage: FileStorageService,
     private readonly queue: QueueService,
   ) {}
-  async list(request: Request) {
-    const userId = request.auth.payload.sub;
+  async list(userId: string) {
     const requestList = await this.prisma.connectionRequest.findMany({
       where: {
         requestor: userId,

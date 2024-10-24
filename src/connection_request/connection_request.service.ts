@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
-import { Request } from 'express';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { DockerService } from 'src/docker/docker.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
@@ -142,15 +141,16 @@ export class ConnectionRequestService {
       data: request,
     });
 
-    let info = {};
+    let info: any = {};
     if (dto.databaseInfo) {
       try {
-        const result = await this.docker.runDataBroker(
+        const instanceGuid = await this.docker.runDataBroker(
+          dto.requestor,
           createdRequest.id,
           dto.databaseInfo,
         );
-        console.log('Data broker container started successfully:', result);
-        info = { status: 3 };
+        console.log('Data broker container started successfully.');
+        info = { status: 3, atlasId: instanceGuid };
       } catch (error) {
         console.error('Failed to start data broker container:', error);
         info = { status: 2 };
@@ -165,7 +165,9 @@ export class ConnectionRequestService {
       // }
     }
 
-    this.dataProcess.dataSynthesis(createdRequest.id);
+    if (info.atlasId) {
+      this.dataProcess.dataSynthesis(info.atlasId);
+    }
 
     return await this.prisma.connectionRequest.update({
       where: { id: createdRequest.id },
@@ -214,10 +216,11 @@ export class ConnectionRequestService {
 
     if (request.dbName) {
       let status = 2;
-      await this.atlas.delete('/entity/guid/' + request.id);
+      await this.atlas.delete('/entity/guid/' + request.atlasId);
 
       try {
         const result = await this.docker.runDataBroker(
+          dto.requestor,
           dto.id,
           dto.databaseInfo,
         );
@@ -259,10 +262,14 @@ export class ConnectionRequestService {
       where: {
         id: requestId,
       },
+      select: {
+        atlasId: true,
+        dbName: true,
+      },
     });
 
     if (request.dbName) {
-      await this.atlas.delete('/entity/guid/' + request.id);
+      await this.atlas.delete('/entity/guid/' + request.atlasId);
     }
 
     return await this.prisma.connectionRequest.delete({
@@ -275,10 +282,10 @@ export class ConnectionRequestService {
     });
   }
 
-  async approve(dto: DatabaseInfoDto, requestId: string) {
+  async approve(userId: string, dto: DatabaseInfoDto, requestId: string) {
     let status = 1;
     try {
-      this.docker.runDataBroker(requestId, dto);
+      this.docker.runDataBroker(userId, requestId, dto);
       console.log('Data broker container started successfully.');
       status = 3;
     } catch (error) {
@@ -319,10 +326,10 @@ export class ConnectionRequestService {
     return await testConnection(connectionData);
   }
 
-  async validProjectId(request: Request, projectId: string) {
+  async validProjectId(userId: string, projectId: string) {
     const result = await this.prisma.connectionRequest.findFirst({
       where: {
-        requestor: request.auth.payload.sub,
+        requestor: userId,
         Project: {
           customId: projectId,
         },

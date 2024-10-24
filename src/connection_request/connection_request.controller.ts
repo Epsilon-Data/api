@@ -9,7 +9,6 @@ import {
   Patch,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
@@ -27,7 +26,10 @@ export class ConnectionRequestController {
 
   @Get('summary')
   @UseGuards(new AuthGuard('api.hub.read'))
-  summary(@Query('userId') userId: string, @Query('email') email: string) {
+  summary(
+    @Query('userId', ParseUUIDPipe) userId: string,
+    @Query('email') email: string,
+  ) {
     return this.connectionRequestService.summary(userId, email);
   }
 
@@ -48,10 +50,11 @@ export class ConnectionRequestController {
 
   @Patch('approve')
   approve(
+    @Query('requestId', ParseUUIDPipe) userId: string,
     @Body() dto: DatabaseInfoDto,
     @Query('requestId', ParseUUIDPipe) requestId: string,
   ) {
-    return this.connectionRequestService.approve(dto, requestId);
+    return this.connectionRequestService.approve(userId, dto, requestId);
   }
 
   @Patch('revision')
@@ -76,7 +79,10 @@ export class ConnectionRequestController {
   }
 
   @Get('valid-project-id')
-  async validProjectId(@Req() request, @Query('projectId') projectId: string) {
-    return this.connectionRequestService.validProjectId(request, projectId);
+  async validProjectId(
+    @Query('userId', ParseUUIDPipe) userId: string,
+    @Query('projectId') projectId: string,
+  ) {
+    return this.connectionRequestService.validProjectId(userId, projectId);
   }
 }

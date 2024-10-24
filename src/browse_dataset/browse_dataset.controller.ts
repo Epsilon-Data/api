@@ -1,4 +1,11 @@
-import { Controller, Get, Query, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Post,
+  Body,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { BrowseDatasetService } from './browse_dataset.service';
 import { AccessDto } from './dto';
 
@@ -13,14 +20,14 @@ export class BrowseDatasetController {
 
   @Get('project-details')
   async projectDetails(
-    @Query('userId') userId: string,
-    @Query('projectId') projectId: string,
+    @Query('userId', ParseUUIDPipe) userId: string,
+    @Query('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return await this.browseDatasetService.projectDetails(userId, projectId);
   }
 
   @Get('project-summary')
-  async projectSummary(@Query('projectId') projectId: string) {
+  async projectSummary(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return await this.browseDatasetService.projectSummary(projectId);
   }
 

@@ -21,8 +21,7 @@ export class DatasetService {
     private fileStorage: FileStorageService,
   ) {}
 
-  async list(request: Request) {
-    const userId = request.auth.payload.sub;
+  async list(userId: string) {
     const requestList = await this.prisma.userRequest.findMany({
       where: {
         requestor: userId,
@@ -421,7 +420,7 @@ export class DatasetService {
                   select: {
                     ConnectionRequest: {
                       select: {
-                        id: true,
+                        atlasId: true,
                       },
                     },
                   },
@@ -434,7 +433,7 @@ export class DatasetService {
     });
 
     await this.dataProcess.preprocessScript(
-      request.Analysis.UserRequest.Project.ConnectionRequest.id,
+      request.Analysis.UserRequest.Project.ConnectionRequest.atlasId,
       request.Analysis.id,
       { id: scriptId, name: request.name, mapping: parsed },
     );

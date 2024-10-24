@@ -4,15 +4,14 @@ import {
   Delete,
   Get,
   ParseFilePipe,
+  ParseUUIDPipe,
   Post,
   Query,
-  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { DatabaseSourceService } from './database_source.service';
 import { PermissionsDto, TemplateDto } from './dto';
-import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
 
@@ -21,32 +20,32 @@ export class DatabaseSourceController {
   constructor(private databaseSourceService: DatabaseSourceService) {}
 
   @Get('list')
-  list(@Req() request: Request) {
-    return this.databaseSourceService.list(request);
+  list(@Query('userId', ParseUUIDPipe) userId: string) {
+    return this.databaseSourceService.list(userId);
   }
 
   @Get('project-id')
-  getProjectId(@Query('id') projectId: string) {
+  getProjectId(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.getProjectId(projectId);
   }
 
   @Get('summary')
-  summary(@Query('projectId') projectId: string) {
+  summary(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.summary(projectId);
   }
 
   @Get('tables')
-  tables(@Query('projectId') projectId: string) {
+  tables(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.tables(projectId);
   }
 
   @Get('template-names')
-  templateNames(@Query('projectId') projectId: string) {
+  templateNames(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.templateNames(projectId);
   }
 
   @Get('templates')
-  templates(@Query('projectId') projectId: string) {
+  templates(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.templates(projectId);
   }
 
@@ -61,12 +60,12 @@ export class DatabaseSourceController {
   }
 
   @Get('columns')
-  columns(@Query('projectId') projectId: string) {
+  columns(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.columns(projectId);
   }
 
   @Get('permissions')
-  permissions(@Query('projectId') projectId: string) {
+  permissions(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.permissions(projectId);
   }
 
@@ -76,7 +75,7 @@ export class DatabaseSourceController {
   }
 
   @Get('settings')
-  settings(@Query('projectId') projectId: string) {
+  settings(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.settings(projectId, {
       cover: true,
       visualisations: true,
@@ -88,7 +87,7 @@ export class DatabaseSourceController {
   async uploadCover(
     @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,
-    @Query('projectId') projectId: string,
+    @Query('projectId', ParseUUIDPipe) projectId: string,
   ) {
     // return { response: 'asdf' };
     return this.databaseSourceService.uploadCover(projectId, file);
@@ -100,7 +99,7 @@ export class DatabaseSourceController {
   }
 
   @Delete('delete-cover')
-  deleteCover(@Query('projectId') projectId: string) {
+  deleteCover(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.deleteCover(projectId);
   }
 }
