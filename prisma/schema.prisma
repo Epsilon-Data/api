@@ -9,6 +9,7 @@ datasource db {
 
 model ConnectionRequest {
   id                      String    @id(map: "request_pkey") @default(uuid()) @db.Uuid
+  atlasId                 String?   @db.Uuid
   requestor               String?   @db.Uuid
   projectId               String?   @unique @db.Uuid
   status                  Int?      @db.SmallInt

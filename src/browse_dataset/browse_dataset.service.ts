@@ -72,7 +72,7 @@ export class BrowseDatasetService {
         projectId: projectId,
       },
       select: {
-        id: true,
+        atlasId: true,
         dataDescription: true,
         dataParticipantsNum: true,
         dataKeywords: true,
@@ -83,7 +83,7 @@ export class BrowseDatasetService {
     });
 
     const params = {
-      query: `from archetype where instance.__guid = "${request.id}" select is_active, __state, __guid, qualifiedName`,
+      query: `from archetype where instance.__guid = "${request.atlasId}" select is_active, __state, __guid, qualifiedName`,
     };
     const result = await this.atlas.get('/search/dsl', params);
 
