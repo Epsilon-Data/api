@@ -223,7 +223,7 @@ export class DatasetService {
           select: {
             ConnectionRequest: {
               select: {
-                id: true,
+                atlasId: true,
               },
             },
           },
@@ -231,7 +231,7 @@ export class DatasetService {
       },
     });
 
-    await this.database.connect(request.Project.ConnectionRequest.id);
+    await this.database.connect(request.Project.ConnectionRequest.atlasId);
     await this.database.initialize();
     this.analysis.setDatabaseService(this.database);
 
@@ -291,7 +291,7 @@ export class DatasetService {
                   select: {
                     ConnectionRequest: {
                       select: {
-                        id: true,
+                        atlasId: true,
                       },
                     },
                   },
@@ -304,7 +304,7 @@ export class DatasetService {
     });
 
     const sourceId =
-      scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.id;
+      scriptRequest.Analysis.UserRequest.Project.ConnectionRequest.atlasId;
     const params = {
       query: `from archetype where instance.__guid = "${sourceId}" and __state = "ACTIVE" and is_active = true`,
     };
@@ -466,7 +466,7 @@ export class DatasetService {
           select: {
             ConnectionRequest: {
               select: {
-                id: true,
+                atlasId: true,
               },
             },
           },
@@ -474,7 +474,7 @@ export class DatasetService {
       },
     });
 
-    const sourceId = userRequest.Project.ConnectionRequest.id;
+    const sourceId = userRequest.Project.ConnectionRequest.atlasId;
 
     const result = await this.dataProcess.generateDownloadDataset(sourceId);
 

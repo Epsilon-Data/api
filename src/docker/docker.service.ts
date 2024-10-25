@@ -64,7 +64,7 @@ export class DockerService {
       await container.remove();
       this.logger.log('Container removed successfully.');
 
-      return containerOutput;
+      return containerOutput.replace('%', '');
     } catch (error) {
       this.logger.error('Error running Data Broker container', error);
       throw error;

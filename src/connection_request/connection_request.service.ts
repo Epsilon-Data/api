@@ -165,9 +165,9 @@ export class ConnectionRequestService {
       // }
     }
 
-    if (info.atlasId) {
-      this.dataProcess.dataSynthesis(info.atlasId);
-    }
+    // if (info.atlasId) {
+    //   this.dataProcess.dataSynthesis(info.atlasId);
+    // }
 
     return await this.prisma.connectionRequest.update({
       where: { id: createdRequest.id },
@@ -283,24 +283,28 @@ export class ConnectionRequestService {
   }
 
   async approve(userId: string, dto: DatabaseInfoDto, requestId: string) {
-    let status = 1;
     try {
-      this.docker.runDataBroker(userId, requestId, dto);
+      const instanceGuid = await this.docker.runDataBroker(
+        userId,
+        requestId,
+        dto,
+      );
       console.log('Data broker container started successfully.');
-      status = 3;
+      const status = 3;
+
+      this.dataProcess.dataSynthesis(instanceGuid);
+
+      return await this.prisma.connectionRequest.update({
+        where: { id: requestId },
+        data: {
+          dbName: dto.name,
+          status: status,
+          atlasId: instanceGuid,
+        },
+      });
     } catch (error) {
       console.error('Failed to start data broker container:', error);
     }
-
-    this.dataProcess.dataSynthesis(requestId);
-
-    return await this.prisma.connectionRequest.update({
-      where: { id: requestId },
-      data: {
-        dbName: dto.name,
-        status: status,
-      },
-    });
   }
 
   async revision(dto: RevisionDto) {

@@ -29,10 +29,10 @@ export class DatabaseSourceService {
         projectId: request.Project.id,
         projectCustomId: request.Project.customId,
         projectName: request.Project.name,
-        dbId: request.id,
+        dbId: request.atlasId,
       };
 
-      const result = await this.atlas.get('/entity/guid/' + request.id);
+      const result = await this.atlas.get('/entity/guid/' + request.atlasId);
 
       const researcherDb = result
         ? {
@@ -552,9 +552,9 @@ export class DatabaseSourceService {
         projectId: projectId,
       },
       select: {
-        id: true,
+        atlasId: true,
       },
     });
-    return request.id;
+    return request.atlasId;
   }
 }
