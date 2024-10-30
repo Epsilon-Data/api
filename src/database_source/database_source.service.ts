@@ -32,18 +32,20 @@ export class DatabaseSourceService {
         dbId: request.atlasId,
       };
 
-      const result = await this.atlas.get('/entity/guid/' + request.atlasId);
+      let researcherDb = null;
 
-      const researcherDb = result
-        ? {
-            databaseName: request.dbName,
-            connectDate: result.entity.createTime,
-            crawlStatus: result.entity.attributes.crawl_status,
-            lastUpdated: result.entity.updateTime,
-            statusMsg: result.entity.attributes.status_msg,
-            statusPercent: result.entity.attributes.status_percent,
-          }
-        : null;
+      if (request.atlasId) {
+        const result = await this.atlas.get('/entity/guid/' + request.atlasId);
+        researcherDb = {
+          databaseName: request.dbName,
+          connectDate: result.entity.createTime,
+          crawlStatus: result.entity.attributes.crawl_status,
+          lastUpdated: result.entity.updateTime,
+          statusMsg: result.entity.attributes.status_msg,
+          statusPercent: result.entity.attributes.status_percent,
+        };
+      }
+
       if (researcherDb) {
         return {
           ...project,
@@ -121,11 +123,18 @@ export class DatabaseSourceService {
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
+
     const tablesResult = await this.atlas.get('/search/dsl', tableParams);
 
-    const activeTables = tablesResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
+    let activeTables;
+
+    if (tablesResult.entities) {
+      activeTables = tablesResult.entities.filter(
+        (entity: any) => entity.status === 'ACTIVE',
+      );
+    } else {
+      activeTables = [];
+    }
 
     const resultArray = [];
     for (const table of activeTables) {
@@ -134,9 +143,15 @@ export class DatabaseSourceService {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
       const columnsResult = await this.atlas.get('/search/dsl', columnsParams);
-      const activeColumns = columnsResult.entities.filter(
-        (entity: any) => entity.status === 'ACTIVE',
-      );
+
+      let activeColumns;
+      if (columnsResult.entities) {
+        activeColumns = columnsResult.entities.filter(
+          (entity: any) => entity.status === 'ACTIVE',
+        );
+      } else {
+        activeColumns = [];
+      }
 
       const schemaParams = {
         query: `from rdbms_table where __guid = "${guid}" select db`,
@@ -168,6 +183,7 @@ export class DatabaseSourceService {
         schema: schemaResult.entities[0].attributes.name,
         columns: columns,
       };
+
       resultArray.push(tableInfo);
     }
 
