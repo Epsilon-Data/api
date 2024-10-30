@@ -4,6 +4,7 @@ import * as Docker from 'dockerode';
 import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import * as tar from 'tar-stream';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class DockerService {
@@ -13,7 +14,10 @@ export class DockerService {
 
   private readonly logger = new Logger(DockerService.name);
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private prisma: PrismaService,
+  ) {
     this.baseUrl = config.get('ATLAS_URI');
     this.password = config.get('ATLAS_ADMIN_PASSWORD');
     this.docker = new Docker();
@@ -55,6 +59,14 @@ export class DockerService {
         sourceId,
       );
 
+      await this.prisma.connectionRequest.update({
+        where: { id: sourceId },
+        data: {
+          status: 3,
+          dbName: database.name,
+        },
+      });
+
       const containerOutput = await this.captureContainerOutput(container);
 
       this.logger.log('Waiting for the container to finish...');
@@ -64,10 +76,32 @@ export class DockerService {
       await container.remove();
       this.logger.log('Container removed successfully.');
 
-      return containerOutput.replace('%', '');
+      const guidRegex =
+        /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\s*$/i;
+
+      const guidMatch = containerOutput.match(guidRegex);
+      if (guidMatch && guidMatch[0]) {
+        await this.prisma.connectionRequest.update({
+          where: { id: sourceId },
+          data: {
+            atlasId: guidMatch[0].trim(),
+          },
+        });
+
+        return guidMatch[0].trim();
+      } else {
+        throw new Error(
+          `Failed to extract GUID from container output: ${containerOutput}`,
+        );
+      }
     } catch (error) {
       this.logger.error('Error running Data Broker container', error);
-      throw error;
+      await this.prisma.connectionRequest.update({
+        where: { id: sourceId },
+        data: {
+          status: 2,
+        },
+      });
     }
   }
 
@@ -114,6 +148,21 @@ export class DockerService {
     envVariables: string[],
     name?: string,
   ) {
+    const existingContainers = await this.docker.listContainers({
+      all: true,
+      filters: {
+        name: [name],
+      },
+    });
+
+    if (existingContainers.length > 0) {
+      const containerToRemove = this.docker.getContainer(
+        existingContainers[0].Id,
+      );
+      await containerToRemove.stop();
+      await containerToRemove.remove();
+    }
+
     const container = await this.docker.createContainer({
       Image: imageName,
       name: name,
@@ -121,6 +170,7 @@ export class DockerService {
       HostConfig: {
         NetworkMode: 'epsilon_pg_internal',
       },
+      AutoRemove: true,
     });
 
     await container.start();

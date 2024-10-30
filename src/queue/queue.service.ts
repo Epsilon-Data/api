@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { TemplateDto } from 'src/database_source/dto/database_source.dto';
+import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 @Injectable()
 export class QueueService {
@@ -39,6 +40,22 @@ export class QueueService {
       projectId: projectId,
     };
     return await this.atlasQueue.add('process-add-permissions', postData, {
+      attempts: 5,
+      backoff: 10000,
+    });
+  }
+
+  async dataBrokerJob(
+    ownerId: string,
+    sourceId: string,
+    database: DatabaseInfoDto,
+  ) {
+    const postData = {
+      ownerId: ownerId,
+      sourceId: sourceId,
+      database: database,
+    };
+    return await this.atlasQueue.add('process-data-broker', postData, {
       attempts: 5,
       backoff: 10000,
     });

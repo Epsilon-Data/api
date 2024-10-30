@@ -3,23 +3,22 @@ import { Job } from 'bull';
 import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { DockerService } from 'src/docker/docker.service';
+import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 @Processor('atlas-queue')
 export class AtlasProcessor {
   constructor(
+    private readonly docker: DockerService,
     private readonly atlas: AtlasService,
     private prisma: PrismaService,
+    private dataProcess: DataProcessingService,
   ) {}
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
-    const jobData = job.data;
-
-    const dbId = jobData.dbId;
-    const parsedMapping = jobData.columnMapping;
-    const parsedTemplate = jobData.template;
-    const projectId = jobData.projectId;
+    const { dbId, columnMapping, template, projectId } = job.data;
 
     const archetypeBody = {
       entity: {
@@ -27,7 +26,7 @@ export class AtlasProcessor {
         status: 'ACTIVE',
         attributes: {
           owner: 'user',
-          qualifiedName: `${dbId}@${parsedTemplate.name}`,
+          qualifiedName: `${dbId}@${template.name}`,
           is_active: true,
         },
         relationshipAttributes: {
@@ -42,14 +41,11 @@ export class AtlasProcessor {
     const result = await this.atlas.post('/entity', archetypeBody);
     const archetypeId = Object.values(result.guidAssignments)[0];
 
-    // Continue processing with object, category, and subcategory nodes
-    const object = parsedTemplate.nodes.filter(
-      (node: any) => node.type === 'object',
-    );
-    const catList = parsedTemplate.nodes.filter(
+    const object = template.nodes.filter((node: any) => node.type === 'object');
+    const catList = template.nodes.filter(
       (node: any) => node.type === 'category',
     );
-    const subcatList = parsedTemplate.nodes.filter(
+    const subcatList = template.nodes.filter(
       (node: any) => node.type === 'subcategory',
     );
 
@@ -127,7 +123,7 @@ export class AtlasProcessor {
     const subcatBodyList = [];
 
     for (const node of subcatList) {
-      const relatedEdge = parsedTemplate.edges.filter(
+      const relatedEdge = template.edges.filter(
         (edge: any) => edge.source == node.id || edge.target == node.id,
       );
 
@@ -188,7 +184,7 @@ export class AtlasProcessor {
       (entity: any) => entity.status === 'ACTIVE',
     );
 
-    for (const node of parsedMapping) {
+    for (const node of columnMapping) {
       const params = {
         'attr:qualifiedName': `${archetypeId}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
       };
@@ -244,12 +240,12 @@ export class AtlasProcessor {
 
   @Process('process-delete-archetype')
   async handleDeleteTemplateJob(job: Job) {
-    const template = job.data;
+    const { templateId, projectId } = job.data;
 
-    await this.atlas.delete('/entity/guid/' + template.templateId);
+    await this.atlas.delete('/entity/guid/' + templateId);
     await this.prisma.project.update({
       where: {
-        id: template.projectId,
+        id: projectId,
       },
       data: {
         lastUpdated: new Date(),
@@ -259,11 +255,10 @@ export class AtlasProcessor {
 
   @Process('process-add-permissions')
   async handleAddPermissionsJob(job: Job) {
-    const jobData = job.data;
-    const parsed = jobData.permissions;
+    const { projectId, permissions } = job.data;
 
-    for (const permission of parsed) {
-      const templateGuid = permission.templateId;
+    for (const p of permissions) {
+      const templateGuid = p.templateId;
 
       const templateEntity = await this.atlas.get(
         `/entity/guid/${templateGuid}`,
@@ -296,11 +291,11 @@ export class AtlasProcessor {
       const params = { name: 'is_active' };
       await this.atlas.put(
         `/entity/guid/${templateGuid}`,
-        JSON.stringify(permission.active ? 'true' : 'false'),
+        JSON.stringify(p.active ? 'true' : 'false'),
         params,
       );
 
-      if (permission.active) {
+      if (p.active) {
         const activeParams = {
           query: `from permission where __state = "ACTIVE"`,
         };
@@ -353,7 +348,7 @@ export class AtlasProcessor {
           }
         }
 
-        for (const setting of permission.settings) {
+        for (const setting of p.settings) {
           const role = setting.role;
 
           for (const node of setting.access) {
@@ -448,11 +443,20 @@ export class AtlasProcessor {
 
     await this.prisma.project.update({
       where: {
-        id: jobData.projectId,
+        id: projectId,
       },
       data: {
         lastUpdated: new Date(),
       },
     });
+  }
+
+  @Process('process-data-broker')
+  async handleDataBrokerJob(job: Job) {
+    const { ownerId, sourceId, database } = job.data;
+    await this.docker.runDataBroker(ownerId, sourceId, database);
+    // if (instanceGuid) {
+    //   this.dataProcess.dataSynthesis(instanceGuid);
+    // }
   }
 }

@@ -3,16 +3,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { DockerService } from 'src/docker/docker.service';
-import { DataProcessingService } from 'src/data_processing/data_processing.service';
+import { QueueService } from 'src/queue/queue.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
-    private dataProcess: DataProcessingService,
-    private docker: DockerService,
+    private readonly queue: QueueService,
   ) {}
   async details(requestId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
@@ -99,6 +97,7 @@ export class ConnectionRequestService {
         status: true,
         createdDate: true,
         dbName: true,
+        atlasId: true,
         Project: {
           select: {
             id: true,
@@ -109,6 +108,12 @@ export class ConnectionRequestService {
       },
     });
 
+    for (const request of requestList.sent) {
+      if (request.status === 3) {
+        const result = await this.atlas.get('/entity/guid/' + request.atlasId);
+        request.dbStatus = result.entity.attributes.crawl_status;
+      }
+    }
     return { requests: requestList };
   }
 
@@ -141,38 +146,19 @@ export class ConnectionRequestService {
       data: request,
     });
 
-    let info: any = {};
     if (dto.databaseInfo) {
-      try {
-        const instanceGuid = await this.docker.runDataBroker(
-          dto.requestor,
-          createdRequest.id,
-          dto.databaseInfo,
-        );
-        console.log('Data broker container started successfully.');
-        info = { status: 3, atlasId: instanceGuid };
-      } catch (error) {
-        console.error('Failed to start data broker container:', error);
-        info = { status: 2 };
-      }
-      info = { ...info, dbName: dto.databaseInfo.name };
+      await this.queue.dataBrokerJob(
+        dto.requestor,
+        createdRequest.id,
+        dto.databaseInfo,
+      );
     } else {
       //TODO: get boolean whether if email is a registered org admin
-      info = { status: 1, orgAdminEmail: dto.orgAdminEmail };
-      // const existingOrgAdmin
-      // if (!existingOrgAdmin) {
-      //   TODO: send email to org admin
-      // }
+      return await this.prisma.connectionRequest.update({
+        where: { id: createdRequest.id },
+        data: { status: 1, orgAdminEmail: dto.orgAdminEmail },
+      });
     }
-
-    // if (info.atlasId) {
-    //   this.dataProcess.dataSynthesis(info.atlasId);
-    // }
-
-    return await this.prisma.connectionRequest.update({
-      where: { id: createdRequest.id },
-      data: info,
-    });
   }
 
   async edit(dto: ConnectionRequestDto) {
@@ -215,43 +201,19 @@ export class ConnectionRequestService {
     let transactions = [];
 
     if (request.dbName) {
-      let status = 2;
       await this.atlas.delete('/entity/guid/' + request.atlasId);
-
-      try {
-        const result = await this.docker.runDataBroker(
-          dto.requestor,
-          dto.id,
-          dto.databaseInfo,
-        );
-        console.log('Data broker container started successfully:', result);
-        status = 3;
-      } catch (error) {
-        console.error('Failed to start data broker container:', error);
-      }
-
-      const databaseUpdate = this.prisma.connectionRequest.update({
-        where: { id: dto.id },
-        data: {
-          dbName: dto.databaseInfo.name,
-          status: status,
-        },
-      });
-      transactions = [projectUpdate, connectionRequestUpdate, databaseUpdate];
+      await this.queue.dataBrokerJob(dto.requestor, dto.id, dto.databaseInfo);
+      transactions = [projectUpdate, connectionRequestUpdate];
     } else {
       const orgAdminUpdate = this.prisma.connectionRequest.update({
         where: { id: dto.id },
         data: {
-          orgAdminEmail: dto.orgAdminEmail,
           status: 1,
+          orgAdminEmail: dto.orgAdminEmail,
         },
       });
       transactions = [projectUpdate, connectionRequestUpdate, orgAdminUpdate];
       //TODO: get boolean whether if email is a registered org admin
-      // const existingOrgAdmin
-      // if (!existingOrgAdmin) {
-      //   TODO: send email to org admin
-      // }
     }
 
     return await this.prisma.$transaction(transactions);
@@ -283,28 +245,7 @@ export class ConnectionRequestService {
   }
 
   async approve(userId: string, dto: DatabaseInfoDto, requestId: string) {
-    try {
-      const instanceGuid = await this.docker.runDataBroker(
-        userId,
-        requestId,
-        dto,
-      );
-      console.log('Data broker container started successfully.');
-      const status = 3;
-
-      this.dataProcess.dataSynthesis(instanceGuid);
-
-      return await this.prisma.connectionRequest.update({
-        where: { id: requestId },
-        data: {
-          dbName: dto.name,
-          status: status,
-          atlasId: instanceGuid,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to start data broker container:', error);
-    }
+    await this.queue.dataBrokerJob(userId, requestId, dto);
   }
 
   async revision(dto: RevisionDto) {
