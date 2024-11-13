@@ -220,10 +220,10 @@ export class DataProcessingService {
 
     for (const guid of guidList) {
       const tableResult = await this.atlas.get('/entity/guid/' + guid);
+      const tableName = tableResult.entity.attributes.name;
 
       for (const col of tableResult.entity.attributes.columns) {
         const entity = tableResult.referredEntities[col.guid];
-        const tableName = tableResult.entity.attributes.name;
 
         if (entity.attributes.isPrimaryKey) {
           if (!primaryKeys[tableName]) {
@@ -235,7 +235,19 @@ export class DataProcessingService {
 
       const tableForeign = tableResult.entity.attributes.foreign_keys;
 
-      console.log(tableForeign);
+      for (const fk of tableForeign) {
+        const result = await this.atlas.get('/entity/guid/' + fk.guid);
+        if (!foreignKeys[tableName]) {
+          foreignKeys[tableName] = [];
+        }
+
+        for (const col of result.entity.relationshipAttributes.key_columns) {
+          foreignKeys[tableName].push(col.displayText);
+        }
+        if (result.entity.attributes.names) {
+          foreignKeys[tableName].push(result.entity.attributes.names);
+        }
+      }
     }
 
     return { primaryKeys, foreignKeys };
