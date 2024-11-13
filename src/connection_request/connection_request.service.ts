@@ -109,7 +109,7 @@ export class ConnectionRequestService {
     });
 
     for (const request of requestList.sent) {
-      if (request.status === 3) {
+      if (request.status === 3 && request.atlasId) {
         const result = await this.atlas.get('/entity/guid/' + request.atlasId);
         request.dbStatus = result.entity.attributes.crawl_status;
       }

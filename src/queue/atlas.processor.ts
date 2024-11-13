@@ -455,8 +455,6 @@ export class AtlasProcessor {
   async handleDataBrokerJob(job: Job) {
     const { ownerId, sourceId, database } = job.data;
     await this.docker.runDataBroker(ownerId, sourceId, database);
-    // if (instanceGuid) {
-    //   this.dataProcess.dataSynthesis(instanceGuid);
-    // }
+    await this.dataProcess.dataSynthesis(sourceId);
   }
 }

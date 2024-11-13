@@ -16,19 +16,25 @@ export class DatabaseService {
     };
     const result = await this.atlas.get('/entity/guid/' + sourceId, params);
 
-    this.connection = new DataSource({
-      type: result.type,
+    const dbDetails = {
+      type: result.entity.attributes.rdbms_type,
       host:
         result.entity.attributes.hostname == 'host.docker.internal'
           ? 'localhost'
           : result.entity.attributes.hostname,
       port: result.entity.attributes.port,
-      username: result.entity.attributes.username,
-      password: result.entity.attributes.password,
+      username: result.entity.attributes.username
+        ? result.entity.attributes.username
+        : 'postgres',
+      password: result.entity.attributes.password
+        ? result.entity.attributes.password
+        : '123qwe',
       database: result.entity.attributes.name,
-    });
+    };
 
-    return result[0];
+    this.connection = new DataSource(dbDetails);
+
+    return dbDetails;
   }
 
   async initialize() {

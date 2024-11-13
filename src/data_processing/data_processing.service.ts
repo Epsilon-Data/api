@@ -13,12 +13,6 @@ import * as archiver from 'archiver';
 import { join } from 'path';
 import * as path from 'path';
 
-type Row = {
-  table_name: string;
-  columns: string[];
-  type: 'FOREIGN KEY' | 'PRIMARY KEY' | 'UNIQUE';
-};
-
 @Injectable()
 export class DataProcessingService {
   private script;
@@ -170,12 +164,17 @@ export class DataProcessingService {
   async dataSynthesis(sourceId: string) {
     const scriptPath = process.cwd() + '/scripts/synthesis.py';
 
-    //TODO: get constraints: table_name, column, type
-    //Add foreign keys to rdbms_columns?
-    const constraintsResult = await this.atlas.get('/entity/guid/' + sourceId);
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        id: sourceId,
+      },
+      select: {
+        atlasId: true,
+      },
+    });
 
     const tablesParams = {
-      query: `from rdbms_db where instance.__guid = "${sourceId}" select tables`,
+      query: `from rdbms_db where instance.__guid = "${request.atlasId}" select tables`,
     };
 
     const tablesResult = await this.atlas.get('/search/dsl', tablesParams);
@@ -183,10 +182,12 @@ export class DataProcessingService {
     const tableNames = tablesResult.entities.map(
       (table) => table.attributes.name,
     );
-    const foreignKeys = this.getForeignKeys(constraintsResult);
-    const primaryKeys = this.getPrimaryKeys(constraintsResult);
 
-    const dbDetails = await this.database.connect(sourceId);
+    const tableGuidList = tablesResult.entities.map((table) => table.guid);
+
+    const { primaryKeys, foreignKeys } = await this.getKeys(tableGuidList);
+
+    const dbDetails = await this.database.connect(request.atlasId);
 
     if (dbDetails) {
       new Promise((resolve, reject) => {
@@ -213,37 +214,31 @@ export class DataProcessingService {
     }
   }
 
-  private getForeignKeys(data: Row[]): { [key: string]: string[] } {
+  private async getKeys(guidList: string[]) {
+    const primaryKeys: { [key: string]: string[] } = {};
     const foreignKeys: { [key: string]: string[] } = {};
 
-    data.forEach((row) => {
-      if (row.type === 'FOREIGN KEY' || row.type === 'UNIQUE') {
-        if (!foreignKeys[row.table_name]) {
-          foreignKeys[row.table_name] = [];
-        }
-        const checkSet = new Set(foreignKeys[row.table_name]);
-        row.columns.forEach((item) => {
-          if (!checkSet.has(item)) {
-            foreignKeys[row.table_name].push(item);
-            checkSet.add(item);
+    for (const guid of guidList) {
+      const tableResult = await this.atlas.get('/entity/guid/' + guid);
+
+      for (const col of tableResult.entity.attributes.columns) {
+        const entity = tableResult.referredEntities[col.guid];
+        const tableName = tableResult.entity.attributes.name;
+
+        if (entity.attributes.isPrimaryKey) {
+          if (!primaryKeys[tableName]) {
+            primaryKeys[tableName] = [];
           }
-        });
+          primaryKeys[tableName].push(entity.attributes.name);
+        }
       }
-    });
 
-    return foreignKeys;
-  }
+      const tableForeign = tableResult.entity.attributes.foreign_keys;
 
-  private getPrimaryKeys(data: Row[]): { [key: string]: string[] } {
-    const primaryKeys: { [key: string]: string[] } = {};
+      console.log(tableForeign);
+    }
 
-    data.forEach((row) => {
-      if (row.type === 'PRIMARY KEY') {
-        primaryKeys[row.table_name] = row.columns;
-      }
-    });
-
-    return primaryKeys;
+    return { primaryKeys, foreignKeys };
   }
 
   private async createAndZipCsvFiles(

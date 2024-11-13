@@ -97,7 +97,7 @@ def synthesis(df, synth_file, prefix, threshold=10):
 
 def connect_to_db(db_details, table_names):
     default_type = 'postgresql+psycopg2'
-    engine = create_engine(f'{default_type}://{db_details["username"]}:{db_details["password"]}@{db_details["host"]}:{db_details["port"]}/{db_details["name"]}')
+    engine = create_engine(f'{default_type}://{db_details["username"]}:{db_details["password"]}@{db_details["host"]}:{db_details["port"]}/{db_details["database"]}')
     
     dataframes = {}
     for table_name in table_names:
