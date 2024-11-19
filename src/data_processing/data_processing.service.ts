@@ -25,7 +25,7 @@ export class DataProcessingService {
 
   async runScript(analysisId: string, scriptName: string, scriptId: string) {
     const bucket = 'script';
-    const resBucket = 'script-result';
+    const resBucket = 'report';
     const scriptStream = await this.fileStorage.getFile(
       bucket,
       `${analysisId}/prepend-${scriptName}`,
@@ -99,20 +99,7 @@ export class DataProcessingService {
   ): Promise<string> {
     const scriptPath = process.cwd() + '/scripts/process.py';
 
-    const dbResult = await this.atlas.get('/entity/guid/' + sourceId);
-
-    // TODO: get password
-    const dbDetails = {
-      type: dbResult.entity.attributes.rdbms_type,
-      host:
-        dbResult.entity.attributes.hostname == 'host.docker.internal'
-          ? 'localhost'
-          : dbResult.entity.attributes.hostname,
-      port: dbResult.entity.attributes.port,
-      username: dbResult.entity.attributes.owner, //TODO: get username
-      password: '', //TODO: get password
-      name: dbResult.entity.attributes.name,
-    };
+    const dbDetails = await this.database.connect(sourceId);
 
     const role = 'research';
 
@@ -335,12 +322,15 @@ export class DataProcessingService {
     });
   }
 
-  async generateDownloadDataset(sourceId: string): Promise<string> {
+  async generateDownloadDataset(
+    sourceId: string,
+    atlasId: string,
+  ): Promise<string> {
     const bucket = 'synthetic';
 
     const role = 'research';
 
-    const csvColumns = await this.csvColumns(sourceId, role);
+    const csvColumns = await this.csvColumns(atlasId, role);
 
     if (csvColumns != null) {
       const mappingStream = await this.fileStorage.getFile(

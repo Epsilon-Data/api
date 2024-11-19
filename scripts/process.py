@@ -111,7 +111,7 @@ def gen_install_packages_block(libraries):
     return '\n'.join(install_lines)
 
 def prepend_script(source_details, csv_columns, script_mapping, script_path):
-  conn_block = conn_code.format(name=source_details['name'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password'])
+  conn_block = conn_code.format(name=source_details['database'], host=source_details['host'], port=source_details['port'], username=source_details['username'], password=source_details['password'])
   query_block = gen_query_block(csv_columns)
   df_block = gen_df_block(csv_columns, script_mapping)
 
@@ -135,13 +135,12 @@ def prepend_script(source_details, csv_columns, script_mapping, script_path):
   with open(script_path, 'w') as f:
     f.write(combined)
 
-def upload_to_s3(file_path, prefix, file_name):
+def upload_to_s3(file_path, prefix, file_name, uri, key_id, secret_key):
   bucket = "script"
-  uri = os.getenv('S3_URI')
   s3 = boto3.client('s3',
-                    endpoint_url=uri if uri else os.getenv('S3_URI'),
-                    aws_access_key_id='admin',
-                    aws_secret_access_key='supersecret',
+                    endpoint_url=uri,
+                    aws_access_key_id=key_id,
+                    aws_secret_access_key=secret_key,
                     config=Config(signature_version='s3v4'),)
   try:
       s3.upload_file(file_path, bucket, f'{prefix}/{file_name}')
@@ -153,13 +152,12 @@ def upload_to_s3(file_path, prefix, file_name):
   except Exception as e:
       print(f"Error occurred: {e}")
 
-def get_from_s3(file_name, prefix, download_path):
+def get_from_s3(file_name, prefix, download_path, uri, key_id, secret_key):
   bucket = "script"
-  uri = os.getenv('S3_URI')
   s3 = boto3.client('s3',
-                    endpoint_url= uri if uri else os.getenv('S3_URI'),
-                    aws_access_key_id='admin',
-                    aws_secret_access_key='supersecret',
+                    endpoint_url= uri,
+                    aws_access_key_id=key_id,
+                    aws_secret_access_key=secret_key,
                     config=Config(signature_version='s3v4'),)
   try:
     os.makedirs(os.path.dirname(download_path), exist_ok=True)
@@ -177,10 +175,14 @@ def main(yaml_file):
     csv_cols = args['csvColumns']
     
     script_path = f'{os.getcwd()}/temp_files/{script_details["id"]}.R'
+    
+    uri = os.getenv('S3_URI')
+    key_id = os.getenv('S3_KEY_ID')
+    secret_key = os.getenv('S3_SECRET_KEY')
   
-    get_from_s3(f'{script_details["name"]}', analysis_id, script_path)
+    get_from_s3(f'{script_details["name"]}', analysis_id, script_path, uri, key_id, secret_key)
     prepend_script(db_details, csv_cols, script_details["mapping"], script_path)
-    upload_to_s3(script_path, analysis_id, f'prepend-{script_details["name"]}')
+    upload_to_s3(script_path, analysis_id, f'prepend-{script_details["name"]}', uri, key_id, secret_key)
 
 if __name__ == "__main__":
   install_package("boto3")

@@ -117,24 +117,30 @@ def combine_dataframes(db_details, prefix, table_names, foreign_keys, primary_ke
   processed_tables = set()
   table_map = {}
 
-  def find_related_tables(table, processed):
+  def find_related_tables(table):
       related = set()
       if table in foreign_keys:
           for fk in foreign_keys[table]:
               for related_table, pk in primary_keys.items():
-                  if fk in pk:
+                  if fk in pk and related_table != table:
                       related.add(related_table)
-      return related - processed
+      return related
   
-  def add_to_map(table, df_index):
-    if table not in table_map:
-        table_map[table] = df_index
-
+  def update_table_map(mapping, deleted_index):
+      updated_mapping = {}
+      for key, index in mapping.items():
+          if index == deleted_index:
+              continue
+          elif index > deleted_index:
+              updated_mapping[key] = index - 1
+          else:
+              updated_mapping[key] = index
+        
   while dataframes:
       table, df = dataframes.popitem()
       if table in processed_tables:
           continue
-      related_tables = find_related_tables(table, processed_tables)
+      related_tables = find_related_tables(table)
       combined_df = df
       processed_tables.add(table)
 
@@ -145,15 +151,19 @@ def combine_dataframes(db_details, prefix, table_names, foreign_keys, primary_ke
               for key in common_keys:
                   combined_df = pd.merge(combined_df, related_df, on=key, how='inner')
               processed_tables.add(related_table)
-      
+          elif related_table in processed_tables:
+              related_index = table_map[related_table]
+              combined_df = pd.merge(combined_df, combined_dataframes[related_index], how='inner')
+              del combined_dataframes[related_index]
+              update_table_map(table_map, related_index)
+              
       combined_dataframes.append(combined_df)
-      
-      df_index = len(combined_dataframes) - 1
-      add_to_map(table, df_index)
-      for related_table in related_tables:
-          add_to_map(related_table, df_index)
 
-  # Separate unrelated dataframes
+      df_index = len(combined_dataframes) - 1
+      table_map[table] = df_index
+      for related_table in related_tables:
+          table_map[related_table] = df_index
+
   for table, df in dataframes.items():
       combined_dataframes.append(df)
   
@@ -169,10 +179,13 @@ def combine_dataframes(db_details, prefix, table_names, foreign_keys, primary_ke
 def upload_to_s3(file_path, prefix):
   bucket = "synthetic"
   uri = os.getenv('S3_URI')
+  key_id = os.getenv('S3_KEY_ID')
+  secret_key = os.getenv('S3_SECRET_KEY')
+  
   s3 = boto3.client('s3',
-                    endpoint_url=uri if uri else os.getenv('S3_URI'),
-                    aws_access_key_id='admin',
-                    aws_secret_access_key='supersecret',
+                    endpoint_url=uri,
+                    aws_access_key_id=key_id,
+                    aws_secret_access_key=secret_key,
                     config=Config(signature_version='s3v4'),)
   try:
       s3.upload_file(file_path, bucket, f'{prefix}/{file_path}')

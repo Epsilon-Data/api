@@ -143,7 +143,7 @@ export class DatasetService {
 
   async deleteScript(scriptId: string) {
     const bucket = 'script';
-    const resBucket = 'script-result';
+    const resBucket = 'report';
     const request = await this.prisma.script.findUnique({
       where: {
         id: scriptId,
@@ -466,6 +466,7 @@ export class DatasetService {
           select: {
             ConnectionRequest: {
               select: {
+                id: true,
                 atlasId: true,
               },
             },
@@ -474,9 +475,13 @@ export class DatasetService {
       },
     });
 
-    const sourceId = userRequest.Project.ConnectionRequest.atlasId;
+    const sourceId = userRequest.Project.ConnectionRequest.id;
+    const atlasId = userRequest.Project.ConnectionRequest.atlasId;
 
-    const result = await this.dataProcess.generateDownloadDataset(sourceId);
+    const result = await this.dataProcess.generateDownloadDataset(
+      sourceId,
+      atlasId,
+    );
 
     return result;
   }
@@ -499,7 +504,7 @@ export class DatasetService {
     const analysisId = script.Analysis.id;
 
     const url = await this.fileStorage.getFileUrl(
-      'script-result',
+      'report',
       `${analysisId}/${script.name}`.replace('.R', '.html'),
     );
 
