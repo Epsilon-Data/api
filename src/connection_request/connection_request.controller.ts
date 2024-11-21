@@ -5,64 +5,69 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  Param,
   ParseUUIDPipe,
   Patch,
   Post,
-  Query,
+  Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { RevisionDto, ConnectionRequestDto, DatabaseInfoDto } from './dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { Request } from 'express';
 
 @Controller('connection-request')
 export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
 
-  @Get('details')
-  details(@Query('requestId', ParseUUIDPipe) requestId: string) {
-    return this.connectionRequestService.details(requestId);
-  }
-
-  @Get('summary')
+  @Get()
   @UseGuards(new AuthGuard('api.hub.read'))
-  summary(
-    @Query('userId', ParseUUIDPipe) userId: string,
-    @Query('email') email: string,
-  ) {
-    return this.connectionRequestService.summary(userId, email);
+  summary(@Req() request: Request) {
+    const userId = request.headers['x-user-id'] as string;
+    return this.connectionRequestService.summary(
+      userId,
+      request.auth.payload.email.toString(),
+    );
   }
 
-  @Post('create')
+  @Post()
   create(@Body() dto: ConnectionRequestDto) {
     return this.connectionRequestService.create(dto);
   }
 
-  @Patch('edit')
+  @Get(':requestId')
+  details(@Param('requestId', ParseUUIDPipe) requestId: string) {
+    return this.connectionRequestService.details(requestId);
+  }
+
+  @Put(':requestId')
   edit(@Body() dto: ConnectionRequestDto) {
     return this.connectionRequestService.edit(dto);
   }
 
-  @Delete('delete')
-  delete(@Query('requestId', ParseUUIDPipe) requestId: string) {
+  @Delete(':requestId')
+  delete(@Param('requestId', ParseUUIDPipe) requestId: string) {
     return this.connectionRequestService.delete(requestId);
   }
 
-  @Patch('approve')
+  @Patch(':requestId')
   approve(
-    @Query('requestId', ParseUUIDPipe) userId: string,
+    @Req() request: Request,
     @Body() dto: DatabaseInfoDto,
-    @Query('requestId', ParseUUIDPipe) requestId: string,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
   ) {
+    const userId = request.headers['x-user-id'] as string;
     return this.connectionRequestService.approve(userId, dto, requestId);
   }
 
-  @Patch('revision')
+  @Put(':requestId/revision')
   revision(@Body() dto: RevisionDto) {
     return this.connectionRequestService.revision(dto);
   }
 
-  @Post('test-connection')
+  @Post('test')
   @UseGuards(new AuthGuard('api.hub.read'))
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {
@@ -78,11 +83,12 @@ export class ConnectionRequestController {
     }
   }
 
-  @Get('valid-project-id')
+  @Post(':projectId')
   async validProjectId(
-    @Query('userId', ParseUUIDPipe) userId: string,
-    @Query('projectId') projectId: string,
+    @Req() request: Request,
+    @Param('projectId') projectId: string,
   ) {
+    const userId = request.headers['x-user-id'] as string;
     return this.connectionRequestService.validProjectId(userId, projectId);
   }
 }
