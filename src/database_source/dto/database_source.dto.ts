@@ -28,18 +28,6 @@ export class TemplateDto {
   templateId: string;
 }
 
-export class PermissionsDto {
-  @IsDefined()
-  @IsUUID()
-  @IsNotEmpty()
-  projectId: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  permissions: string;
-}
-
 export class SettingsDto {
   @IsDefined()
   @IsUUID()

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PermissionsDto, TemplateDto } from './dto';
+import { TemplateDto } from './dto';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { QueueService } from 'src/queue/queue.service';
@@ -220,24 +220,41 @@ export class DatabaseSourceService {
       },
     });
 
-    const deleteJobs = deleteJobsResult.templateDeleteJobs;
+    let deleteJobs = deleteJobsResult.templateDeleteJobs;
     const deletingTemplates = [];
     if (deleteJobsResult.templateDeleteJobs.length != 0) {
       for (let i = 0; i < deleteJobsResult.templateDeleteJobs.length; i++) {
         const job = await this.queue.getJob(
           deleteJobsResult.templateDeleteJobs[i],
         );
+
+        if (job == null) {
+          deleteJobs[i] = null;
+          continue;
+        }
+
         const state = await job.getState();
 
         if (state === 'completed') {
           await job.remove();
-          delete deleteJobs[i];
+          deleteJobs[i] = null;
         } else {
           const data = job.data;
           deletingTemplates.push(data.templateId);
         }
       }
     }
+
+    deleteJobs = deleteJobs.filter((item) => item != null);
+
+    await this.prisma.project.update({
+      where: {
+        id: projectId,
+      },
+      data: {
+        templateDeleteJobs: deleteJobs,
+      },
+    });
 
     let activeTemplates = [];
     if (result.attributes) {
@@ -247,8 +264,10 @@ export class DatabaseSourceService {
             item[0] === 'ACTIVE' && !deletingTemplates.includes(item[1]),
         )
         .map((item) => {
-          item[2] = item[2].split('@', 2)[1];
-          return item;
+          return {
+            guid: item[1],
+            name: item[2].split('@', 2)[1],
+          };
         });
     }
 
@@ -260,8 +279,8 @@ export class DatabaseSourceService {
 
     const output = [];
     for (const template of activeTemplates) {
-      const templateGuid = template[1];
-      const templateName = template[2];
+      const templateGuid = template.guid;
+      const templateName = template.name;
 
       const templateInfo = {
         id: templateGuid,
@@ -328,7 +347,7 @@ export class DatabaseSourceService {
     return output;
   }
 
-  async addArchetype(template: TemplateDto) {
+  async createTemplate(template: TemplateDto) {
     const dbId = await this.findDbId(template.projectId);
 
     await this.queue.addArchetypeJob(template, dbId);
@@ -376,7 +395,7 @@ export class DatabaseSourceService {
 
     const output = [];
     for (const template of activeTemplates) {
-      const templateGuid = template[1];
+      const templateGuid = template.guid;
 
       const templateInfo = {
         templateId: templateGuid,
@@ -475,10 +494,10 @@ export class DatabaseSourceService {
     return output;
   }
 
-  async addPermissions(permissions: PermissionsDto) {
-    const parsed = JSON.parse(permissions.permissions);
+  async addPermissions(projectId: string, permissions: string) {
+    const parsed = JSON.parse(permissions);
 
-    await this.queue.addPermissionsJob(parsed, permissions.projectId);
+    await this.queue.addPermissionsJob(parsed, projectId);
   }
 
   async settings(

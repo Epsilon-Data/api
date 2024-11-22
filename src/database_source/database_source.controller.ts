@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
   ParseFilePipe,
   ParseUUIDPipe,
   Post,
@@ -11,7 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { DatabaseSourceService } from './database_source.service';
-import { PermissionsDto, TemplateDto } from './dto';
+import { TemplateDto } from './dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
 
@@ -19,67 +20,76 @@ import { coverOptions } from 'src/options';
 export class DatabaseSourceController {
   constructor(private databaseSourceService: DatabaseSourceService) {}
 
-  @Get('list')
-  list(@Query('userId', ParseUUIDPipe) userId: string) {
-    return this.databaseSourceService.list(userId);
+  @Get()
+  async list(@Query('userId', ParseUUIDPipe) userId: string) {
+    return await this.databaseSourceService.list(userId);
   }
 
-  @Get('project-id')
-  getProjectId(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.getProjectId(projectId);
+  @Get(':projectId')
+  async getProjectId(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.getProjectId(projectId);
   }
 
-  @Get('summary')
-  summary(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.summary(projectId);
+  @Get(':projectId/summary')
+  async summary(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.summary(projectId);
   }
 
-  @Get('tables')
-  tables(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.tables(projectId);
+  @Get(':projectId/tables')
+  async tables(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.tables(projectId);
   }
 
-  @Get('template-names')
-  templateNames(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.templateNames(projectId);
+  @Get(':projectId/template-names')
+  async templateNames(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.templateNames(projectId);
   }
 
-  @Get('templates')
-  templates(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.templates(projectId);
+  @Get(':projectId/templates')
+  async templates(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.templates(projectId);
   }
 
-  @Post('delete-template')
-  deleteTemplate(@Body() template: TemplateDto) {
-    return this.databaseSourceService.deleteTemplate(template);
+  @Delete(':projectId/template')
+  async deleteTemplate(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query('templateId', ParseUUIDPipe) templateId: string,
+  ) {
+    const template = { projectId, templateId } as TemplateDto;
+    return await this.databaseSourceService.deleteTemplate(template);
   }
 
-  @Post('add-archetype')
-  addArchetype(@Body() template: TemplateDto) {
-    return this.databaseSourceService.addArchetype(template);
+  @Post(':projectId/template')
+  createTemplate(@Body() template: TemplateDto) {
+    return this.databaseSourceService.createTemplate(template);
   }
 
-  @Get('columns')
-  columns(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.columns(projectId);
+  @Get(':projectId/columns')
+  async columns(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.columns(projectId);
   }
 
-  @Get('permissions')
-  permissions(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.permissions(projectId);
+  @Get(':projectId/permissions')
+  async permissions(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.databaseSourceService.permissions(projectId);
   }
 
-  @Post('add-permissions')
-  addPermissions(@Body() permissions: PermissionsDto) {
-    return this.databaseSourceService.addPermissions(permissions);
+  @Post(':projectId/permissions')
+  addPermissions(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() permissions: string,
+  ) {
+    return this.databaseSourceService.addPermissions(projectId, permissions);
   }
 
   @Get('settings')
   settings(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.settings(projectId, {
+    const result = this.databaseSourceService.settings(projectId, {
       cover: true,
       visualisations: true,
     });
+    console.log(result);
+    return result;
   }
 
   @Post('upload-cover')
@@ -89,8 +99,9 @@ export class DatabaseSourceController {
     file: Express.Multer.File,
     @Query('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    // return { response: 'asdf' };
-    return this.databaseSourceService.uploadCover(projectId, file);
+    const result = this.databaseSourceService.uploadCover(projectId, file);
+    console.log(result);
+    return result;
   }
 
   @Post('upload-vis')
