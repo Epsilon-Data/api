@@ -7,7 +7,6 @@ import {
   IsDate,
   ArrayNotEmpty,
   IsOptional,
-  IsBoolean,
   IsNumber,
 } from 'class-validator';
 
@@ -118,17 +117,6 @@ export class RevisionDto {
   @IsDefined()
   @IsString()
   revisionInfo: string;
-}
-
-export class ProceedDto {
-  @IsDefined()
-  @IsUUID()
-  @IsNotEmpty()
-  requestId: string;
-
-  @IsDefined()
-  @IsBoolean()
-  isApproved: boolean;
 }
 
 function transformDateString(value: any): Date {

@@ -3,47 +3,52 @@ import {
   Controller,
   Delete,
   Get,
+  Put,
   ParseUUIDPipe,
   Patch,
   Query,
   UseGuards,
+  Param,
 } from '@nestjs/common';
 import { AccessRequestService } from './access_request.service';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { ProceedDto, RequestDto, RevisionDto } from './dto';
+import { RequestDto, RevisionDto } from './dto';
 
 @Controller('access-request')
 export class AccessRequestController {
   constructor(private userRequestService: AccessRequestService) {}
 
-  @Get('details')
-  details(@Query('requestId', ParseUUIDPipe) requestId: string) {
-    return this.userRequestService.details(requestId);
+  @Get(':requestId')
+  async details(@Param('requestId', ParseUUIDPipe) requestId: string) {
+    return await this.userRequestService.details(requestId);
   }
 
-  @Get('summary')
+  @Get()
   @UseGuards(new AuthGuard('api.hub.read'))
-  summary(@Query('userId') userId: string) {
-    return this.userRequestService.summary(userId);
+  async summary(@Query('userId') userId: string) {
+    return await this.userRequestService.summary(userId);
   }
 
-  @Patch('revision')
+  @Put(':requestId/revision')
   revision(@Body() dto: RevisionDto) {
     return this.userRequestService.revision(dto);
   }
 
-  @Patch('proceed')
-  proceed(@Body() dto: ProceedDto) {
-    return this.userRequestService.proceed(dto);
+  @Patch(':requestId')
+  approve(
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() data: { isApproved: boolean },
+  ) {
+    return this.userRequestService.approve(requestId, data.isApproved);
   }
 
-  @Delete('delete')
-  delete(@Query('requestId', ParseUUIDPipe) requestId: string) {
-    return this.userRequestService.delete(requestId);
-  }
-
-  @Patch('edit')
+  @Put(':requestId')
   async edit(@Body() dto: RequestDto) {
-    return this.userRequestService.edit(dto);
+    return await this.userRequestService.edit(dto);
+  }
+
+  @Delete(':requestId')
+  async delete(@Param('requestId', ParseUUIDPipe) requestId: string) {
+    return await this.userRequestService.delete(requestId);
   }
 }

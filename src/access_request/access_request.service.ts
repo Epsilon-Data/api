@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ProceedDto, RequestDto, RevisionDto } from './dto';
+import { RequestDto, RevisionDto } from './dto';
 
 @Injectable()
 export class AccessRequestService {
@@ -137,13 +137,13 @@ export class AccessRequestService {
     });
   }
 
-  async proceed(dto: ProceedDto) {
+  async approve(requestId: string, isApproved: boolean) {
     let status = 3;
-    if (!dto.isApproved) {
+    if (!isApproved) {
       status = 4;
     }
     return await this.prisma.userRequest.update({
-      where: { id: dto.requestId },
+      where: { id: requestId },
       data: {
         status: status,
         completeDate: new Date(),
