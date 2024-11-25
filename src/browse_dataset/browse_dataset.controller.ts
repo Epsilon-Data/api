@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   ParseUUIDPipe,
+  Param,
 } from '@nestjs/common';
 import { BrowseDatasetService } from './browse_dataset.service';
 import { AccessDto } from './dto';
@@ -13,26 +14,26 @@ import { AccessDto } from './dto';
 export class BrowseDatasetController {
   constructor(private browseDatasetService: BrowseDatasetService) {}
 
-  @Get('projects')
-  async projects(@Query('isSearch') isSearch: boolean) {
-    return await this.browseDatasetService.projects(isSearch);
+  @Get()
+  async projects() {
+    return await this.browseDatasetService.projects();
   }
 
-  @Get('project-details')
+  @Get(':projectId')
   async projectDetails(
     @Query('userId', ParseUUIDPipe) userId: string,
-    @Query('projectId', ParseUUIDPipe) projectId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return await this.browseDatasetService.projectDetails(userId, projectId);
   }
 
-  @Get('project-summary')
-  async projectSummary(@Query('projectId', ParseUUIDPipe) projectId: string) {
+  @Get('/projects/:projectId/summary')
+  async projectSummary(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.browseDatasetService.projectSummary(projectId);
   }
 
-  @Post('apply-request')
-  applyRequest(@Body() details: AccessDto) {
-    return this.browseDatasetService.applyRequest(details);
+  @Post()
+  createRequest(@Body() details: AccessDto) {
+    return this.browseDatasetService.createRequest(details);
   }
 }

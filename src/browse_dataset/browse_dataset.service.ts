@@ -12,7 +12,7 @@ export class BrowseDatasetService {
     private fileStorage: FileStorageService,
   ) {}
 
-  async projects(isSearch: boolean) {
+  async projects() {
     const request = await this.prisma.connectionRequest.findMany({
       where: {
         status: {
@@ -27,33 +27,24 @@ export class BrowseDatasetService {
     });
 
     const browseList = request.map(async (item) => {
-      if (isSearch) {
-        return {
-          id: item.Project.id,
-          name: item.Project.name,
-          organisation: item.Project.university,
-          createdDate: item.createdDate,
-          description: item.Project.description,
-          keywords: item.dataKeywords,
-        };
-      } else {
-        const bucket = 'cover';
-        const key = `${item.Project.id}/cover.jpg`;
-        let cover = null;
+      const bucket = 'cover';
+      const key = `${item.Project.id}/cover.jpg`;
+      let cover = null;
 
-        const exists = await this.fileStorage.fileExists(bucket, key);
-        if (exists) {
-          cover = await this.fileStorage.getFileUrl(bucket, key);
-        }
-
-        return {
-          id: item.Project.id,
-          name: item.Project.name,
-          organisation: item.Project.university,
-          createdDate: item.createdDate,
-          cover: cover,
-        };
+      const exists = await this.fileStorage.fileExists(bucket, key);
+      if (exists) {
+        cover = await this.fileStorage.getFileUrl(bucket, key);
       }
+
+      return {
+        id: item.Project.id,
+        name: item.Project.name,
+        organisation: item.Project.university,
+        createdDate: item.createdDate,
+        description: item.Project.description,
+        keywords: item.dataKeywords,
+        cover: cover,
+      };
     });
 
     return Promise.all(browseList);
@@ -181,7 +172,6 @@ export class BrowseDatasetService {
         projectId: projectId,
       },
       select: {
-        createdDate: true,
         Project: true,
       },
     });
@@ -190,11 +180,10 @@ export class BrowseDatasetService {
       id: request.Project.customId,
       name: request.Project.name,
       organisation: request.Project.university,
-      createdDate: request.createdDate,
     };
   }
 
-  async applyRequest(details: AccessDto) {
+  async createRequest(details: AccessDto) {
     await this.prisma.userRequest.create({
       data: {
         projectId: details.id,
