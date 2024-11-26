@@ -74,8 +74,6 @@ export class DatasetService {
           request.auth.payload.family_name,
       },
     });
-
-    return name;
   }
 
   async uploadScript(
@@ -372,12 +370,7 @@ export class DatasetService {
       },
     });
 
-    const transaction = await this.prisma.$transaction([
-      deleteScript,
-      deleteAnalysis,
-    ]);
-
-    return transaction;
+    await this.prisma.$transaction([deleteScript, deleteAnalysis]);
   }
 
   async addScriptMapping(scriptId: string, mapping: string) {
@@ -486,7 +479,7 @@ export class DatasetService {
     return result;
   }
 
-  async viewReport(scriptId: string) {
+  async getReport(scriptId: string) {
     const script = await this.prisma.script.findUnique({
       where: {
         id: scriptId,

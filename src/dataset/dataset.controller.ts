@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
   ParseFilePipe,
   ParseUUIDPipe,
   Post,
@@ -23,17 +24,19 @@ import * as fs from 'fs';
 export class DatasetController {
   constructor(private datasetService: DatasetService) {}
 
-  @Get('list')
-  list(@Query('userId', ParseUUIDPipe) userId: string) {
-    return this.datasetService.list(userId);
+  @Get()
+  async list(@Query('userId', ParseUUIDPipe) userId: string) {
+    return await this.datasetService.list(userId);
   }
 
-  @Get('analysis-list')
-  analysisList(@Query('userRequestId', ParseUUIDPipe) userRequestId: string) {
-    return this.datasetService.analysisList(userRequestId);
+  @Get(':userRequestId')
+  async analysisList(
+    @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
+  ) {
+    return await this.datasetService.analysisList(userRequestId);
   }
 
-  @Post('create-analysis')
+  @Post()
   createAnalysis(
     @Req() request: Request,
     @Body() dto: { userRequestId: string; name: string },
@@ -45,61 +48,65 @@ export class DatasetController {
     );
   }
 
-  @Post('upload-script')
+  @Post('/scripts/:analysisId')
   @UseInterceptors(FileInterceptor('file', scriptOptions))
   uploadScript(
     @Req() request: Request,
     @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,
-    @Query('analysisId', ParseUUIDPipe) analysisId: string,
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
   ) {
     return this.datasetService.uploadScript(request, analysisId, file);
   }
 
-  @Get('analysis-details')
-  analysisDetails(@Query('analysisId', ParseUUIDPipe) analysisId: string) {
-    return this.datasetService.analysisDetails(analysisId);
+  @Get('/analysis/:analysisId')
+  async analysisDetails(
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+  ) {
+    return await this.datasetService.analysisDetails(analysisId);
   }
 
-  @Delete('delete-script')
-  deleteScript(@Query('scriptId', ParseUUIDPipe) scriptId: string) {
+  @Delete('/scripts/:scriptId')
+  deleteScript(@Param('scriptId', ParseUUIDPipe) scriptId: string) {
     return this.datasetService.deleteScript(scriptId);
   }
 
-  @Get('columns')
-  getColumns(@Query('userRequestId', ParseUUIDPipe) userRequestId: string) {
-    return this.datasetService.getColumns(userRequestId);
+  @Get('/columns/:userRequestId')
+  async getColumns(
+    @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
+  ) {
+    return await this.datasetService.getColumns(userRequestId);
   }
 
   @Post('descriptive')
-  descriptiveAnalysis(@Body() dto: DescriptiveDto) {
-    return this.datasetService.descriptiveAnalysis(dto);
+  async descriptiveAnalysis(@Body() dto: DescriptiveDto) {
+    return await this.datasetService.descriptiveAnalysis(dto);
   }
 
-  @Get('get-script-mapping')
-  getScriptMapping(
-    @Query('scriptId', ParseUUIDPipe) scriptId: string,
+  @Get('/scripts/:scriptId')
+  async getScriptMapping(
+    @Param('scriptId', ParseUUIDPipe) scriptId: string,
     @Req() request: Request,
   ) {
-    return this.datasetService.getScriptMapping(scriptId, request);
+    return await this.datasetService.getScriptMapping(scriptId, request);
   }
 
-  @Delete('delete-analysis')
-  deleteAnalysis(@Query('analysisId', ParseUUIDPipe) analysisId: string) {
+  @Delete('/analysis/:analysisId')
+  deleteAnalysis(@Param('analysisId', ParseUUIDPipe) analysisId: string) {
     return this.datasetService.deleteAnalysis(analysisId);
   }
 
-  @Post('add-script-mapping')
-  addScriptMapping(
-    @Query('scriptId', ParseUUIDPipe) scriptId: string,
+  @Post('/scripts/:scriptId/mapping')
+  async addScriptMapping(
+    @Param('scriptId', ParseUUIDPipe) scriptId: string,
     @Body() mapping: { data: string },
   ) {
-    return this.datasetService.addScriptMapping(scriptId, mapping.data);
+    return await this.datasetService.addScriptMapping(scriptId, mapping.data);
   }
 
-  @Get('download-dataset')
+  @Get('/download/:userRequestId')
   async downloadDataset(
-    @Query('userRequestId', ParseUUIDPipe) userRequestId: string,
+    @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
     @Res() response: Response,
   ) {
     const zipFilePath =
@@ -117,8 +124,8 @@ export class DatasetController {
     });
   }
 
-  @Get('view-report')
-  async viewReport(@Query('scriptId', ParseUUIDPipe) scriptId: string) {
-    return await this.datasetService.viewReport(scriptId);
+  @Get('/reports/:scriptId')
+  async getReport(@Param('scriptId', ParseUUIDPipe) scriptId: string) {
+    return await this.datasetService.getReport(scriptId);
   }
 }
