@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TemplateDto } from './dto';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { QueueService } from 'src/queue/queue.service';
+import { TemplateService } from 'src/template/template.service';
 
 @Injectable()
 export class DatabaseSourceService {
@@ -12,6 +12,8 @@ export class DatabaseSourceService {
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
     private readonly queue: QueueService,
+    @Inject(forwardRef(() => TemplateService))
+    private template: TemplateService,
   ) {}
   async list(userId: string) {
     const requestList = await this.prisma.connectionRequest.findMany({
@@ -190,169 +192,6 @@ export class DatabaseSourceService {
     return resultArray;
   }
 
-  async deleteTemplate(template: TemplateDto) {
-    const job = await this.queue.deleteTemplateJob(template);
-    await this.prisma.project.update({
-      where: {
-        id: template.projectId,
-      },
-      data: {
-        templateDeleteJobs: {
-          push: job.id.toString(),
-        },
-      },
-    });
-  }
-
-  async templateNames(projectId: string) {
-    const dbId = await this.findDbId(projectId);
-    const params = {
-      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName`,
-    };
-    const result = await this.atlas.get('/search/dsl', params);
-
-    const deleteJobsResult = await this.prisma.project.findUnique({
-      where: {
-        id: projectId,
-      },
-      select: {
-        templateDeleteJobs: true,
-      },
-    });
-
-    let deleteJobs = deleteJobsResult.templateDeleteJobs;
-    const deletingTemplates = [];
-    if (deleteJobsResult.templateDeleteJobs.length != 0) {
-      for (let i = 0; i < deleteJobsResult.templateDeleteJobs.length; i++) {
-        const job = await this.queue.getJob(
-          deleteJobsResult.templateDeleteJobs[i],
-        );
-
-        if (job == null) {
-          deleteJobs[i] = null;
-          continue;
-        }
-
-        const state = await job.getState();
-
-        if (state === 'completed') {
-          await job.remove();
-          deleteJobs[i] = null;
-        } else {
-          const data = job.data;
-          deletingTemplates.push(data.templateId);
-        }
-      }
-    }
-
-    deleteJobs = deleteJobs.filter((item) => item != null);
-
-    await this.prisma.project.update({
-      where: {
-        id: projectId,
-      },
-      data: {
-        templateDeleteJobs: deleteJobs,
-      },
-    });
-
-    let activeTemplates = [];
-    if (result.attributes) {
-      activeTemplates = result.attributes.values
-        .filter(
-          (item) =>
-            item[0] === 'ACTIVE' && !deletingTemplates.includes(item[1]),
-        )
-        .map((item) => {
-          return {
-            guid: item[1],
-            name: item[2].split('@', 2)[1],
-          };
-        });
-    }
-
-    return activeTemplates;
-  }
-
-  async templates(projectId: string) {
-    const activeTemplates = await this.templateNames(projectId);
-
-    const output = [];
-    for (const template of activeTemplates) {
-      const templateGuid = template.guid;
-      const templateName = template.name;
-
-      const templateInfo = {
-        id: templateGuid,
-        name: templateName,
-        nodes: [],
-        edges: [],
-      };
-
-      const templateEntity = await this.atlas.get(
-        `/entity/guid/${templateGuid}`,
-      );
-
-      for (const key in templateEntity.referredEntities) {
-        const entity = templateEntity.referredEntities[key];
-
-        if (entity.typeName.includes('archetype_')) {
-          const splitted = entity.attributes.qualifiedName.split('@');
-          const node = {
-            id: splitted[2],
-            position: {
-              x: Number(entity.attributes.position.x),
-              y: Number(entity.attributes.position.y),
-            },
-            data: {
-              label: entity.attributes.displayName,
-            },
-            type: entity.typeName.replace('archetype_', ''),
-            width: entity.attributes.width,
-            height: entity.attributes.height,
-            selected: false,
-            positionAbsolute: {
-              x: Number(entity.attributes.position.x),
-              y: Number(entity.attributes.position.y),
-            },
-            dragging: false,
-          };
-          templateInfo.nodes.push(node);
-
-          if (entity.typeName != 'archetype_object') {
-            const edge = {
-              source: splitted[2],
-              target: '',
-              sourceHandle: null,
-              targetHandle: null,
-              id: '',
-            };
-
-            const name =
-              entity.typeName == 'archetype_category'
-                ? entity.relationshipAttributes.object.qualifiedName
-                : entity.relationshipAttributes.category.qualifiedName;
-
-            edge.target = name.split('@')[2];
-            edge.id = `edge_${edge.source}_${edge.target}`;
-
-            templateInfo.edges.push(edge);
-          }
-        }
-      }
-
-      output.push(templateInfo);
-    }
-
-    return output;
-  }
-
-  async createTemplate(template: TemplateDto) {
-    const dbId = await this.findDbId(template.projectId);
-
-    await this.queue.addArchetypeJob(template, dbId);
-  }
-
   async columns(projectId: string) {
     const dbId = await this.findDbId(projectId);
 
@@ -391,7 +230,7 @@ export class DatabaseSourceService {
   }
 
   async permissions(projectId: string) {
-    const activeTemplates = await this.templateNames(projectId);
+    const activeTemplates = await this.template.templateNames(projectId);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -590,6 +429,7 @@ export class DatabaseSourceService {
         atlasId: true,
       },
     });
+
     return request.atlasId;
   }
 }

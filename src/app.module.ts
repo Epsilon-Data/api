@@ -18,7 +18,7 @@ import { DatabaseModule } from './database/database.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { FileStorageModule } from './file_storage/file_storage.module';
 import { QueueModule } from './queue/queue.module';
-
+import { TemplateModule } from './template/template.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -74,6 +74,7 @@ import configuration from './config/configuration';
     AnalysisModule,
     FileStorageModule,
     QueueModule,
+    TemplateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

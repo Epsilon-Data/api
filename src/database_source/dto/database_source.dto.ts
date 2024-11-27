@@ -9,25 +9,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-export class TemplateDto {
-  @IsDefined()
-  @IsUUID()
-  @IsNotEmpty()
-  projectId: string;
-
-  @IsOptional()
-  @IsString()
-  template: string;
-
-  @IsOptional()
-  @IsString()
-  columnMapping: string;
-
-  @IsOptional()
-  @IsString()
-  templateId: string;
-}
-
 export class SettingsDto {
   @IsDefined()
   @IsUUID()

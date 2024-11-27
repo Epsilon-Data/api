@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { TemplateDto } from 'src/database_source/dto/database_source.dto';
+import { TemplateDto } from 'src/template/dto';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 @Injectable()
