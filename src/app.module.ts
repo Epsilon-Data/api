@@ -6,7 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ConnectionRequestModule } from './connection_request/connection_request.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { DatabaseSourceModule } from './database_source/database_source.module';
+import { DatasourceModule } from './datasource/datasource.module';
 import { AtlasModule } from './atlas/atlas.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
@@ -19,6 +19,7 @@ import { AnalysisModule } from './analysis/analysis.module';
 import { FileStorageModule } from './file_storage/file_storage.module';
 import { QueueModule } from './queue/queue.module';
 import { TemplateModule } from './template/template.module';
+import { ScriptModule } from './script/script.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -44,7 +45,7 @@ import configuration from './config/configuration';
     }),
     ConnectionRequestModule,
     PrismaModule,
-    DatabaseSourceModule,
+    DatasourceModule,
     AtlasModule,
     DockerModule,
     AdminModule.forRootAsync({
@@ -75,6 +76,7 @@ import configuration from './config/configuration';
     FileStorageModule,
     QueueModule,
     TemplateModule,
+    ScriptModule,
   ],
   controllers: [AppController],
   providers: [AppService],

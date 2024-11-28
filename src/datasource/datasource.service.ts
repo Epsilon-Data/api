@@ -6,7 +6,7 @@ import { QueueService } from 'src/queue/queue.service';
 import { TemplateService } from 'src/template/template.service';
 
 @Injectable()
-export class DatabaseSourceService {
+export class DatasourceService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
@@ -350,10 +350,8 @@ export class DatabaseSourceService {
     return output;
   }
 
-  async addPermissions(projectId: string, permissions: string) {
-    const parsed = JSON.parse(permissions);
-
-    await this.queue.addPermissionsJob(parsed, projectId);
+  async addPermissions(projectId: string, permissions: any) {
+    await this.queue.addPermissionsJob(permissions, projectId);
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {

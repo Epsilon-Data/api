@@ -11,13 +11,13 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { DatabaseSourceService } from './database_source.service';
+import { DatasourceService } from './datasource.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
 
-@Controller('database-source')
-export class DatabaseSourceController {
-  constructor(private databaseSourceService: DatabaseSourceService) {}
+@Controller('datasource')
+export class DatasourceController {
+  constructor(private databaseSourceService: DatasourceService) {}
 
   @Get()
   async list(@Query('userId', ParseUUIDPipe) userId: string) {
@@ -54,7 +54,7 @@ export class DatabaseSourceController {
   @Post(':projectId/permissions')
   addPermissions(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() permissions: string,
+    @Body() permissions: any,
   ) {
     return this.databaseSourceService.addPermissions(projectId, permissions);
   }

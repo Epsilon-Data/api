@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DatabaseSourceGateway } from './database_source.gateway';
+import { DatasourceGateway } from './datasource.gateway';
 
 describe('DatabaseSourceGateway', () => {
-  let gateway: DatabaseSourceGateway;
+  let gateway: DatasourceGateway;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [DatabaseSourceGateway],
+      providers: [DatasourceGateway],
     }).compile();
 
-    gateway = module.get<DatabaseSourceGateway>(DatabaseSourceGateway);
+    gateway = module.get<DatasourceGateway>(DatasourceGateway);
   });
 
   it('should be defined', () => {

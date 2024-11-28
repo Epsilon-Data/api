@@ -17,14 +17,14 @@ import { AtlasService } from 'src/atlas/atlas.service';
     origin: true,
   },
 })
-export class DatabaseSourceGateway
+export class DatasourceGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   constructor(
     private readonly configService: ConfigService,
     private atlas: AtlasService,
   ) {}
-  private readonly logger = new Logger(DatabaseSourceGateway.name);
+  private readonly logger = new Logger(DatasourceGateway.name);
 
   @WebSocketServer() server: Server;
 
