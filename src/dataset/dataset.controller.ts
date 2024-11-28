@@ -4,19 +4,14 @@ import {
   Delete,
   Get,
   Param,
-  ParseFilePipe,
   ParseUUIDPipe,
   Post,
   Query,
   Req,
   Res,
-  UploadedFile,
-  UseInterceptors,
 } from '@nestjs/common';
 import { DatasetService } from './dataset.service';
 import { Request, Response } from 'express';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { scriptOptions } from 'src/options';
 import { DescriptiveDto } from './dto';
 import * as fs from 'fs';
 
@@ -48,27 +43,11 @@ export class DatasetController {
     );
   }
 
-  @Post('/scripts/:analysisId')
-  @UseInterceptors(FileInterceptor('file', scriptOptions))
-  uploadScript(
-    @Req() request: Request,
-    @UploadedFile(new ParseFilePipe())
-    file: Express.Multer.File,
-    @Param('analysisId', ParseUUIDPipe) analysisId: string,
-  ) {
-    return this.datasetService.uploadScript(request, analysisId, file);
-  }
-
   @Get('/analysis/:analysisId')
   async analysisDetails(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
   ) {
     return await this.datasetService.analysisDetails(analysisId);
-  }
-
-  @Delete('/scripts/:scriptId')
-  deleteScript(@Param('scriptId', ParseUUIDPipe) scriptId: string) {
-    return this.datasetService.deleteScript(scriptId);
   }
 
   @Get('/columns/:userRequestId')
@@ -83,25 +62,9 @@ export class DatasetController {
     return await this.datasetService.descriptiveAnalysis(dto);
   }
 
-  @Get('/scripts/:scriptId')
-  async getScriptMapping(
-    @Param('scriptId', ParseUUIDPipe) scriptId: string,
-    @Req() request: Request,
-  ) {
-    return await this.datasetService.getScriptMapping(scriptId, request);
-  }
-
   @Delete('/analysis/:analysisId')
   deleteAnalysis(@Param('analysisId', ParseUUIDPipe) analysisId: string) {
     return this.datasetService.deleteAnalysis(analysisId);
-  }
-
-  @Post('/scripts/:scriptId/mapping')
-  async addScriptMapping(
-    @Param('scriptId', ParseUUIDPipe) scriptId: string,
-    @Body() mapping: { data: string },
-  ) {
-    return await this.datasetService.addScriptMapping(scriptId, mapping.data);
   }
 
   @Get('/download/:userRequestId')
