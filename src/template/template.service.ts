@@ -15,20 +15,6 @@ export class TemplateService {
     private databaseSource: DatabaseSourceService,
   ) {}
 
-  async deleteTemplate(template: TemplateDto) {
-    const job = await this.queue.deleteTemplateJob(template);
-    await this.prisma.project.update({
-      where: {
-        id: template.projectId,
-      },
-      data: {
-        templateDeleteJobs: {
-          push: job.id.toString(),
-        },
-      },
-    });
-  }
-
   async templateNames(projectId: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
     const params = {
@@ -170,6 +156,20 @@ export class TemplateService {
     }
 
     return output;
+  }
+
+  async deleteTemplate(template: TemplateDto) {
+    const job = await this.queue.deleteTemplateJob(template);
+    await this.prisma.project.update({
+      where: {
+        id: template.projectId,
+      },
+      data: {
+        templateDeleteJobs: {
+          push: job.id.toString(),
+        },
+      },
+    });
   }
 
   async createTemplate(template: TemplateDto) {

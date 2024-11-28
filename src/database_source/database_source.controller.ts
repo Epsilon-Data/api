@@ -25,8 +25,10 @@ export class DatabaseSourceController {
   }
 
   @Get(':projectId')
-  async getProjectId(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.databaseSourceService.getProjectId(projectId);
+  async getProjectDetails(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.databaseSourceService.getProjectDetails(projectId);
   }
 
   @Get(':projectId/summary')
@@ -55,15 +57,6 @@ export class DatabaseSourceController {
     @Body() permissions: string,
   ) {
     return this.databaseSourceService.addPermissions(projectId, permissions);
-  }
-
-  @Get('settings')
-  settings(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    const result = this.databaseSourceService.settings(projectId, {
-      cover: true,
-      visualisations: true,
-    });
-    return result;
   }
 
   @Post('upload-cover')

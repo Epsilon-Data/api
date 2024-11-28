@@ -60,15 +60,32 @@ export class DatabaseSourceService {
     return result;
   }
 
-  async getProjectId(projectId: string) {
-    return await this.prisma.project.findUnique({
+  async getProjectDetails(projectId: string) {
+    const request = await this.prisma.project.findUnique({
       where: {
         id: projectId,
       },
       select: {
         customId: true,
+        visualisations: true,
       },
     });
+
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
+    let cover = null;
+
+    const exists = await this.fileStorage.fileExists(bucket, key);
+    if (exists) {
+      cover = await this.fileStorage.getFileUrl(bucket, key);
+    }
+
+    return {
+      customId: request.customId,
+      visualisations: request.visualisations,
+      cover: cover,
+      projectId: projectId,
+    };
   }
 
   async summary(projectId: string) {
@@ -337,31 +354,6 @@ export class DatabaseSourceService {
     const parsed = JSON.parse(permissions);
 
     await this.queue.addPermissionsJob(parsed, projectId);
-  }
-
-  async settings(
-    projectId: string,
-    options: { cover?: boolean; visualisations?: boolean },
-  ) {
-    const request = await this.prisma.project.findUnique({
-      where: {
-        id: projectId,
-      },
-      select: {
-        visualisations: options.visualisations,
-      },
-    });
-
-    const bucket = 'cover';
-    const key = `${projectId}/cover.jpg`;
-    let cover = null;
-
-    const exists = await this.fileStorage.fileExists(bucket, key);
-    if (exists) {
-      cover = await this.fileStorage.getFileUrl(bucket, key);
-    }
-
-    return { ...request, cover: cover, id: projectId };
   }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
