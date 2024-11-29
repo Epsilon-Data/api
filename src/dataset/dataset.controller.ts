@@ -1,18 +1,13 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
-  Post,
   Query,
-  Req,
   Res,
 } from '@nestjs/common';
 import { DatasetService } from './dataset.service';
-import { Request, Response } from 'express';
-import { DescriptiveDto } from './dto';
+import { Response } from 'express';
 import * as fs from 'fs';
 
 @Controller('dataset')
@@ -31,40 +26,11 @@ export class DatasetController {
     return await this.datasetService.analysisList(userRequestId);
   }
 
-  @Post()
-  createAnalysis(
-    @Req() request: Request,
-    @Body() dto: { userRequestId: string; name: string },
-  ) {
-    return this.datasetService.createAnalysis(
-      request,
-      dto.userRequestId,
-      dto.name,
-    );
-  }
-
-  @Get('/analysis/:analysisId')
-  async analysisDetails(
-    @Param('analysisId', ParseUUIDPipe) analysisId: string,
-  ) {
-    return await this.datasetService.analysisDetails(analysisId);
-  }
-
   @Get('/columns/:userRequestId')
   async getColumns(
     @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
   ) {
     return await this.datasetService.getColumns(userRequestId);
-  }
-
-  @Post('descriptive')
-  async descriptiveAnalysis(@Body() dto: DescriptiveDto) {
-    return await this.datasetService.descriptiveAnalysis(dto);
-  }
-
-  @Delete('/analysis/:analysisId')
-  deleteAnalysis(@Param('analysisId', ParseUUIDPipe) analysisId: string) {
-    return this.datasetService.deleteAnalysis(analysisId);
   }
 
   @Get('/download/:userRequestId')
