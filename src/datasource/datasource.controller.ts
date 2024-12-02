@@ -8,19 +8,22 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { DatasourceService } from './datasource.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
+import { Request } from 'express';
 
 @Controller('datasource')
 export class DatasourceController {
   constructor(private databaseSourceService: DatasourceService) {}
 
   @Get()
-  async list(@Query('userId', ParseUUIDPipe) userId: string) {
+  async list(@Req() request: Request) {
+    const userId = request.auth.payload.sub.toString();
     return await this.databaseSourceService.list(userId);
   }
 

@@ -6,13 +6,14 @@ import {
   Put,
   ParseUUIDPipe,
   Patch,
-  Query,
   UseGuards,
   Param,
+  Req,
 } from '@nestjs/common';
 import { AccessRequestService } from './access_request.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { RequestDto, RevisionDto } from './dto';
+import { Request } from 'express';
 
 @Controller('access-request')
 export class AccessRequestController {
@@ -25,7 +26,8 @@ export class AccessRequestController {
 
   @Get()
   @UseGuards(new AuthGuard('api.hub.read'))
-  async summary(@Query('userId') userId: string) {
+  async summary(@Req() request: Request) {
+    const userId = request.auth.payload.sub.toString();
     return await this.userRequestService.summary(userId);
   }
 

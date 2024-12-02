@@ -3,19 +3,21 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
-  Query,
+  Req,
   Res,
 } from '@nestjs/common';
 import { DatasetService } from './dataset.service';
 import { Response } from 'express';
 import * as fs from 'fs';
+import { Request } from 'express';
 
 @Controller('dataset')
 export class DatasetController {
   constructor(private datasetService: DatasetService) {}
 
   @Get()
-  async list(@Query('userId', ParseUUIDPipe) userId: string) {
+  async list(@Req() request: Request) {
+    const userId = request.auth.payload.sub.toString();
     return await this.datasetService.list(userId);
   }
 

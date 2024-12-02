@@ -1,14 +1,15 @@
 import {
   Controller,
   Get,
-  Query,
   Post,
   Body,
   ParseUUIDPipe,
   Param,
+  Req,
 } from '@nestjs/common';
 import { BrowseDatasetService } from './browse_dataset.service';
 import { AccessDto } from './dto';
+import { Request } from 'express';
 
 @Controller('browse-dataset')
 export class BrowseDatasetController {
@@ -21,9 +22,10 @@ export class BrowseDatasetController {
 
   @Get(':projectId')
   async projectDetails(
-    @Query('userId', ParseUUIDPipe) userId: string,
+    @Req() request: Request,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
+    const userId = request.auth.payload.sub.toString();
     return await this.browseDatasetService.projectDetails(userId, projectId);
   }
 

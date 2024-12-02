@@ -12,60 +12,6 @@ export class ConnectionRequestService {
     private atlas: AtlasService,
     private readonly queue: QueueService,
   ) {}
-  async details(requestId: string) {
-    const request = await this.prisma.connectionRequest.findUnique({
-      where: {
-        id: requestId,
-      },
-      include: {
-        Project: true,
-      },
-    });
-
-    const mappedRequest: ConnectionRequestDto = {
-      requestor: request.requestor,
-      status: request.status,
-      date: request.createdDate,
-      revisionInfo: request.revisionInfo,
-      projectInfo: {
-        id: request.Project.id,
-        customId: request.Project.customId,
-        name: request.Project.name,
-        duration: [request.Project.startDate, request.Project.endDate],
-        lead: request.Project.lead,
-        members: request.Project.members,
-        university: request.Project.university,
-        faculty: request.Project.faculty,
-        ethicsId: request.Project.ethicsId,
-        description: request.Project.description,
-      },
-      dataInfo: {
-        collectionDuration: [
-          request.dataCollectionStartDate,
-          request.dataCollectionEndDate,
-        ],
-        participantsNumber: request.dataParticipantsNum,
-        description: request.dataDescription,
-        keywords: request.dataKeywords,
-      },
-    };
-
-    let info = {};
-    if (request.orgAdminEmail) {
-      info = {
-        orgAdminEmail: request.orgAdminEmail,
-        additionalInfo: request.additionalInfo,
-      };
-    } else {
-      info = {
-        databaseInfo: {
-          name: request.dbName,
-        },
-      };
-    }
-
-    return { ...mappedRequest, ...info };
-  }
 
   async summary(userId: string, email: string) {
     const requestList = { sent: [], receive: [] };
@@ -159,6 +105,61 @@ export class ConnectionRequestService {
         data: { status: 1, orgAdminEmail: dto.orgAdminEmail },
       });
     }
+  }
+
+  async details(requestId: string) {
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        id: requestId,
+      },
+      include: {
+        Project: true,
+      },
+    });
+
+    const mappedRequest: ConnectionRequestDto = {
+      requestor: request.requestor,
+      status: request.status,
+      date: request.createdDate,
+      revisionInfo: request.revisionInfo,
+      projectInfo: {
+        id: request.Project.id,
+        customId: request.Project.customId,
+        name: request.Project.name,
+        duration: [request.Project.startDate, request.Project.endDate],
+        lead: request.Project.lead,
+        members: request.Project.members,
+        university: request.Project.university,
+        faculty: request.Project.faculty,
+        ethicsId: request.Project.ethicsId,
+        description: request.Project.description,
+      },
+      dataInfo: {
+        collectionDuration: [
+          request.dataCollectionStartDate,
+          request.dataCollectionEndDate,
+        ],
+        participantsNumber: request.dataParticipantsNum,
+        description: request.dataDescription,
+        keywords: request.dataKeywords,
+      },
+    };
+
+    let info = {};
+    if (request.orgAdminEmail) {
+      info = {
+        orgAdminEmail: request.orgAdminEmail,
+        additionalInfo: request.additionalInfo,
+      };
+    } else {
+      info = {
+        databaseInfo: {
+          name: request.dbName,
+        },
+      };
+    }
+
+    return { ...mappedRequest, ...info };
   }
 
   async edit(dto: ConnectionRequestDto) {
