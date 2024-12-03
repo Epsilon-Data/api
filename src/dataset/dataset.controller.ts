@@ -21,6 +21,12 @@ export class DatasetController {
     return await this.datasetService.list(userId);
   }
 
+  @Get('/user')
+  async getDatasetsByUser(@Req() request: Request) {
+    const userId = request.auth.payload.sub.toString();
+    return await this.datasetService.getDatasetsByUser(userId, false);
+  }
+
   @Get(':userRequestId')
   async analysisList(
     @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
@@ -33,6 +39,12 @@ export class DatasetController {
     @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
   ) {
     return await this.datasetService.getColumns(userRequestId);
+  }
+
+  @Get('/download/user')
+  async getDownloadsByUser(@Req() request: Request) {
+    const userId = request.auth.payload.sub.toString();
+    return await this.datasetService.getDatasetsByUser(userId, true);
   }
 
   @Get('/download/:userRequestId')

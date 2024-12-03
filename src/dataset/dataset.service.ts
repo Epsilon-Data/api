@@ -99,7 +99,11 @@ export class DatasetService {
       atlasId,
     );
 
-    return result;
+    const zipFilePath = await this.dataProcess.createAndZipCsvFiles(
+      result.data,
+    );
+
+    return zipFilePath;
   }
 
   async getReport(scriptId: string) {
@@ -125,5 +129,53 @@ export class DatasetService {
     );
 
     return url;
+  }
+
+  async getDatasetsByUser(userId: string, isSynthetic: boolean) {
+    const requestList = await this.prisma.userRequest.findMany({
+      where: {
+        requestor: userId,
+        status: 3,
+      },
+      include: {
+        Project: {
+          include: {
+            ConnectionRequest: true,
+          },
+        },
+      },
+    });
+
+    const datasetList = [];
+
+    for (const request of requestList) {
+      const sourceId = request.Project.ConnectionRequest.id;
+      const atlasId = request.Project.ConnectionRequest.atlasId;
+
+      let result = { data: [], csvColumns: [] };
+
+      if (isSynthetic) {
+        result = await this.dataProcess.generateDownloadDataset(
+          sourceId,
+          atlasId,
+        );
+      } else {
+        result = await this.dataProcess.generateDataset(atlasId);
+      }
+
+      if (result.data.length === 0) {
+        continue;
+      }
+
+      datasetList.push({
+        projectId: request.Project.id,
+        sourceId: sourceId,
+        atlasId: atlasId,
+        csvColumns: result.csvColumns,
+        dataset: result.data,
+      });
+    }
+
+    return datasetList;
   }
 }

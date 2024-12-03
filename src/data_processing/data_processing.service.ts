@@ -240,7 +240,7 @@ export class DataProcessingService {
     return { primaryKeys, foreignKeys };
   }
 
-  private async createAndZipCsvFiles(
+  async createAndZipCsvFiles(
     files: { filename: string; data: any[] }[],
   ): Promise<string> {
     const csvFolderPath = 'csv_files';
@@ -325,7 +325,7 @@ export class DataProcessingService {
   async generateDownloadDataset(
     sourceId: string,
     atlasId: string,
-  ): Promise<string> {
+  ): Promise<any> {
     const bucket = 'synthetic';
 
     const role = 'research';
@@ -395,9 +395,7 @@ export class DataProcessingService {
         downloadData.push(csvData);
       }
 
-      const zipFilePath = await this.createAndZipCsvFiles(downloadData);
-
-      return zipFilePath;
+      return { data: downloadData, csvColumns: csvColumns };
     }
   }
 
@@ -520,5 +518,176 @@ export class DataProcessingService {
       stream: fs.createReadStream(filePath),
     };
     return multerFile;
+  }
+
+  private mergeData(
+    data1: { [key: string]: any }[],
+    data2: { [key: string]: any }[],
+    key: string,
+  ): { [key: string]: any }[] {
+    const merged: { [key: string]: any }[] = [];
+    for (const row1 of data1) {
+      for (const row2 of data2) {
+        if (row1[key] === row2[key]) {
+          merged.push({ ...row1, ...row2 });
+        }
+      }
+    }
+
+    return merged;
+  }
+
+  async generateDataset(atlasId: string): Promise<any> {
+    await this.database.connect(atlasId);
+    await this.database.initialize();
+    const role = 'research';
+    const csvColumns = await this.csvColumns(atlasId, role);
+
+    const tablesParams = {
+      query: `from rdbms_db where instance.__guid = "${atlasId}" select tables`,
+    };
+
+    const tablesResult = await this.atlas.get('/search/dsl', tablesParams);
+
+    const tableNames = tablesResult.entities.map(
+      (table) => table.attributes.name,
+    );
+
+    const tableGuidList = tablesResult.entities.map((table) => table.guid);
+
+    const { primaryKeys, foreignKeys } = await this.getKeys(tableGuidList);
+
+    const databaseData = {};
+    for (const table of tableNames) {
+      const queryCheck = `SELECT * FROM ${table} LIMIT 1`;
+      const checkResult = await this.database.query(queryCheck);
+
+      if (checkResult.length > 0) {
+        const queryAll = `SELECT * FROM ${table}`;
+        const allData = await this.database.query(queryAll);
+        databaseData[table] = allData;
+      }
+    }
+
+    const combinedData = [];
+    const processedTables = new Set<string>();
+    const tableMap: Record<string, number> = {};
+
+    function findRelatedTables(table: string): Set<string> {
+      const related = new Set<string>();
+      if (table in foreignKeys) {
+        for (const fk of foreignKeys[table]) {
+          for (const [relatedTable, pk] of Object.entries(primaryKeys)) {
+            if (pk.includes(fk) && relatedTable !== table) {
+              related.add(relatedTable);
+            }
+          }
+        }
+      }
+      return related;
+    }
+
+    function updateTableMap(
+      mapping: Record<string, number>,
+      deletedIndex: number,
+    ): Record<string, number> {
+      const updatedMapping: Record<string, number> = {};
+      for (const [key, index] of Object.entries(mapping)) {
+        if (index === deletedIndex) {
+          continue;
+        } else if (index > deletedIndex) {
+          updatedMapping[key] = index - 1;
+        } else {
+          updatedMapping[key] = index;
+        }
+      }
+      return updatedMapping;
+    }
+
+    while (Object.keys(databaseData).length > 0) {
+      const [table, data] = Object.entries(databaseData).pop()!;
+      delete databaseData[table];
+
+      if (processedTables.has(table)) {
+        continue;
+      }
+
+      const relatedTables = findRelatedTables(table);
+      let combination: { [key: string]: any }[] = data as {
+        [key: string]: any;
+      }[];
+      processedTables.add(table);
+
+      for (const relatedTable of relatedTables) {
+        if (relatedTable in databaseData) {
+          const relatedData = databaseData[relatedTable];
+          delete databaseData[relatedTable];
+
+          const commonKeys = primaryKeys[relatedTable].filter((key) =>
+            foreignKeys[table]?.includes(key),
+          );
+          for (const key of commonKeys) {
+            combination = this.mergeData(combination, relatedData, key);
+          }
+          processedTables.add(relatedTable);
+        } else if (processedTables.has(relatedTable)) {
+          const relatedIndex = tableMap[relatedTable];
+          combination = this.mergeData(
+            combination,
+            combinedData[relatedIndex],
+            '',
+          );
+          combinedData.splice(relatedIndex, 1);
+          updateTableMap(tableMap, relatedIndex);
+        }
+      }
+
+      combinedData.push(combination);
+
+      const dataIndex = combinedData.length - 1;
+      tableMap[table] = dataIndex;
+      for (const relatedTable of relatedTables) {
+        tableMap[relatedTable] = dataIndex;
+      }
+    }
+
+    for (const [table, data] of Object.entries(databaseData)) {
+      combinedData.push(data);
+      const dataIndex = combinedData.length - 1;
+      tableMap[table] = dataIndex;
+    }
+
+    const downloadData = [];
+    for (const csvName of Object.keys(csvColumns)) {
+      const corrCols = csvColumns[csvName];
+
+      const tableColumns: Record<string, string[]> = {};
+      for (const column of corrCols) {
+        const dataIndex = tableMap[column.table];
+        if (!tableColumns[dataIndex]) {
+          tableColumns[dataIndex] = [];
+        }
+        tableColumns[dataIndex].push(column.name);
+      }
+
+      const allColumns = [];
+
+      for (const [dataIndex, cols] of Object.entries(tableColumns)) {
+        const mappedData = combinedData[dataIndex].map((row) => {
+          const rowData = {};
+          for (const column of cols) {
+            rowData[column] = row[column];
+          }
+          return rowData;
+        });
+
+        allColumns.push(...mappedData);
+      }
+
+      downloadData.push({ filename: csvName, data: allColumns });
+    }
+
+    await this.database.disconnect();
+    return { data: downloadData, csvColumns: csvColumns };
   }
 }
