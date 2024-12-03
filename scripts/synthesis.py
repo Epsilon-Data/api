@@ -166,6 +166,8 @@ def combine_dataframes(db_details, prefix, table_names, foreign_keys, primary_ke
 
   for table, df in dataframes.items():
       combined_dataframes.append(df)
+      df_index = len(combined_dataframes) - 1
+      table_map[table] = df_index
   
   output_json ='mapping.json'
   
