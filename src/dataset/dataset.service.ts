@@ -160,7 +160,7 @@ export class DatasetService {
           atlasId,
         );
       } else {
-        result = await this.dataProcess.generateDataset(atlasId);
+        result = await this.dataProcess.generateDataset(sourceId, atlasId);
       }
 
       if (result.data.length === 0) {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DatabaseService } from 'src/database/database.service';
 import * as fs from 'fs';
@@ -537,8 +537,9 @@ export class DataProcessingService {
     return merged;
   }
 
-  async generateDataset(atlasId: string): Promise<any> {
-    await this.database.connect(atlasId);
+  async generateDataset(sourceId: string, atlasId: string): Promise<any> {
+    const scriptPath = process.cwd() + '/scripts/combine_data.py';
+    const dbDetails = await this.database.connect(atlasId);
     await this.database.initialize();
     const role = 'research';
     const csvColumns = await this.csvColumns(atlasId, role);
@@ -557,105 +558,48 @@ export class DataProcessingService {
 
     const { primaryKeys, foreignKeys } = await this.getKeys(tableGuidList);
 
-    const databaseData = {};
-    for (const table of tableNames) {
-      const queryCheck = `SELECT * FROM ${table} LIMIT 1`;
-      const checkResult = await this.database.query(queryCheck);
+    const dbInfo: { combined: any; tableMap: any } = await new Promise(
+      (resolve, reject) => {
+        const args = {
+          dbDetails,
+          sourceId,
+          tableNames,
+          foreignKeys,
+          primaryKeys,
+        };
+        const yamlFilePath = `${process.cwd()}/script_args.yaml`;
+        fs.writeFileSync(yamlFilePath, yaml.dump(args));
 
-      if (checkResult.length > 0) {
-        const queryAll = `SELECT * FROM ${table}`;
-        const allData = await this.database.query(queryAll);
-        databaseData[table] = allData;
-      }
-    }
+        const pythonProcess = spawn('python3', [scriptPath, yamlFilePath]);
 
-    const combinedData = [];
-    const processedTables = new Set<string>();
-    const tableMap: Record<string, number> = {};
+        let errorOutput = '';
 
-    function findRelatedTables(table: string): Set<string> {
-      const related = new Set<string>();
-      if (table in foreignKeys) {
-        for (const fk of foreignKeys[table]) {
-          for (const [relatedTable, pk] of Object.entries(primaryKeys)) {
-            if (pk.includes(fk) && relatedTable !== table) {
-              related.add(relatedTable);
+        pythonProcess.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        pythonProcess.on('close', (code) => {
+          if (code === 0) {
+            const outputFilePath = `${process.cwd()}/${sourceId}-output.json`;
+            try {
+              const jsonData = JSON.parse(
+                fs.readFileSync(outputFilePath, 'utf-8'),
+              );
+              fs.unlinkSync(outputFilePath);
+
+              resolve(jsonData);
+            } catch (err) {
+              reject(`Error reading or deleting JSON file: ${err.message}`);
             }
+          } else {
+            reject(`Python script exited with code ${code}: ${errorOutput}`);
           }
-        }
-      }
-      return related;
-    }
+        });
+      },
+    );
 
-    function updateTableMap(
-      mapping: Record<string, number>,
-      deletedIndex: number,
-    ): Record<string, number> {
-      const updatedMapping: Record<string, number> = {};
-      for (const [key, index] of Object.entries(mapping)) {
-        if (index === deletedIndex) {
-          continue;
-        } else if (index > deletedIndex) {
-          updatedMapping[key] = index - 1;
-        } else {
-          updatedMapping[key] = index;
-        }
-      }
-      return updatedMapping;
-    }
-
-    while (Object.keys(databaseData).length > 0) {
-      const [table, data] = Object.entries(databaseData).pop()!;
-      delete databaseData[table];
-
-      if (processedTables.has(table)) {
-        continue;
-      }
-
-      const relatedTables = findRelatedTables(table);
-      let combination: { [key: string]: any }[] = data as {
-        [key: string]: any;
-      }[];
-      processedTables.add(table);
-
-      for (const relatedTable of relatedTables) {
-        if (relatedTable in databaseData) {
-          const relatedData = databaseData[relatedTable];
-          delete databaseData[relatedTable];
-
-          const commonKeys = primaryKeys[relatedTable].filter((key) =>
-            foreignKeys[table]?.includes(key),
-          );
-          for (const key of commonKeys) {
-            combination = this.mergeData(combination, relatedData, key);
-          }
-          processedTables.add(relatedTable);
-        } else if (processedTables.has(relatedTable)) {
-          const relatedIndex = tableMap[relatedTable];
-          combination = this.mergeData(
-            combination,
-            combinedData[relatedIndex],
-            '',
-          );
-          combinedData.splice(relatedIndex, 1);
-          updateTableMap(tableMap, relatedIndex);
-        }
-      }
-
-      combinedData.push(combination);
-
-      const dataIndex = combinedData.length - 1;
-      tableMap[table] = dataIndex;
-      for (const relatedTable of relatedTables) {
-        tableMap[relatedTable] = dataIndex;
-      }
-    }
-
-    for (const [table, data] of Object.entries(databaseData)) {
-      combinedData.push(data);
-      const dataIndex = combinedData.length - 1;
-      tableMap[table] = dataIndex;
-    }
+    const tableMap = dbInfo.tableMap;
+    const combinedData = dbInfo.combined;
 
     const downloadData = [];
     for (const csvName of Object.keys(csvColumns)) {
@@ -673,7 +617,8 @@ export class DataProcessingService {
       const allColumns = [];
 
       for (const [dataIndex, cols] of Object.entries(tableColumns)) {
-        const mappedData = combinedData[dataIndex].map((row) => {
+        const dbData = JSON.parse(combinedData[dataIndex]);
+        const mappedData = dbData.map((row) => {
           const rowData = {};
           for (const column of cols) {
             rowData[column] = row[column];
