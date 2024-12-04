@@ -520,23 +520,6 @@ export class DataProcessingService {
     return multerFile;
   }
 
-  private mergeData(
-    data1: { [key: string]: any }[],
-    data2: { [key: string]: any }[],
-    key: string,
-  ): { [key: string]: any }[] {
-    const merged: { [key: string]: any }[] = [];
-    for (const row1 of data1) {
-      for (const row2 of data2) {
-        if (row1[key] === row2[key]) {
-          merged.push({ ...row1, ...row2 });
-        }
-      }
-    }
-
-    return merged;
-  }
-
   async generateDataset(sourceId: string, atlasId: string): Promise<any> {
     const scriptPath = process.cwd() + '/scripts/combine_data.py';
     const dbDetails = await this.database.connect(atlasId);
