@@ -19,6 +19,9 @@ export class AtlasProcessor {
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
     const { dbId, columnMapping, template, projectId } = job.data;
+    const params = {
+      name: 'progress',
+    };
 
     const archetypeBody = {
       entity: {
@@ -28,6 +31,7 @@ export class AtlasProcessor {
           owner: 'user',
           qualifiedName: `${dbId}@${template.name}`,
           is_active: true,
+          progress: 0,
         },
         relationshipAttributes: {
           instance: {
@@ -40,6 +44,10 @@ export class AtlasProcessor {
 
     const result = await this.atlas.post('/entity', archetypeBody);
     const archetypeId = Object.values(result.guidAssignments)[0];
+    await this.atlas.put('/entity/guid/' + archetypeId, '20', params);
+
+    const entities = [];
+    let initialGuid = -1;
 
     const object = template.nodes.filter((node: any) => node.type === 'object');
     const catList = template.nodes.filter(
@@ -50,6 +58,7 @@ export class AtlasProcessor {
     );
 
     const objectBody = {
+      guid: initialGuid.toString(),
       typeName: 'archetype_object',
       status: 'ACTIVE',
       attributes: {
@@ -75,52 +84,53 @@ export class AtlasProcessor {
       },
     };
 
-    const objectResult = await this.atlas.post('/entity/bulk', {
-      entities: [objectBody],
-    });
-    const objectId = Object.values(objectResult.guidAssignments)[0];
+    entities.push(objectBody);
 
-    const catBodyList = catList.map((node: any) => ({
-      typeName: 'archetype_category',
-      status: 'ACTIVE',
-      attributes: {
-        displayName: node.data.label,
-        name: node.data.label,
-        owner: 'user',
-        qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-        position: {
-          x: node.position.x,
-          y: node.position.y,
-        },
-        label: node.data.label,
-        width: node.width,
-        height: node.height,
-        selected: false,
-        dragging: false,
-      },
-      relationshipAttributes: {
-        archetype: {
-          guid: archetypeId,
-          typeName: 'archetype',
-        },
-        object: {
-          guid: objectId,
-          typeName: 'archetype_object',
-        },
-      },
-    }));
+    await this.atlas.put('/entity/guid/' + archetypeId, '40', params);
 
-    const catResult = await this.atlas.post('/entity/bulk', {
-      entities: catBodyList,
+    const catBodyList = catList.map((node: any) => {
+      initialGuid -= 1;
+      return {
+        guid: initialGuid.toString(),
+        typeName: 'archetype_category',
+        status: 'ACTIVE',
+        attributes: {
+          displayName: node.data.label,
+          name: node.data.label,
+          owner: 'user',
+          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
+          position: {
+            x: node.position.x,
+            y: node.position.y,
+          },
+          label: node.data.label,
+          width: node.width,
+          height: node.height,
+          selected: false,
+          dragging: false,
+        },
+        relationshipAttributes: {
+          archetype: {
+            guid: archetypeId,
+            typeName: 'archetype',
+          },
+          object: {
+            guid: '-1',
+            typeName: 'archetype_object',
+          },
+        },
+      };
     });
+
+    entities.push(...catBodyList);
 
     const catIdList: { [key: string]: string } = {};
-    for (const cat of catResult.mutatedEntities.CREATE) {
+    for (const cat of catBodyList) {
       const name = cat.attributes.qualifiedName.split('@');
       catIdList[name[2]] = cat.guid;
     }
 
-    const subcatBodyList = [];
+    await this.atlas.put('/entity/guid/' + archetypeId, '60', params);
 
     for (const node of subcatList) {
       const relatedEdge = template.edges.filter(
@@ -162,12 +172,12 @@ export class AtlasProcessor {
         },
       };
 
-      subcatBodyList.push(subcatBody);
+      entities.push(subcatBody);
     }
 
-    if (subcatBodyList.length > 0) {
-      await this.atlas.post('/entity/bulk', { entities: subcatBodyList });
-    }
+    await this.atlas.post('/entity/bulk', { entities: entities });
+
+    await this.atlas.put('/entity/guid/' + archetypeId, '80', params);
 
     await this.prisma.project.update({
       where: { id: projectId },
@@ -236,6 +246,7 @@ export class AtlasProcessor {
 
       await this.atlas.post('/entity', result);
     }
+    await this.atlas.put('/entity/guid/' + archetypeId, '100', params);
   }
 
   @Process('process-delete-archetype')

@@ -18,7 +18,7 @@ export class TemplateService {
   async templateNames(projectId: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
     const params = {
-      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName`,
+      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
     };
     const result = await this.atlas.get('/search/dsl', params);
 
@@ -78,6 +78,7 @@ export class TemplateService {
           return {
             guid: item[1],
             name: item[2].split('@', 2)[1],
+            progress: item[3],
           };
         });
     }
