@@ -10,7 +10,7 @@ import { DatasourceModule } from './datasource/datasource.module';
 import { AtlasModule } from './atlas/atlas.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
-import { BrowseDatasetModule } from './browse_dataset/browse_dataset.module';
+import { ProjectModule } from './project/project.module';
 import { AccessRequestModule } from './access_request/access_request.module';
 import { DatasetModule } from './dataset/dataset.module';
 import { DataProcessingModule } from './data_processing/data_processing.module';
@@ -68,7 +68,7 @@ import configuration from './config/configuration';
         };
       },
     }),
-    BrowseDatasetModule,
+    ProjectModule,
     AccessRequestModule,
     DatasetModule,
     DataProcessingModule,

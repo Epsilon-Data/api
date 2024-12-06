@@ -5,7 +5,7 @@ import { AccessDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 
 @Injectable()
-export class BrowseDatasetService {
+export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
