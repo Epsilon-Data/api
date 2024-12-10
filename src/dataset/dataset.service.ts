@@ -3,6 +3,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { DatasourceService } from 'src/datasource/datasource.service';
 import { DataProcessingService } from 'src/data_processing/data_processing.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { format } from 'fast-csv';
+import { PassThrough } from 'stream';
 
 @Injectable()
 export class DatasetService {
@@ -167,15 +169,53 @@ export class DatasetService {
         continue;
       }
 
+      const datasetWithLinks = await this.uploadDatasets(
+        result.data,
+        'temp',
+        userId,
+      );
+
       datasetList.push({
         projectId: request.Project.id,
         sourceId: sourceId,
         atlasId: atlasId,
         csvColumns: result.csvColumns,
-        dataset: result.data,
+        dataset: datasetWithLinks,
       });
     }
 
     return datasetList;
+  }
+
+  private async uploadDatasets(
+    datasets: { filename: string; data: any[]; link?: string }[],
+    bucketName: string,
+    userId: string,
+  ): Promise<{ filename: string; data: any[]; link?: string }[]> {
+    await this.fileStorage.createBucketIfNotExists(bucketName);
+    await Promise.all(
+      datasets.map(async (dataset) => {
+        const { filename, data } = dataset;
+
+        const csvStream = format({ headers: true });
+        const passThroughStream = new PassThrough();
+
+        csvStream.pipe(passThroughStream);
+        data.forEach((row) => csvStream.write(row));
+        csvStream.end();
+
+        await this.fileStorage.putFile(bucketName, `${userId}-${filename}`, {
+          buffer: passThroughStream.read(),
+          mimetype: 'text/csv',
+        } as Express.Multer.File);
+
+        dataset.link = await this.fileStorage.getFileUrl(
+          bucketName,
+          `${userId}-${filename}`,
+        );
+      }),
+    );
+
+    return datasets;
   }
 }

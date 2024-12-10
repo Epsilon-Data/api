@@ -7,9 +7,8 @@ import {
   Res,
 } from '@nestjs/common';
 import { DatasetService } from './dataset.service';
-import { Response } from 'express';
 import * as fs from 'fs';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 @Controller('dataset')
 export class DatasetController {

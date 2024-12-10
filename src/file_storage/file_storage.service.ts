@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   GetObjectCommandOutput,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -18,10 +20,10 @@ export class FileStorageService {
 
   constructor(config: ConfigService) {
     this.s3 = new S3Client({
-      endpoint: config.get('S3_URI') || config.get('S3_URI'),
+      endpoint: config.get('S3_URI'),
       credentials: {
-        accessKeyId: 'admin',
-        secretAccessKey: 'supersecret',
+        accessKeyId: config.get('S3_KEY_ID'),
+        secretAccessKey: config.get('S3_SECRET_KEY'),
       },
       region: 'us-east-1',
       forcePathStyle: true,
@@ -107,5 +109,24 @@ export class FileStorageService {
     const command = new GetObjectCommand(params);
     const url = await getSignedUrl(this.s3, command, { expiresIn });
     return url;
+  }
+
+  async createBucketIfNotExists(bucketName: string): Promise<void> {
+    try {
+      // Check if the bucket exists
+      const headCommand = new HeadBucketCommand({ Bucket: bucketName });
+      await this.s3.send(headCommand);
+    } catch (error) {
+      if (
+        error.name === 'NotFound' ||
+        error.$metadata?.httpStatusCode === 404
+      ) {
+        // Bucket does not exist, so create it
+        const createCommand = new CreateBucketCommand({ Bucket: bucketName });
+        await this.s3.send(createCommand);
+      } else {
+        throw new Error(`Error checking bucket: ${error.message}`);
+      }
+    }
   }
 }

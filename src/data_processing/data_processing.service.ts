@@ -612,7 +612,7 @@ export class DataProcessingService {
         allColumns.push(...mappedData);
       }
 
-      downloadData.push({ filename: csvName, data: allColumns });
+      downloadData.push({ filename: `${csvName}.csv`, data: allColumns });
     }
 
     await this.database.disconnect();
