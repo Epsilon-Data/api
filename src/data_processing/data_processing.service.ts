@@ -93,17 +93,17 @@ export class DataProcessingService {
   }
 
   async preprocessScript(
-    sourceId: string,
+    atlasId: string,
     analysisId: string,
     scriptDetails: { id: string; name: string; mapping: any },
   ): Promise<string> {
     const scriptPath = process.cwd() + '/scripts/process.py';
 
-    const dbDetails = await this.database.connect(sourceId);
+    const dbDetails = await this.database.connect(atlasId);
 
     const role = 'research';
 
-    const csvColumns = await this.csvColumns(sourceId, role);
+    const csvColumns = await this.csvColumns(atlasId, role);
 
     if (csvColumns == null) {
       await this.prisma.script.update({
