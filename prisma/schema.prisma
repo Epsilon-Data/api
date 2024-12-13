@@ -23,6 +23,8 @@ model ConnectionRequest {
   dataCollectionStartDate DateTime? @db.Date
   dataCollectionEndDate   DateTime? @db.Date
   revisionInfo            String?   @db.Text
+  temp_username           String?   @db.Text
+  temp_password           String?   @db.Text
   Project                 Project?  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
 }
 
