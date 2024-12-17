@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -8,13 +9,24 @@ export class DatabaseService {
 
   private readonly logger = new Logger(DatabaseService.name);
 
-  constructor(private atlas: AtlasService) {}
+  constructor(
+    private atlas: AtlasService,
+    private prisma: PrismaService,
+  ) {}
 
   async connect(sourceId: string) {
     const params = {
       ignoreRelationships: true,
     };
     const result = await this.atlas.get('/entity/guid/' + sourceId, params);
+
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: { id: sourceId },
+      select: {
+        temp_username: true,
+        temp_password: true,
+      },
+    });
 
     const dbDetails = {
       type: result.entity.attributes.rdbms_type,
@@ -23,12 +35,8 @@ export class DatabaseService {
           ? 'localhost'
           : result.entity.attributes.hostname,
       port: result.entity.attributes.port,
-      username: result.entity.attributes.username
-        ? result.entity.attributes.username
-        : 'postgres',
-      password: result.entity.attributes.password
-        ? result.entity.attributes.password
-        : '123qwe',
+      username: request.temp_username,
+      password: request.temp_password,
       database: result.entity.attributes.name,
     };
 

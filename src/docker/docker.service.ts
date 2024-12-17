@@ -26,24 +26,46 @@ export class DockerService {
   async runDataBroker(
     ownerId: string,
     sourceId: string,
-    database: DatabaseInfoDto,
+    database: DatabaseInfoDto | { databaseId: string },
   ): Promise<string> {
-    const goPackagesPath = join(process.cwd(), '..', 'go-packages');
     const dockerLocal = 'host.docker.internal';
-    const host = database.host == 'localhost' ? dockerLocal : database.host;
-    const url = `${database.type}://${database.username}:${database.password}@${host}:${database.port}/${database.name}?sslmode=disable`;
-
     const atlasUrl = this.baseUrl.replace('localhost', dockerLocal);
 
-    try {
-      const envArgs = [
-        `DATABASE_URL=${url}`,
-        `SOURCE_ID=${sourceId}`,
-        `ATLAS_URI=${atlasUrl}`,
-        `ATLAS_ADMIN_PASSWORD=${this.password}`,
-        `OWNER=${ownerId}`,
-      ];
+    const envArgs = [
+      `ATLAS_URI=${atlasUrl}`,
+      `ATLAS_ADMIN_PASSWORD=${this.password}`,
+      `OWNER=${ownerId}`,
+    ];
+    if (!('databaseId' in database)) {
+      await this.prisma.connectionRequest.update({
+        where: { id: sourceId },
+        data: {
+          temp_username: database.username,
+          temp_password: database.password,
+        },
+      });
 
+      const host = database.host == 'localhost' ? dockerLocal : database.host;
+      const url = `${database.type}://${database.username}:${database.password}@${host}:${database.port}/${database.name}?sslmode=disable`;
+
+      envArgs.push(`DATABASE_URL=${url}`);
+      envArgs.push(`SOURCE_ID=${sourceId}`);
+    } else {
+      const request = await this.prisma.connectionRequest.findUnique({
+        where: { id: sourceId },
+        select: {
+          temp_username: true,
+          temp_password: true,
+        },
+      });
+
+      envArgs.push(`DATABASE_ID=${database.databaseId}`);
+      envArgs.push(`TEMP_USERNAME=${request.temp_username}`);
+      envArgs.push(`TEMP_PASSWORD=${request.temp_password}`);
+    }
+
+    try {
+      const goPackagesPath = join(process.cwd(), '..', 'go-packages');
       const imageName = 'go-packages-data_broker';
 
       const imageExists = await this.isImageBuilt(imageName);
@@ -59,13 +81,15 @@ export class DockerService {
         sourceId,
       );
 
-      await this.prisma.connectionRequest.update({
-        where: { id: sourceId },
-        data: {
-          status: 3,
-          dbName: database.name,
-        },
-      });
+      if (!('databaseId' in database)) {
+        await this.prisma.connectionRequest.update({
+          where: { id: sourceId },
+          data: {
+            status: 3,
+            dbName: database.name,
+          },
+        });
+      }
 
       const containerOutput = await this.captureContainerOutput(container);
 

@@ -422,4 +422,18 @@ export class DatasourceService {
 
     return request.atlasId;
   }
+
+  async syncDatasource(userId: string, projectId: string) {
+    const dbId = await this.findDbId(projectId);
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        id: true,
+      },
+    });
+    this.queue.dataBrokerJob(userId, request.id, { databaseId: dbId });
+    return dbId;
+  }
 }

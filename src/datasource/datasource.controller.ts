@@ -82,4 +82,13 @@ export class DatasourceController {
   deleteCover(@Query('projectId', ParseUUIDPipe) projectId: string) {
     return this.databaseSourceService.deleteCover(projectId);
   }
+
+  @Post(':projectId/sync')
+  syncDatasource(
+    @Req() request: Request,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    const userId = request.auth.payload.sub.toString();
+    return this.databaseSourceService.syncDatasource(userId, projectId);
+  }
 }

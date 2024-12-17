@@ -48,7 +48,7 @@ export class QueueService {
   async dataBrokerJob(
     ownerId: string,
     sourceId: string,
-    database: DatabaseInfoDto,
+    database: DatabaseInfoDto | { databaseId: string },
   ) {
     const postData = {
       ownerId: ownerId,
