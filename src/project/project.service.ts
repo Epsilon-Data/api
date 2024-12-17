@@ -76,76 +76,79 @@ export class ProjectService {
     const params = {
       query: `from archetype where instance.__guid = "${request.atlasId}" select is_active, __state, __guid, qualifiedName`,
     };
-    const result = await this.atlas.get('/search/dsl', params);
 
     let templateInfo = null;
+    await this.atlas
+      .get('/search/dsl', params)
+      .then(async (res) => {
+        const activeTemplate = res.attributes.values.find(
+          (item) => item[0] === true && item[1] === 'ACTIVE',
+        );
 
-    if (result.attributes) {
-      const activeTemplate = result.attributes.values.find(
-        (item) => item[0] === true && item[1] === 'ACTIVE',
-      );
+        const templateGuid = activeTemplate[2];
+        const templateName = activeTemplate[3].split('@', 2)[1];
 
-      const templateGuid = activeTemplate[2];
-      const templateName = activeTemplate[3].split('@', 2)[1];
+        templateInfo = {
+          id: templateGuid,
+          name: templateName,
+          nodes: [],
+          edges: [],
+        };
 
-      templateInfo = {
-        id: templateGuid,
-        name: templateName,
-        nodes: [],
-        edges: [],
-      };
+        const templateEntity = await this.atlas.get(
+          `/entity/guid/${templateGuid}`,
+        );
+        for (const key in templateEntity.referredEntities) {
+          const entity = templateEntity.referredEntities[key];
 
-      const templateEntity = await this.atlas.get(
-        `/entity/guid/${templateGuid}`,
-      );
-      for (const key in templateEntity.referredEntities) {
-        const entity = templateEntity.referredEntities[key];
-
-        if (entity.typeName.includes('archetype_')) {
-          const splitted = entity.attributes.qualifiedName.split('@', 3);
-          const node = {
-            id: splitted[2],
-            position: {
-              x: Number(entity.attributes.position.x),
-              y: Number(entity.attributes.position.y),
-            },
-            data: {
-              label: entity.attributes.displayName,
-            },
-            type: entity.typeName.replace('archetype_', ''),
-            width: entity.attributes.width,
-            height: entity.attributes.height,
-            selected: false,
-            positionAbsolute: {
-              x: Number(entity.attributes.position.x),
-              y: Number(entity.attributes.position.y),
-            },
-            dragging: false,
-          };
-          templateInfo.nodes.push(node);
-
-          if (entity.typeName != 'archetype_object') {
-            const edge = {
-              source: splitted[2],
-              target: '',
-              sourceHandle: null,
-              targetHandle: null,
-              id: '',
+          if (entity.typeName.includes('archetype_')) {
+            const splitted = entity.attributes.qualifiedName.split('@', 3);
+            const node = {
+              id: splitted[2],
+              position: {
+                x: Number(entity.attributes.position.x),
+                y: Number(entity.attributes.position.y),
+              },
+              data: {
+                label: entity.attributes.displayName,
+              },
+              type: entity.typeName.replace('archetype_', ''),
+              width: entity.attributes.width,
+              height: entity.attributes.height,
+              selected: false,
+              positionAbsolute: {
+                x: Number(entity.attributes.position.x),
+                y: Number(entity.attributes.position.y),
+              },
+              dragging: false,
             };
+            templateInfo.nodes.push(node);
 
-            const name =
-              entity.typeName == 'archetype_category'
-                ? entity.relationshipAttributes.object.qualifiedName
-                : entity.relationshipAttributes.category.qualifiedName;
+            if (entity.typeName != 'archetype_object') {
+              const edge = {
+                source: splitted[2],
+                target: '',
+                sourceHandle: null,
+                targetHandle: null,
+                id: '',
+              };
 
-            edge.target = name.split('@')[2];
-            edge.id = `edge_${edge.source}_${edge.target}`;
+              const name =
+                entity.typeName == 'archetype_category'
+                  ? entity.relationshipAttributes.object.qualifiedName
+                  : entity.relationshipAttributes.category.qualifiedName;
 
-            templateInfo.edges.push(edge);
+              edge.target = name.split('@')[2];
+              edge.id = `edge_${edge.source}_${edge.target}`;
+
+              templateInfo.edges.push(edge);
+            }
           }
         }
-      }
-    }
+      })
+      .catch(() => {
+        templateInfo = null;
+      });
 
     const details = {
       name: request.Project.name,
