@@ -13,14 +13,22 @@ export class AtlasService {
     this.password = config.get('ATLAS_ADMIN_PASSWORD');
   }
 
-  createAuthHeader(): string {
+  createBasicAuthHeader(): string {
     const token = Buffer.from(`admin:${this.password}`).toString('base64');
     return `Basic ${token}`;
   }
 
-  async get(endpoint: string, params?: any): Promise<any> {
+  createBearerAuthHeader(token: string): string {
+    const tokenString = Buffer.from(token).toString('base64');
+    return `Bearer ${tokenString}`;
+  }
+
+  async get(endpoint: string, params?: any, token?: string): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = this.createAuthHeader();
+    const authHeader = token
+      ? this.createBearerAuthHeader(token)
+      : this.createBasicAuthHeader();
+
     try {
       const response = await axios.get(url, {
         params,
@@ -33,9 +41,17 @@ export class AtlasService {
     }
   }
 
-  async post(endpoint: string, body: any, params?: any): Promise<any> {
+  async post(
+    endpoint: string,
+    body: any,
+    params?: any,
+    token?: string,
+  ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = this.createAuthHeader();
+    const authHeader = token
+      ? this.createBearerAuthHeader(token)
+      : this.createBasicAuthHeader();
+
     try {
       const response = await axios.post(url, body, {
         params,
@@ -48,9 +64,15 @@ export class AtlasService {
     }
   }
 
-  async put(endpoint: string, body: any, params?: any): Promise<any> {
+  async put(
+    endpoint: string,
+    body: any,
+    params?: any,
+    token?: string,
+  ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = this.createAuthHeader();
+    // const authHeader = this.createBasicAuthHeader();
+    const authHeader = this.createBearerAuthHeader(token);
     try {
       const response = await axios.put(url, body, {
         params,
@@ -66,9 +88,12 @@ export class AtlasService {
     }
   }
 
-  async delete(endpoint: string, params?: any): Promise<any> {
+  async delete(endpoint: string, params?: any, token?: string): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = this.createAuthHeader();
+    const authHeader = token
+      ? this.createBearerAuthHeader(token)
+      : this.createBasicAuthHeader();
+
     try {
       const response = await axios.delete(url, {
         params,

@@ -32,6 +32,7 @@ export class AccessRequestController {
   }
 
   @Put(':requestId/revision')
+  // TODO: add reviser auth check
   revision(@Body() dto: RevisionDto) {
     return this.userRequestService.revision(dto);
   }

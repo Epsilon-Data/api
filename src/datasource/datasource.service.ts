@@ -15,7 +15,7 @@ export class DatasourceService {
     @Inject(forwardRef(() => TemplateService))
     private template: TemplateService,
   ) {}
-  async list(userId: string) {
+  async list(userId: string, token?: string) {
     const requestList = await this.prisma.connectionRequest.findMany({
       where: {
         requestor: userId,
@@ -37,7 +37,11 @@ export class DatasourceService {
       let researcherDb = null;
 
       if (request.atlasId) {
-        const result = await this.atlas.get('/entity/guid/' + request.atlasId);
+        const result = await this.atlas.get(
+          '/entity/guid/' + request.atlasId,
+          undefined,
+          token,
+        );
         researcherDb = {
           databaseName: request.dbName,
           connectDate: result.entity.createTime,
@@ -88,18 +92,22 @@ export class DatasourceService {
     };
   }
 
-  async summary(projectId: string) {
+  async summary(projectId: string, token?: string) {
     const dbId = await this.findDbId(projectId);
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
     const schemaParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select __guid, __state`,
     };
 
-    const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+    const schemaResult = await this.atlas.get(
+      '/search/dsl',
+      schemaParams,
+      token,
+    );
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -113,7 +121,7 @@ export class DatasourceService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params);
+      const result = await this.atlas.get('/search/dsl', params, token);
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -133,17 +141,21 @@ export class DatasourceService {
       totalColCount: columnCount,
     };
 
-    const diagram = await this.convertToDiagramCode(dbId);
+    const diagram = await this.convertToDiagramCode(dbId, token);
     return { overall: overall, diagram: diagram };
   }
 
-  async tables(projectId: string) {
+  async tables(projectId: string, token?: string) {
     const dbId = await this.findDbId(projectId);
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
 
-    const tablesResult = await this.atlas.get('/search/dsl', tableParams);
+    const tablesResult = await this.atlas.get(
+      '/search/dsl',
+      tableParams,
+      token,
+    );
 
     let activeTables;
 
@@ -161,7 +173,11 @@ export class DatasourceService {
       const columnsParams = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const columnsResult = await this.atlas.get('/search/dsl', columnsParams);
+      const columnsResult = await this.atlas.get(
+        '/search/dsl',
+        columnsParams,
+        token,
+      );
 
       let activeColumns;
       if (columnsResult.entities) {
@@ -175,7 +191,11 @@ export class DatasourceService {
       const schemaParams = {
         query: `from rdbms_table where __guid = "${guid}" select db`,
       };
-      const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+      const schemaResult = await this.atlas.get(
+        '/search/dsl',
+        schemaParams,
+        token,
+      );
 
       const columns = await Promise.all(
         activeColumns.map(async (column) => {
@@ -185,6 +205,7 @@ export class DatasourceService {
           const result = await this.atlas.get(
             '/entity/guid/' + column.guid,
             params,
+            token,
           );
 
           return {
@@ -209,13 +230,13 @@ export class DatasourceService {
     return resultArray;
   }
 
-  async columns(projectId: string) {
+  async columns(projectId: string, token?: string) {
     const dbId = await this.findDbId(projectId);
 
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -230,7 +251,7 @@ export class DatasourceService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params);
+      const result = await this.atlas.get('/search/dsl', params, token);
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -246,7 +267,7 @@ export class DatasourceService {
     return output;
   }
 
-  async permissions(projectId: string) {
+  async permissions(projectId: string, token?: string) {
     const activeTemplates = await this.template.templateNames(projectId);
 
     const output = [];
@@ -274,6 +295,8 @@ export class DatasourceService {
 
       const templateEntity = await this.atlas.get(
         `/entity/guid/${templateGuid}`,
+        undefined,
+        token,
       );
 
       templateInfo.active = templateEntity.entity.attributes.is_active;
@@ -395,11 +418,11 @@ export class DatasourceService {
     return projectId;
   }
 
-  async convertToDiagramCode(dbId: string): Promise<string> {
+  async convertToDiagramCode(dbId: string, token?: string): Promise<string> {
     const params = {
       ignoreRelationships: true,
     };
-    const result = await this.atlas.get('/entity/guid/' + dbId, params);
+    const result = await this.atlas.get('/entity/guid/' + dbId, params, token);
     if (result.entity.attributes.erd) {
       const diagramCode = result.entity.attributes.erd.replace(
         /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,

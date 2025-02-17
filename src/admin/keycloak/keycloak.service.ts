@@ -5,6 +5,8 @@ import {
   UserRepresentation,
   EventRepresentation,
   RoleRepresentation,
+  ResourceRepresentation,
+  ClientScopeRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
 import {
   AdminConfigInjectionToken,
@@ -19,6 +21,18 @@ export type UserQueryParams = {
   readonly firstName?: string;
   readonly lastName?: string;
   readonly username?: string;
+};
+
+// export type PaginatedQuery = {
+//   readonly first?: number;
+//   readonly readonly max?: number;
+// };
+
+export type ClientQuery = {
+  readonly clientId?: string;
+  readonly viewableOnly?: boolean;
+  readonly search?: boolean;
+  readonly q?: string;
 };
 
 @Injectable()
@@ -105,6 +119,19 @@ export class KeycloakService {
     }
   }
 
+  async getClientByName() {
+    return await this.kcAdminClient.clients.find(
+      {
+        clientId: 'epsilon-token-handler',
+        realm: this.config.realm,
+      },
+      { catchNotFound: false },
+    );
+  }
+
+  async getClients() {
+    return await this.kcAdminClient.clients.find();
+  }
   async getUserById(id: string) {
     try {
       const userQuery = await this.kcAdminClient.users.findOne(
@@ -217,5 +244,42 @@ export class KeycloakService {
     return events
       .filter((loginEvent: EventRepresentation) => loginEvent.userId === userId)
       .sort((a, b) => (b.time || 0) - (a.time || 0))[0];
+  }
+
+  async createScope(scope: ClientScopeRepresentation) {
+    try {
+      // get new scope id
+      return await this.kcAdminClient.clientScopes.create(scope);
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+  async createResource(
+    resource: ResourceRepresentation,
+    // policy?: PolicyRepresentation,
+  ) {
+    // { id: currentClient.id! },
+    // {
+    //   name: resourceConfig.name,
+    //   type: resourceConfig.type,
+    //   scopes,
+    // },
+    try {
+      const client = await this.getClientByName();
+      this.kcAdminClient.clients.createResource(
+        // TODO: needs changing to token-handler
+        { id: client[0].id, realm: this.config.realm },
+        resource,
+      );
+      // await this.kcAdminClient.clients.createPolicy(
+      //   {
+      //     id: client[0].id,
+      //     type: 'user',
+      //   },
+      //   policy,
+      // );
+    } catch (error) {
+      this.logger.error(error);
+    }
   }
 }

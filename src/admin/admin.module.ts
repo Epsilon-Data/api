@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Global, Module } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { KeycloakService } from './keycloak/keycloak.service';
 
@@ -10,9 +10,11 @@ import {
 } from './config.interface';
 import { AdminController } from './admin.controller';
 
+@Global()
 @Module({
   imports: [ConfigModule],
   controllers: [AdminController],
+  exports: [KeycloakService],
   providers: [AdminService, KeycloakService],
 })
 export class AdminModule {

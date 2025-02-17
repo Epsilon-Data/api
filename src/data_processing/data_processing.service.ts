@@ -148,7 +148,7 @@ export class DataProcessingService {
     return matches.map((match) => match[1]);
   }
 
-  async dataSynthesis(sourceId: string) {
+  async dataSynthesis(sourceId: string, token?: string) {
     const scriptPath = process.cwd() + '/scripts/synthesis.py';
 
     const request = await this.prisma.connectionRequest.findUnique({
@@ -164,7 +164,11 @@ export class DataProcessingService {
       query: `from rdbms_db where instance.__guid = "${request.atlasId}" select tables`,
     };
 
-    const tablesResult = await this.atlas.get('/search/dsl', tablesParams);
+    const tablesResult = await this.atlas.get(
+      '/search/dsl',
+      tablesParams,
+      token,
+    );
 
     const tableNames = tablesResult.entities.map(
       (table) => table.attributes.name,
@@ -201,12 +205,16 @@ export class DataProcessingService {
     }
   }
 
-  private async getKeys(guidList: string[]) {
+  private async getKeys(guidList: string[], token?: string) {
     const primaryKeys: { [key: string]: string[] } = {};
     const foreignKeys: { [key: string]: string[] } = {};
 
     for (const guid of guidList) {
-      const tableResult = await this.atlas.get('/entity/guid/' + guid);
+      const tableResult = await this.atlas.get(
+        '/entity/guid/' + guid,
+        undefined,
+        token,
+      );
       const tableName = tableResult.entity.attributes.name;
 
       for (const col of tableResult.entity.attributes.columns) {
@@ -223,7 +231,11 @@ export class DataProcessingService {
       const tableForeign = tableResult.entity.attributes.foreign_keys;
 
       for (const fk of tableForeign) {
-        const result = await this.atlas.get('/entity/guid/' + fk.guid);
+        const result = await this.atlas.get(
+          '/entity/guid/' + fk.guid,
+          undefined,
+          token,
+        );
         if (!foreignKeys[tableName]) {
           foreignKeys[tableName] = [];
         }
@@ -399,11 +411,11 @@ export class DataProcessingService {
     }
   }
 
-  private async csvColumns(sourceId, role): Promise<any> {
+  private async csvColumns(sourceId, role, token?: string): Promise<any> {
     const params = {
       query: `from archetype where instance.__guid = "${sourceId}" select is_active, __state, __guid`,
     };
-    const result = await this.atlas.get('/search/dsl', params);
+    const result = await this.atlas.get('/search/dsl', params, token);
 
     const activeTemplate = result.attributes.values.find(
       (item) => item[0] === true && item[1] === 'ACTIVE',
@@ -421,19 +433,26 @@ export class DataProcessingService {
     const permissionResult = await this.atlas.get(
       '/search/dsl',
       permissionParams,
+      token,
     );
 
     const permissionGuid = permissionResult.attributes.values[0][0];
 
     const templateEntity = await this.atlas.get(
       `/entity/guid/${activeTemplateId}`,
+      undefined,
+      token,
     );
 
     const getColumns = async (columnIdList: string[]) => {
       const output = [];
 
       for (const columnId of columnIdList) {
-        const columnEntity = await this.atlas.get(`/entity/guid/${columnId}`);
+        const columnEntity = await this.atlas.get(
+          `/entity/guid/${columnId}`,
+          undefined,
+          token,
+        );
         output.push({
           name: columnEntity.entity.attributes.name,
           table: columnEntity.entity.relationshipAttributes.table.displayText,
@@ -470,6 +489,8 @@ export class DataProcessingService {
           for (const subcategoryId of subcategoryIdList) {
             const subcategoryEntity = await this.atlas.get(
               `/entity/guid/${subcategoryId}`,
+              undefined,
+              token,
             );
             const columnIdList =
               subcategoryEntity.relationshipAttributes.columns.map(
@@ -520,7 +541,11 @@ export class DataProcessingService {
     return multerFile;
   }
 
-  async generateDataset(sourceId: string, atlasId: string): Promise<any> {
+  async generateDataset(
+    sourceId: string,
+    atlasId: string,
+    token?: string,
+  ): Promise<any> {
     const scriptPath = process.cwd() + '/scripts/combine_data.py';
     const dbDetails = await this.database.connect(atlasId);
     await this.database.initialize();
@@ -531,7 +556,11 @@ export class DataProcessingService {
       query: `from rdbms_db where instance.__guid = "${atlasId}" select tables`,
     };
 
-    const tablesResult = await this.atlas.get('/search/dsl', tablesParams);
+    const tablesResult = await this.atlas.get(
+      '/search/dsl',
+      tablesParams,
+      token,
+    );
 
     const tableNames = tablesResult.entities.map(
       (table) => table.attributes.name,

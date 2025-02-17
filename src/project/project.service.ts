@@ -50,7 +50,7 @@ export class ProjectService {
     return Promise.all(browseList);
   }
 
-  async projectDetails(userId: string, projectId: string) {
+  async projectDetails(userId: string, projectId: string, token?: string) {
     const isOwnProject = await this.prisma.connectionRequest.findFirst({
       where: {
         requestor: userId,
@@ -79,7 +79,7 @@ export class ProjectService {
 
     let templateInfo = null;
     await this.atlas
-      .get('/search/dsl', params)
+      .get('/search/dsl', params, token)
       .then(async (res) => {
         const activeTemplate = res.attributes.values.find(
           (item) => item[0] === true && item[1] === 'ACTIVE',
@@ -97,6 +97,8 @@ export class ProjectService {
 
         const templateEntity = await this.atlas.get(
           `/entity/guid/${templateGuid}`,
+          undefined,
+          token,
         );
         for (const key in templateEntity.referredEntities) {
           const entity = templateEntity.referredEntities[key];

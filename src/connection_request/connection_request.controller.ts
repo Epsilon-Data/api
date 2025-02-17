@@ -27,7 +27,7 @@ export class ConnectionRequestController {
   summary(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     const email = request.auth.payload.email.toString();
-
+    console.log(request.auth);
     return this.connectionRequestService.summary(userId, email);
   }
 
@@ -83,6 +83,7 @@ export class ConnectionRequestController {
   }
 
   @Post(':projectId')
+  @UseGuards(new AuthGuard('api.hub.read'))
   async validProjectId(
     @Req() request: Request,
     @Param('projectId') projectId: string,

@@ -118,8 +118,9 @@ export class ScriptService {
     return scriptId;
   }
 
-  async getScriptMapping(scriptId: string, request: Request) {
+  async getScriptMapping(scriptId: string, request: Request, token?: string) {
     let isResearch = false;
+    // TODO: restrict controller endpoints with guards not here
     const access: { roles?: string[] } = request.auth.payload.realm_access;
     if (access && access.roles) {
       isResearch = access.roles.indexOf('research') !== -1;
@@ -159,11 +160,15 @@ export class ScriptService {
       query: `from archetype where instance.__guid = "${sourceId}" and __state = "ACTIVE" and is_active = true`,
     };
 
-    const result = await this.atlas.get('/search/dsl', params);
+    const result = await this.atlas.get('/search/dsl', params, token);
 
     const archetypeId = result.entities[0].guid;
 
-    const archetypeEntity = await this.atlas.get(`/entity/guid/${archetypeId}`);
+    const archetypeEntity = await this.atlas.get(
+      `/entity/guid/${archetypeId}`,
+      undefined,
+      token,
+    );
 
     const csvNames = [];
 

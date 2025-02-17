@@ -4,18 +4,29 @@ import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
+import { KeycloakService } from 'src/admin/keycloak/keycloak.service';
+import { ConfigService } from '@nestjs/config';
+import { Credentials } from '@epsilon-data/keycloak-admin-client';
 
 @Injectable()
 export class ConnectionRequestService {
+  credentials: Credentials;
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private readonly queue: QueueService,
-  ) {}
+    private readonly keycloak: KeycloakService,
+    private config: ConfigService,
+  ) {
+    this.credentials = {
+      grantType: 'client_credentials',
+      clientId: this.config.get<string>('admin.clientId'),
+      clientSecret: this.config.get<string>('admin.clientSecret'),
+    };
+  }
 
-  async summary(userId: string, email: string) {
+  async summary(userId: string, email: string, token?: string) {
     const requestList = { sent: [], receive: [] };
-
     requestList.receive = await this.prisma.connectionRequest.findMany({
       where: {
         orgAdminEmail: email,
@@ -56,7 +67,13 @@ export class ConnectionRequestService {
 
     for (const request of requestList.sent) {
       if (request.status === 3 && request.atlasId) {
-        const result = await this.atlas.get('/entity/guid/' + request.atlasId);
+        // TODO: worth making 2 get functions maybe
+        // or use {} for params
+        const result = await this.atlas.get(
+          '/entity/guid/' + request.atlasId,
+          undefined,
+          token,
+        );
         request.dbStatus = result.entity.attributes.crawl_status;
       }
     }
@@ -91,6 +108,26 @@ export class ConnectionRequestService {
     const createdRequest = await this.prisma.connectionRequest.create({
       data: request,
     });
+    await this.keycloak.init(this.credentials);
+    // { id: currentClient.id! },
+    // {
+    //   name: resourceConfig.name,
+    //   type: resourceConfig.type,
+    //   scopes,
+    // },
+    this.keycloak.createResource(
+      {
+        name: `Project ${createdRequest.id}`,
+        type: 'project',
+        displayName: `Project ${createdRequest.id}`,
+        uris: [`project/${createdRequest.id}`],
+      },
+      // {
+      //   name: 'Only a90faea3-7810-4483-9ccb-fd09107e1c75 team policy',
+      //   logic: policyConfig.logic,
+      //   users: [user.id!],
+      // },
+    );
 
     if (dto.databaseInfo) {
       await this.queue.dataBrokerJob(
@@ -105,6 +142,7 @@ export class ConnectionRequestService {
         data: { status: 1, orgAdminEmail: dto.orgAdminEmail },
       });
     }
+    // TODO: create project:{projectId} resource
   }
 
   async details(requestId: string) {
@@ -162,7 +200,7 @@ export class ConnectionRequestService {
     return { ...mappedRequest, ...info };
   }
 
-  async edit(dto: ConnectionRequestDto) {
+  async edit(dto: ConnectionRequestDto, token?: string) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
         id: dto.id,
@@ -202,7 +240,11 @@ export class ConnectionRequestService {
     let transactions = [];
 
     if (request.dbName) {
-      await this.atlas.delete('/entity/guid/' + request.atlasId);
+      await this.atlas.delete(
+        '/entity/guid/' + request.atlasId,
+        undefined,
+        token,
+      );
       await this.queue.dataBrokerJob(dto.requestor, dto.id, dto.databaseInfo);
       transactions = [projectUpdate, connectionRequestUpdate];
     } else {
@@ -220,7 +262,7 @@ export class ConnectionRequestService {
     return await this.prisma.$transaction(transactions);
   }
 
-  async delete(requestId: string) {
+  async delete(requestId: string, token?: string) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: {
         id: requestId,
@@ -232,7 +274,11 @@ export class ConnectionRequestService {
     });
 
     if (request.dbName) {
-      await this.atlas.delete('/entity/guid/' + request.atlasId);
+      await this.atlas.delete(
+        '/entity/guid/' + request.atlasId,
+        undefined,
+        token,
+      );
     }
 
     return await this.prisma.connectionRequest.delete({

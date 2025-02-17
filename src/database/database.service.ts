@@ -14,11 +14,15 @@ export class DatabaseService {
     private prisma: PrismaService,
   ) {}
 
-  async connect(sourceId: string) {
+  async connect(sourceId: string, token?: string) {
     const params = {
       ignoreRelationships: true,
     };
-    const result = await this.atlas.get('/entity/guid/' + sourceId, params);
+    const result = await this.atlas.get(
+      '/entity/guid/' + sourceId,
+      params,
+      token,
+    );
 
     const request = await this.prisma.connectionRequest.findUnique({
       where: { id: sourceId },

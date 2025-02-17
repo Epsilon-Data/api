@@ -41,7 +41,8 @@ export class ScriptController {
     @Param('scriptId', ParseUUIDPipe) scriptId: string,
     @Req() request: Request,
   ) {
-    return await this.scriptService.getScriptMapping(scriptId, request);
+    const token = request.auth.token;
+    return await this.scriptService.getScriptMapping(scriptId, request, token);
   }
 
   @Post(':scriptId/mapping')

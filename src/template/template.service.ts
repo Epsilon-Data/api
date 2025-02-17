@@ -15,12 +15,12 @@ export class TemplateService {
     private databaseSource: DatasourceService,
   ) {}
 
-  async templateNames(projectId: string) {
+  async templateNames(projectId: string, token?: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
     const params = {
       query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
     };
-    const result = await this.atlas.get('/search/dsl', params);
+    const result = await this.atlas.get('/search/dsl', params, token);
 
     const deleteJobsResult = await this.prisma.project.findUnique({
       where: {
@@ -86,8 +86,8 @@ export class TemplateService {
     return activeTemplates;
   }
 
-  async templates(projectId: string) {
-    const activeTemplates = await this.templateNames(projectId);
+  async templates(projectId: string, token?: string) {
+    const activeTemplates = await this.templateNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -103,6 +103,8 @@ export class TemplateService {
 
       const templateEntity = await this.atlas.get(
         `/entity/guid/${templateGuid}`,
+        undefined,
+        token,
       );
 
       for (const key in templateEntity.referredEntities) {
