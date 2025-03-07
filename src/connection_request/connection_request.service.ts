@@ -4,25 +4,25 @@ import { ConnectionRequestDto, DatabaseInfoDto, RevisionDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
-import { KeycloakService } from 'src/admin/keycloak/keycloak.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { ConfigService } from '@nestjs/config';
-import { Credentials } from '@epsilon-data/keycloak-admin-client';
+// import { Credentials } from '@epsilon-data/keycloak-admin-client';
 
 @Injectable()
 export class ConnectionRequestService {
-  credentials: Credentials;
+  // credentials: Credentials;
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private readonly queue: QueueService,
-    private readonly keycloak: KeycloakService,
+    private readonly keycloak: KeycloakAdminService,
     private config: ConfigService,
   ) {
-    this.credentials = {
-      grantType: 'client_credentials',
-      clientId: this.config.get<string>('admin.clientId'),
-      clientSecret: this.config.get<string>('admin.clientSecret'),
-    };
+    // this.credentials = {
+    //   grantType: 'client_credentials',
+    //   clientId: this.config.get<string>('admin.clientId'),
+    //   clientSecret: this.config.get<string>('admin.clientSecret'),
+    // };
   }
 
   async summary(userId: string, email: string, token?: string) {
@@ -108,7 +108,6 @@ export class ConnectionRequestService {
     const createdRequest = await this.prisma.connectionRequest.create({
       data: request,
     });
-    await this.keycloak.init(this.credentials);
     // { id: currentClient.id! },
     // {
     //   name: resourceConfig.name,

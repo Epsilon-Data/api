@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { APP_GUARD } from '@nestjs/core';
+// import { APP_GUARD } from '@nestjs/core';
 
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -23,7 +23,7 @@ import { TemplateModule } from './template/template.module';
 import { ScriptModule } from './script/script.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import configuration from './config/configuration';
-import { ResourceGuard } from './auth/resource.guard';
+import { AdminConfigService } from './config/keycloak-config.service';
 // import {
 //   AuthGuard,
 //   KeycloakConnectModule,
@@ -62,26 +62,8 @@ import { ResourceGuard } from './auth/resource.guard';
     AdminModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        return {
-          issuerBaseURL: configService.get<string>('admin.issuerBaseURL'),
-          realm: configService.get<string>('admin.realm'),
-          audience: configService.get<string>('admin.audience'),
-          scopePrefix: configService.get<string>('admin.scopePrefix'),
-          clientId: configService.get<string>('admin.clientId'),
-          clientSecret: configService.get<string>('admin.clientSecret'),
-          cookiePrefix: configService.get<string>('admin.cookiePrefix'),
-          encryptionKey: configService.get<string>('admin.encryptionKey'),
-          trustedWebOrigins: configService.get<string[]>(
-            'admin.trustedWebOrigins',
-          ),
-        };
-      },
+      useExisting: AdminConfigService,
     }),
-    // KeycloakConnectModule.registerAsync({
-    //   useExisting: KeycloakConfigService,
-    //   imports: [KeycloakModule],
-    // }),
     ProjectModule,
     AccessRequestModule,
     DatasetModule,
@@ -95,20 +77,6 @@ import { ResourceGuard } from './auth/resource.guard';
     AnalysisModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: AuthGuard,
-    // },
-    {
-      provide: APP_GUARD,
-      useClass: ResourceGuard,
-    },
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: RoleGuard,
-    // },
-  ],
+  providers: [AppService],
 })
 export class AppModule {}

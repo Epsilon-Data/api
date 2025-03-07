@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { KeycloakConfigService } from './keycloak-config.service';
+import { AdminConfigService } from './keycloak-config.service';
 
 @Module({
-  providers: [KeycloakConfigService],
-  exports: [KeycloakConfigService],
+  providers: [AdminConfigService],
+  exports: [AdminConfigService],
 })
-export class KeycloakModule {}
+export class AdminModule {}

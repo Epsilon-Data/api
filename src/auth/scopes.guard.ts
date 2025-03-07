@@ -4,7 +4,7 @@ import { requiredScopes } from 'express-oauth2-jwt-bearer';
 import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class ScopesGuard implements CanActivate {
   constructor(private readonly scopes: string | string[] = '') {}
 
   canActivate(

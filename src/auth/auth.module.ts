@@ -12,7 +12,7 @@ import { AuthMiddleware } from './auth.middleware';
 import {
   AuthModuleAsyncConfig,
   AuthModuleConfig,
-  ConfigInjectionToken,
+  AUTH_CONFIG,
   KEYCLOAK_INSTANCE,
 } from './config.interface';
 
@@ -62,7 +62,7 @@ export class AuthModule implements NestModule {
             trustedWebOrigins,
             allowTokenAuth,
           },
-          provide: ConfigInjectionToken,
+          provide: AUTH_CONFIG,
         },
       ],
       exports: [],
@@ -83,7 +83,7 @@ export class AuthModule implements NestModule {
       {
         useFactory: config.useFactory,
         inject: config.inject,
-        provide: ConfigInjectionToken,
+        provide: AUTH_CONFIG,
       },
       {
         useFactory: (opts: ConfigService) => {
@@ -99,7 +99,6 @@ export class AuthModule implements NestModule {
             'bearer-only': true,
             resource: opts.get<string>('auth.clientId'),
           };
-          console.log(configuration);
           const keycloak: any = new KeycloakConnect({}, configuration);
 
           // Access denied is called, add a flag to request so our resource guard knows

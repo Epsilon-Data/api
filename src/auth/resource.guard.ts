@@ -3,23 +3,22 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
-  Inject,
+  // Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import * as KeycloakConnect from 'keycloak-connect';
+// import * as KeycloakConnect from 'keycloak-connect';
 import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
-import { KEYCLOAK_INSTANCE } from './config.interface';
-import { META_RESOURCE } from './resource.decorator';
+// import { KEYCLOAK_INSTANCE } from './config.interface';
+// import { META_RESOURCE } from './resource.decorator';
 
 @Injectable()
 export class ResourceGuard implements CanActivate {
   private readonly logger = new Logger(ResourceGuard.name);
   private readonly reflector = new Reflector();
   // project 12231321323:view
-  constructor(
-    @Inject(KEYCLOAK_INSTANCE)
-    private keyCloakInstance: KeycloakConnect.Keycloak,
-  ) {}
+  // @Inject(KEYCLOAK_INSTANCE)
+  // private keyCloakInstance: KeycloakConnect.Keycloak,
+  constructor() {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // const defaultEnforcerOpts: KeycloakConnect.EnforcerOptions = {
@@ -40,11 +39,14 @@ export class ResourceGuard implements CanActivate {
     //   // },
     // };
 
-    const resource = this.reflector.get<string>(
-      META_RESOURCE,
-      context.getClass(),
-    );
-    console.log(resource);
+    // const resource = this.reflector.get<string>(
+    //   META_RESOURCE,
+    //   context.getClass(),
+    // );
+    // const resource2 = this.reflector.get<string>(
+    //   META_RESOURCE,
+    //   context.getHandler(),
+    // );
 
     // const conditionalScopes = this.reflector.get<ConditionalScopeFn>(
     //   META_CONDITIONAL_SCOPES,

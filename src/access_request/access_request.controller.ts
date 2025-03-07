@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { AccessRequestService } from './access_request.service';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { ScopesGuard } from 'src/auth/scopes.guard';
 import { RequestDto, RevisionDto } from './dto';
 import { Request } from 'express';
 
@@ -25,7 +25,7 @@ export class AccessRequestController {
   }
 
   @Get()
-  @UseGuards(new AuthGuard('api.hub.read'))
+  @UseGuards(new ScopesGuard('api.hub.read'))
   async summary(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     return await this.userRequestService.summary(userId);

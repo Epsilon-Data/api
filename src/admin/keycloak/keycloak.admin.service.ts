@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   KeycloakAdminClient,
-  Credentials,
   UserRepresentation,
   EventRepresentation,
   RoleRepresentation,
@@ -9,8 +8,9 @@ import {
   ClientScopeRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
 import {
-  AdminConfigInjectionToken,
+  ADMIN_CONFIG,
   AdminModuleConfig,
+  KEYCLOAK_ADMIN_INSTANCE,
 } from '../config.interface';
 
 export type UserQueryParams = {
@@ -36,20 +36,27 @@ export type ClientQuery = {
 };
 
 @Injectable()
-export class KeycloakService {
+export class KeycloakAdminService {
   private readonly logger = new Logger('KeycloakService');
-  private kcAdminClient: KeycloakAdminClient;
+  // private kcAdminClient: KeycloakAdminClient;
+
   constructor(
-    @Inject(AdminConfigInjectionToken) private config: AdminModuleConfig,
+    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
+    @Inject(KEYCLOAK_ADMIN_INSTANCE)
+    private kcAdminClient: KeycloakAdminClient,
   ) {}
 
-  async init(credentials: Credentials) {
-    this.kcAdminClient = new KeycloakAdminClient({
-      baseUrl: this.config.issuerBaseURL,
-      realmName: this.config.realm,
-    });
-    await this.kcAdminClient.auth(credentials);
-  }
+  // async init(credentials: Credentials) {
+  //   this.kcAdminClient = new KeycloakAdminClient({
+  //     baseUrl: this.config.issuerBaseURL,
+  //     realmName: this.config.realm,
+  //   });
+  //   await this.kcAdminClient.auth(credentials);
+  // }
+  // async check() {
+  //   const client = await this.getClientByName();
+  //   console.log(client);
+  // }
 
   async createUser(user: UserRepresentation) {
     try {
