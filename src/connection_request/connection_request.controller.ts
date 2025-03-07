@@ -16,7 +16,10 @@ import {
 import { ConnectionRequestService } from './connection_request.service';
 import { RevisionDto, ConnectionRequestDto, DatabaseInfoDto } from './dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { Resource } from 'src/auth/resource.decorator';
 import { Request } from 'express';
+
+import { Scopes } from 'src/auth/scopes.decorator';
 
 @Controller('connection-request')
 export class ConnectionRequestController {
@@ -27,7 +30,7 @@ export class ConnectionRequestController {
   summary(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     const email = request.auth.payload.email.toString();
-    console.log(request.auth);
+    // console.log(request.auth);
     return this.connectionRequestService.summary(userId, email);
   }
 
@@ -37,6 +40,8 @@ export class ConnectionRequestController {
   }
 
   @Get(':requestId')
+  @Resource('Project')
+  @Scopes('view')
   details(@Param('requestId', ParseUUIDPipe) requestId: string) {
     return this.connectionRequestService.details(requestId);
   }

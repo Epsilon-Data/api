@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-// import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -23,6 +23,7 @@ import { TemplateModule } from './template/template.module';
 import { ScriptModule } from './script/script.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import configuration from './config/configuration';
+import { ResourceGuard } from './auth/resource.guard';
 // import {
 //   AuthGuard,
 //   KeycloakConnectModule,
@@ -100,10 +101,10 @@ import configuration from './config/configuration';
     //   provide: APP_GUARD,
     //   useClass: AuthGuard,
     // },
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: ResourceGuard,
-    // },
+    {
+      provide: APP_GUARD,
+      useClass: ResourceGuard,
+    },
     // {
     //   provide: APP_GUARD,
     //   useClass: RoleGuard,

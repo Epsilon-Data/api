@@ -3,6 +3,7 @@ import {
   MiddlewareConsumer,
   Module,
   NestModule,
+  Provider,
   RequestMethod,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -72,37 +73,46 @@ export class AuthModule implements NestModule {
     return {
       module: AuthModule,
       imports: config.imports,
-      providers: [
-        {
-          useFactory: config.useFactory,
-          inject: config.inject,
-          provide: ConfigInjectionToken,
-        },
-        {
-          useFactory: (opts: any) => {
-            const configuration = {
-              realm: 'EPSILON',
-              'auth-server-url': 'http://localhost:8080/',
-              'ssl-required': 'external',
-              'confidential-port': 0,
-              resource: '',
-            };
-            console.log(opts);
-            const keycloak: any = new KeycloakConnect({}, configuration);
-
-            // Access denied is called, add a flag to request so our resource guard knows
-            keycloak.accessDenied = (req: any, res: any, next: any) => {
-              req.resourceDenied = true;
-              next();
-            };
-
-            return keycloak;
-          },
-          inject: config.inject,
-          provide: KEYCLOAK_INSTANCE,
-        },
-      ],
-      exports: [],
+      providers: this.createProviders(config),
+      exports: this.createProviders(config),
     };
+  }
+
+  private static createProviders(config: AuthModuleAsyncConfig): Provider[] {
+    return [
+      {
+        useFactory: config.useFactory,
+        inject: config.inject,
+        provide: ConfigInjectionToken,
+      },
+      {
+        useFactory: (opts: ConfigService) => {
+          const configuration = {
+            realm: 'EPSILON',
+            'auth-server-url': 'http://localhost:8080/',
+            'ssl-required': 'external',
+            'confidential-port': 0,
+            // 'public-client': true,
+            // 'client-id': opts.get<string>('auth.clientId'),
+            // credentials: { secret: opts.get<string>('auth.clientSecret') },
+            // 'verify-token-audience': true,
+            'bearer-only': true,
+            resource: opts.get<string>('auth.clientId'),
+          };
+          console.log(configuration);
+          const keycloak: any = new KeycloakConnect({}, configuration);
+
+          // Access denied is called, add a flag to request so our resource guard knows
+          keycloak.accessDenied = (req: any, res: any, next: any) => {
+            req.resourceDenied = true;
+            next();
+          };
+
+          return keycloak;
+        },
+        inject: config.inject,
+        provide: KEYCLOAK_INSTANCE,
+      },
+    ];
   }
 }
