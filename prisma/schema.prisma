@@ -99,3 +99,42 @@ model Script {
 
   @@unique([analysisId, name])
 }
+
+model Notification {
+  id                      String    @id(map: "notify_pkey") @default(uuid()) @db.Uuid
+  title                   String    @db.Text
+  message                 String    @db.Text
+  createdDate             DateTime  @default(now()) @db.Date
+  type                    Int       @db.SmallInt
+  NotificationSender      NotificationSender[]
+  NotificationRecipient   NotificationRecipient[]
+}
+
+model NotificationSender {
+  id               String       @id(map: "notify_sender_pkey") @default(uuid()) @db.Uuid
+  notificationId   String       @db.Uuid
+  senderId         String       @db.Uuid
+  status           Int          @db.SmallInt
+  senderType       SenderType
+  Notification     Notification @relation(fields: [notificationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notify_sender_id")
+}
+
+model NotificationRecipient {
+  id               String             @id(map: "notify_recipient_pkey") @default(uuid()) @db.Uuid
+  notificationId   String             @db.Uuid
+  recipientId      String             @db.Uuid
+  status           NotificationStatus @default(UNREAD)
+  deliveredAt      DateTime?
+  Notification     Notification @relation(fields: [notificationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notify_recipient_id")
+}
+
+enum SenderType {
+  USER
+  SYSTEM
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+}
