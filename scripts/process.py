@@ -173,12 +173,11 @@ def main(yaml_file):
     analysis_id = args['analysisId']
     script_details = args['scriptDetails']
     csv_cols = args['csvColumns']
+    uri = args['uri']
+    key_id = args['keyId']
+    secret_key = args['secretKey']
     
     script_path = f'{os.getcwd()}/temp_files/{script_details["id"]}.R'
-    
-    uri = os.getenv('S3_URI')
-    key_id = os.getenv('S3_KEY_ID')
-    secret_key = os.getenv('S3_SECRET_KEY')
   
     get_from_s3(f'{script_details["name"]}', analysis_id, script_path, uri, key_id, secret_key)
     prepend_script(db_details, csv_cols, script_details["mapping"], script_path)

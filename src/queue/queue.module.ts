@@ -10,10 +10,10 @@ import { QueueService } from './queue.service';
     BullModule.registerQueueAsync({
       name: 'atlas-queue',
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: async (config: ConfigService) => ({
         redis: {
-          host: configService.get<string>('REDIS_HOST'),
-          port: configService.get<number>('REDIS_PORT'),
+          host: config.get<string>('redis.host'),
+          port: config.get<number>('redis.port'),
         },
       }),
       inject: [ConfigService],

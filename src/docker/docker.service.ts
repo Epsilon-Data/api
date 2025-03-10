@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 import * as Docker from 'dockerode';
 import { join } from 'path';
-import { ConfigService } from '@nestjs/config';
 import * as tar from 'tar-stream';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DockerService {
@@ -18,8 +18,8 @@ export class DockerService {
     config: ConfigService,
     private prisma: PrismaService,
   ) {
-    this.baseUrl = config.get('ATLAS_URI');
-    this.password = config.get('ATLAS_ADMIN_PASSWORD');
+    this.baseUrl = config.get<string>('atlas.uri');
+    this.password = config.get<string>('atlas.adminPassword');
     this.docker = new Docker();
   }
 

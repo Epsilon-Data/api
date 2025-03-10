@@ -36,7 +36,7 @@ def categorize_variables(df, threshold=10):
 def censor_string(value):
     return ''.join([char if random.random() > 0.5 else 'x' for char in value])
 
-def synthesis(df, synth_file, prefix, threshold=10):
+def synthesis(df, synth_file, prefix, uri, key_id, secret_key, threshold=10):
   numerical_vars, categorical_vars, potential_date_vars = categorize_variables(df, threshold=threshold)
 
   df_syn = pd.DataFrame()
@@ -92,13 +92,10 @@ def synthesis(df, synth_file, prefix, threshold=10):
   
   df_syn.to_csv(csv_file, index=False)
   
-  upload_to_s3(csv_file, prefix)
+  upload_to_s3(csv_file, prefix, uri, key_id, secret_key)
 
-def upload_to_s3(file_path, prefix):
+def upload_to_s3(file_path, prefix, uri, key_id, secret_key):
   bucket = "synthetic"
-  uri = os.getenv('S3_URI')
-  key_id = os.getenv('S3_KEY_ID')
-  secret_key = os.getenv('S3_SECRET_KEY')
   
   s3 = boto3.client('s3',
                     endpoint_url=uri,
@@ -124,6 +121,9 @@ def main(yaml_file):
     table_names = args['tableNames']
     foreign_keys = args['foreignKeys']
     primary_keys = args['primaryKeys']
+    uri = args['uri']
+    key_id = args['keyId']
+    secret_key = args['secretKey']
   
     combined = []
     
@@ -134,12 +134,12 @@ def main(yaml_file):
     with open(output_json, 'w') as f:
         json.dump(table_map, f)
     
-    upload_to_s3(output_json, source_id)
+    upload_to_s3(output_json, source_id, uri, key_id, secret_key)
   
     if len(combined) > 0:
       for i in range(len(combined)):
         df = combined[i]
-        synthesis(df, f'synth-{i}', source_id)
+        synthesis(df, f'synth-{i}', source_id, uri, key_id, secret_key)
   
 if __name__ == "__main__":
   install_package("pandas")
@@ -155,9 +155,6 @@ if __name__ == "__main__":
   import random
   import boto3
   from botocore.client import Config
-  from dotenv import load_dotenv
   from combine_data import combine_dataframes
-  
-  load_dotenv()
   
   main(sys.argv[1])

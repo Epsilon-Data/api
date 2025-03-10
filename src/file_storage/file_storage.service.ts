@@ -19,11 +19,12 @@ export class FileStorageService {
   private readonly s3: S3Client;
 
   constructor(config: ConfigService) {
+    const s3Details = config.get<any>('s3');
     this.s3 = new S3Client({
-      endpoint: config.get('S3_URI'),
+      endpoint: s3Details.uri,
       credentials: {
-        accessKeyId: config.get('S3_KEY_ID'),
-        secretAccessKey: config.get('S3_SECRET_KEY'),
+        accessKeyId: s3Details.keyId,
+        secretAccessKey: s3Details.secretKey,
       },
       region: 'us-east-1',
       forcePathStyle: true,

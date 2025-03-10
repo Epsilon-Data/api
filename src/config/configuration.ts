@@ -32,4 +32,23 @@ export default () => ({
       env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://localhost:3000',
     ],
   },
+  atlas: {
+    uri: env.ATLAS_URI || 'http://localhost:21000',
+    adminPassword: env.ATLAS_ADMIN_PASSWORD || 'secret',
+  },
+  s3: {
+    uri: env.S3_URI || 'http://localhost:9001',
+    keyId: env.S3_KEY_ID || 'admin',
+    secretKey: env.S3_SECRET_KEY || 'supersecret',
+  },
+  redis: {
+    host: env.REDIS_HOST || 'localhost',
+    port: env.REDIS_PORT || 6379,
+  },
+  databaseUrl:
+    env.DATABASE_URL ||
+    'postgresql://epsilon_admin:supersecret@localhost:6543/epsilon',
+  tokenEndpoint:
+    env.EPSILON_TOKEN_ENDPOINT ||
+    'http://localhost:8080/realms/EPSILON/protocol/openid-connect/token',
 });

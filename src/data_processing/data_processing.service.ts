@@ -12,16 +12,21 @@ import { createObjectCsvWriter } from 'csv-writer';
 import * as archiver from 'archiver';
 import { join } from 'path';
 import * as path from 'path';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DataProcessingService {
   private script;
+  private s3Details;
   constructor(
+    config: ConfigService,
     private prisma: PrismaService,
     private atlas: AtlasService,
     private database: DatabaseService,
     private fileStorage: FileStorageService,
-  ) {}
+  ) {
+    this.s3Details = config.get<any>('s3');
+  }
 
   async runScript(analysisId: string, scriptName: string, scriptId: string) {
     const bucket = 'script';
@@ -123,6 +128,9 @@ export class DataProcessingService {
           analysisId,
           scriptDetails,
           csvColumns,
+          uri: this.s3Details.uri,
+          keyId: this.s3Details.keyId,
+          secretKey: this.s3Details.secretKey,
         };
 
         const yamlFilePath = `${process.cwd()}/script_args.yaml`;
@@ -184,6 +192,9 @@ export class DataProcessingService {
           tableNames,
           foreignKeys,
           primaryKeys,
+          uri: this.s3Details.uri,
+          keyId: this.s3Details.keyId,
+          secretKey: this.s3Details.secretKey,
         };
         const yamlFilePath = `${process.cwd()}/script_args.yaml`;
         fs.writeFileSync(yamlFilePath, yaml.dump(args));

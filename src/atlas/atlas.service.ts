@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class AtlasService {
@@ -9,8 +9,8 @@ export class AtlasService {
   private readonly logger = new Logger(AtlasService.name);
 
   constructor(config: ConfigService) {
-    this.baseUrl = `${config.get('ATLAS_URI')}/api/atlas/v2`;
-    this.password = config.get('ATLAS_ADMIN_PASSWORD');
+    this.baseUrl = `${config.get<string>('atlas.uri')}/api/atlas/v2`;
+    this.password = config.get<string>('atlas.adminPassword');
   }
 
   createAuthHeader(): string {
