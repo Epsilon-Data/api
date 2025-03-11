@@ -21,6 +21,7 @@ import { KeycloakAdminClient } from '@epsilon-data/keycloak-admin-client';
 })
 export class AdminModule {
   constructor(private configService: ConfigService) {}
+
   static forRoot({
     issuerBaseURL,
     realm,

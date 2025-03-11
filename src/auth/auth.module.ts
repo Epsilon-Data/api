@@ -1,31 +1,34 @@
 import {
   DynamicModule,
+  Global,
   MiddlewareConsumer,
   Module,
   NestModule,
   Provider,
   RequestMethod,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
+// import { AuthService } from './auth.service';
 
 import { AuthMiddleware } from './auth.middleware';
 import {
   AuthModuleAsyncConfig,
   AuthModuleConfig,
   AUTH_CONFIG,
-  KEYCLOAK_INSTANCE,
+  // KEYCLOAK_INSTANCE,
 } from './config.interface';
 
 import { auth } from 'express-oauth2-jwt-bearer';
 import * as cookieParser from 'cookie-parser';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import * as KeycloakConnect from 'keycloak-connect';
+import { KeycloakService } from './keycloak/keycloak.service';
 
+@Global()
 @Module({
   imports: [ConfigModule],
   controllers: [],
-  providers: [AuthService],
+  exports: [KeycloakService],
+  providers: [KeycloakService],
 })
 export class AuthModule implements NestModule {
   constructor(private configService: ConfigService) {}
@@ -64,8 +67,10 @@ export class AuthModule implements NestModule {
           },
           provide: AUTH_CONFIG,
         },
+        KeycloakService,
       ],
-      exports: [],
+      exports: [KeycloakService],
+      imports: [],
       module: AuthModule,
     };
   }
@@ -73,44 +78,53 @@ export class AuthModule implements NestModule {
     return {
       module: AuthModule,
       imports: config.imports,
-      providers: this.createProviders(config),
-      exports: this.createProviders(config),
+      providers: this.createAsyncProviders(config),
+      exports: this.createAsyncProviders(config),
     };
   }
 
-  private static createProviders(config: AuthModuleAsyncConfig): Provider[] {
-    return [
+  private static createAsyncProviders(
+    config: AuthModuleAsyncConfig,
+  ): Provider[] {
+    const reqProviders = [
       {
-        useFactory: config.useFactory,
+        useFactory: async (configService: ConfigService) => {
+          return {
+            issuerBaseURL: configService.get<string>('auth.issuerBaseURL'),
+            audience: configService.get<string>('auth.audience'),
+            scopePrefix: configService.get<string>('auth.scopePrefix'),
+            cookiePrefix: configService.get<string>('auth.cookiePrefix'),
+            encryptionKey: configService.get<string>('auth.encryptionKey'),
+            trustedWebOrigins: configService.get<string[]>(
+              'auth.trustedWebOrigins',
+            ),
+            allowTokenAuth:
+              configService.get<boolean>('auth.allowTokenAuth') || true,
+            clientId: configService.get<string>('auth.client-id'),
+          };
+        },
         inject: config.inject,
         provide: AUTH_CONFIG,
       },
+      // {
+      //   useFactory: (config: AuthModuleConfig) => {
+      //     const keycloak: KeycloakService = new KeycloakService(config);
+      //     return keycloak;
+      //   },
+      //   inject: [AUTH_CONFIG],
+      //   provide: KEYCLOAK_INSTANCE,
+      // },
+      KeycloakService,
+    ];
+    if (config.useExisting || config.useFactory) {
+      return reqProviders;
+    }
+
+    return [
+      ...reqProviders,
       {
-        useFactory: (opts: ConfigService) => {
-          const configuration = {
-            realm: 'EPSILON',
-            'auth-server-url': 'http://localhost:8080/',
-            'ssl-required': 'external',
-            'confidential-port': 0,
-            // 'public-client': true,
-            // 'client-id': opts.get<string>('auth.clientId'),
-            // credentials: { secret: opts.get<string>('auth.clientSecret') },
-            // 'verify-token-audience': true,
-            'bearer-only': true,
-            resource: opts.get<string>('auth.clientId'),
-          };
-          const keycloak: any = new KeycloakConnect({}, configuration);
-
-          // Access denied is called, add a flag to request so our resource guard knows
-          keycloak.accessDenied = (req: any, res: any, next: any) => {
-            req.resourceDenied = true;
-            next();
-          };
-
-          return keycloak;
-        },
-        inject: config.inject,
-        provide: KEYCLOAK_INSTANCE,
+        provide: config.useClass,
+        useClass: config.useClass,
       },
     ];
   }

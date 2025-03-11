@@ -1,21 +1,21 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { KeycloakAdminService } from './keycloak/keycloak.admin.service';
 import { ScopesGuard } from 'src/auth/scopes.guard';
-import { ConfigService } from '@nestjs/config';
-import { Credentials } from '@epsilon-data/keycloak-admin-client';
+// import { ConfigService } from '@nestjs/config';
+// import { Credentials } from '@epsilon-data/keycloak-admin-client';
 
 @Controller('admin')
 export class AdminController {
-  credentials: Credentials;
+  // credentials: Credentials;
   constructor(
-    private readonly configService: ConfigService,
+    // private readonly configService: ConfigService,
     private readonly keycloakService: KeycloakAdminService,
   ) {
-    this.credentials = {
-      grantType: 'client_credentials',
-      clientId: this.configService.get<string>('admin.clientId'),
-      clientSecret: this.configService.get<string>('admin.clientSecret'),
-    };
+    // this.credentials = {
+    //   grantType: 'client_credentials',
+    //   clientId: this.configService.get<string>('admin.clientId'),
+    //   clientSecret: this.configService.get<string>('admin.clientSecret'),
+    // };
   }
 
   @Get('users')

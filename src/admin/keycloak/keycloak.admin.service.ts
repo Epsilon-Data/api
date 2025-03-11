@@ -37,7 +37,7 @@ export type ClientQuery = {
 
 @Injectable()
 export class KeycloakAdminService {
-  private readonly logger = new Logger('KeycloakService');
+  private readonly logger = new Logger('KeycloakAdminService');
   // private kcAdminClient: KeycloakAdminClient;
 
   constructor(

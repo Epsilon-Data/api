@@ -23,7 +23,8 @@ import { TemplateModule } from './template/template.module';
 import { ScriptModule } from './script/script.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import configuration from './config/configuration';
-import { AdminConfigService } from './config/keycloak-config.service';
+import { AdminConfigService } from './config/admin.config.service';
+import { AuthConfigService } from './config/auth.config.service';
 // import {
 //   AuthGuard,
 //   KeycloakConnectModule,
@@ -39,20 +40,7 @@ import { AdminConfigService } from './config/keycloak-config.service';
     AuthModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        return {
-          issuerBaseURL: configService.get<string>('auth.issuerBaseURL'),
-          audience: configService.get<string>('auth.audience'),
-          scopePrefix: configService.get<string>('auth.scopePrefix'),
-          cookiePrefix: configService.get<string>('auth.cookiePrefix'),
-          encryptionKey: configService.get<string>('auth.encryptionKey'),
-          trustedWebOrigins: configService.get<string[]>(
-            'auth.trustedWebOrigins',
-          ),
-          allowTokenAuth:
-            configService.get<boolean>('auth.allowTokenAuth') || true,
-        };
-      },
+      useExisting: AuthConfigService,
     }),
     ConnectionRequestModule,
     PrismaModule,

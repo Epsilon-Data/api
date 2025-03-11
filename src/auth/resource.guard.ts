@@ -6,8 +6,8 @@ import {
   // Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-// import * as KeycloakConnect from 'keycloak-connect';
 import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
+import { KeycloakService } from './keycloak/keycloak.service';
 // import { KEYCLOAK_INSTANCE } from './config.interface';
 // import { META_RESOURCE } from './resource.decorator';
 
@@ -16,9 +16,8 @@ export class ResourceGuard implements CanActivate {
   private readonly logger = new Logger(ResourceGuard.name);
   private readonly reflector = new Reflector();
   // project 12231321323:view
-  // @Inject(KEYCLOAK_INSTANCE)
-  // private keyCloakInstance: KeycloakConnect.Keycloak,
-  constructor() {}
+  // private keyCloakInstance: KeycloakService, // @Inject(KEYCLOAK_INSTANCE)
+  constructor(private keycloakConnect: KeycloakService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // const defaultEnforcerOpts: KeycloakConnect.EnforcerOptions = {

@@ -5,7 +5,8 @@ import { testConnection } from '@epsilon-data/epsilon-connector';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
-import { ConfigService } from '@nestjs/config';
+// import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+// import { ConfigService } from '@nestjs/config';
 // import { Credentials } from '@epsilon-data/keycloak-admin-client';
 
 @Injectable()
@@ -16,7 +17,7 @@ export class ConnectionRequestService {
     private atlas: AtlasService,
     private readonly queue: QueueService,
     private readonly keycloak: KeycloakAdminService,
-    private config: ConfigService,
+    // private config: ConfigService,
   ) {
     // this.credentials = {
     //   grantType: 'client_credentials',

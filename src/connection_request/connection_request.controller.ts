@@ -21,6 +21,8 @@ import { Request } from 'express';
 
 import { Scopes } from 'src/auth/scopes.decorator';
 import { ResourceGuard } from 'src/auth/resource.guard';
+// import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+// import { KEYCLOAK_INSTANCE } from 'src/auth/config.interface';
 
 @Resource('Project')
 @Controller('connection-request')
