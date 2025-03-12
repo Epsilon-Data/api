@@ -17,10 +17,6 @@ export class TemplateService {
 
   async templateNames(projectId: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
-    const params = {
-      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
-    };
-    const result = await this.atlas.get('/search/dsl', params);
 
     const deleteJobsResult = await this.prisma.project.findUnique({
       where: {
@@ -68,20 +64,29 @@ export class TemplateService {
     });
 
     let activeTemplates = [];
-    if (result.attributes) {
-      activeTemplates = result.attributes.values
-        .filter(
-          (item) =>
-            item[0] === 'ACTIVE' && !deletingTemplates.includes(item[1]),
-        )
-        .map((item) => {
-          return {
-            guid: item[1],
-            name: item[2].split('@', 2)[1],
-            progress: item[3],
-          };
-        });
-    }
+
+    const params = {
+      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
+    };
+    await this.atlas
+      .get('/search/dsl', params)
+      .then((res) => {
+        activeTemplates = res.attributes.values
+          .filter(
+            (item) =>
+              item[0] === 'ACTIVE' && !deletingTemplates.includes(item[1]),
+          )
+          .map((item) => {
+            return {
+              guid: item[1],
+              name: item[2].split('@', 2)[1],
+              progress: item[3],
+            };
+          });
+      })
+      .catch(() => {
+        activeTemplates = [];
+      });
 
     return activeTemplates;
   }
