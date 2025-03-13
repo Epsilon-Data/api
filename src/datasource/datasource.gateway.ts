@@ -12,11 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { AtlasService } from 'src/atlas/atlas.service';
 
-@WebSocketGateway({
-  cors: {
-    origin: true,
-  },
-})
+@WebSocketGateway({ namespace: '/datasource', cors: { origin: true } })
 export class DatasourceGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
@@ -29,7 +25,7 @@ export class DatasourceGateway
   @WebSocketServer() server: Server;
 
   afterInit() {
-    this.logger.log('DatabaseSourceGateway initialized');
+    this.logger.log('DatabaseSourceGateway initialised');
   }
 
   handleConnection(client: Socket) {
