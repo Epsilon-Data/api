@@ -21,6 +21,7 @@ import { QueueModule } from './queue/queue.module';
 import { TemplateModule } from './template/template.module';
 import { ScriptModule } from './script/script.module';
 import { AnalysisModule } from './analysis/analysis.module';
+import { NotificationModule } from './notification/notification.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -79,6 +80,7 @@ import configuration from './config/configuration';
     TemplateModule,
     ScriptModule,
     AnalysisModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
