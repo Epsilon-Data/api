@@ -45,6 +45,8 @@ export default () => ({
     host: env.REDIS_HOST || 'localhost',
     port: env.REDIS_PORT || 6379,
   },
+  notificationServiceUrl:
+    env.NOTIFICATION_SERVICE_URL || 'http://localhost:4001/notification',
   databaseUrl:
     env.DATABASE_URL ||
     'postgresql://epsilon_admin:supersecret@localhost:6543/epsilon',
