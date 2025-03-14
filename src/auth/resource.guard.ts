@@ -3,13 +3,16 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
-  // Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
 import { KeycloakService } from './keycloak/keycloak.service';
-// import { KEYCLOAK_INSTANCE } from './config.interface';
-// import { META_RESOURCE } from './resource.decorator';
+import { META_RESOURCE } from './resource.decorator';
+import { META_SCOPES } from 'nest-keycloak-connect';
+import {
+  ConditionalScopeFn,
+  META_CONDITIONAL_SCOPES,
+} from './scopes.decorator';
 
 @Injectable()
 export class ResourceGuard implements CanActivate {
@@ -38,20 +41,6 @@ export class ResourceGuard implements CanActivate {
     //   // },
     // };
 
-    // const resource = this.reflector.get<string>(
-    //   META_RESOURCE,
-    //   context.getClass(),
-    // );
-    // const resource2 = this.reflector.get<string>(
-    //   META_RESOURCE,
-    //   context.getHandler(),
-    // );
-
-    // const conditionalScopes = this.reflector.get<ConditionalScopeFn>(
-    //   META_CONDITIONAL_SCOPES,
-    //   context.getHandler(),
-    // );
-
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();
     const response = ctx.getResponse();
@@ -60,61 +49,66 @@ export class ResourceGuard implements CanActivate {
       return true;
     }
 
-    // console.log(request.auth);
-    // const grant = await this.keyCloakInstance.grantManager.createGrant({
-    //   access_token: request.auth.token,
-    // });
+    // get resource
+    const metaResource =
+      this.reflector.get<string>(META_RESOURCE, context.getHandler()) ||
+      this.reflector.get<string>(META_RESOURCE, context.getClass());
 
-    // const grant = await this.keyCloakInstance.grantManager.createGrant({
-    //   access_token: request.access_token,
-    // });
-    // const result = this.keyCloakInstance.grantManager.ensureFreshness(grant);
-    // console.log(grant);
+    const resource = request.params.id
+      ? `${metaResource} ${request.params.id}`
+      : metaResource;
+    //get scopes
+    const explicitScopes =
+      this.reflector.get<string[]>(META_SCOPES, context.getHandler()) ?? [];
+    const conditionalScopes = this.reflector.get<ConditionalScopeFn>(
+      META_CONDITIONAL_SCOPES,
+      context.getHandler(),
+    );
     // Build the required scopes
-    // const conditionalScopesResult =
-    //   conditionalScopes != null || conditionalScopes != undefined
-    //     ? conditionalScopes(request, grant.access_token)
-    //     : [];
+    const conditionalScopesResult =
+      conditionalScopes != null || conditionalScopes != undefined
+        ? conditionalScopes(request, request.auth.token)
+        : [];
 
-    const scopes = ['view'];
+    const scopes = [...explicitScopes, ...conditionalScopesResult];
 
     // Attach resolved scopes
     request.scopes = [scopes];
 
-    // const enforcerFn = createEnforcerContext(
-    //   request,
-    //   response,
-    //   defaultEnforcerOpts,
-    // );
+    const permission = {
+      id: resource,
+      scopes: scopes,
+    };
+    const authzRequest = {
+      permissions: [permission],
+      response_mode: 'decision', // can be 'permissions'
+    };
 
-    // Build permissions
-    // const permissions = scopes.map(
-    //   (scope) => `Project 5508b930-d587-4006-b347-3ecb49eb471a:${scope}`,
-    // );
-    console.log(request.auth.token);
-    // const isAllowed = await enforcerFn(this.keyCloakInstance, permissions);
-    const result = await fetch(
-      'http://localhost:8080/realms/EPSILON/protocol/openid-connect/token',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + request.auth.token,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body:
-          'grant_type=urn:ietf:params:oauth:grant-type:uma-ticket' +
-          '&audience=epsilon-token-handler' +
-          '&permission=Project 5508b930-d587-4006-b347-3ecb49eb471a#view' +
-          '&response_mode=permissions',
-      },
+    const res = await this.keycloakConnect.checkPermission(
+      authzRequest,
+      request,
     );
-    const text = await result.text();
-    console.log(text);
+    // const result = await fetch(
+    //   'http://localhost:8080/realms/EPSILON/protocol/openid-connect/token',
+    //   {
+    //     method: 'POST',
+    //     headers: {
+    //       Authorization: 'Bearer ' + request.auth.token,
+    //       'Content-Type': 'application/x-www-form-urlencoded',
+    //     },
+    //     body:
+    //       'grant_type=urn:ietf:params:oauth:grant-type:uma-ticket' +
+    //       '&audience=epsilon-token-handler' +
+    //       '&permission=Project 5508b930-d587-4006-b347-3ecb49eb471a#view' +
+    //       '&response_mode=permissions',
+    //   },
+    // );
+    // const text = await result.text();
 
     if (response.headersSent) {
       throw UnauthorizedException(`Invalid scopes`);
     }
-    return true;
+    return res.result;
   }
 }
 

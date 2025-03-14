@@ -100,7 +100,7 @@ export class AuthModule implements NestModule {
             ),
             allowTokenAuth:
               configService.get<boolean>('auth.allowTokenAuth') || true,
-            clientId: configService.get<string>('auth.client-id'),
+            clientId: configService.get<string>('auth.clientId'),
           };
         },
         inject: config.inject,

@@ -21,23 +21,16 @@ import { Request } from 'express';
 
 import { Scopes } from 'src/auth/scopes.decorator';
 import { ResourceGuard } from 'src/auth/resource.guard';
-// import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
-// import { KEYCLOAK_INSTANCE } from 'src/auth/config.interface';
 
-@Resource('Project')
+// @Resource('Project')
 @Controller('connection-request')
 export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
 
   @Get()
-  // @UseGuards(new AuthGuard('api.hub.read'))
-  @Resource('Project')
-  @UseGuards(ResourceGuard)
-  @Scopes('view')
   summary(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     const email = request.auth.payload.email.toString();
-    console.log(request.auth.token);
     return this.connectionRequestService.summary(userId, email);
   }
 
@@ -46,8 +39,11 @@ export class ConnectionRequestController {
     return this.connectionRequestService.create(dto);
   }
 
-  @Get(':requestId')
-  details(@Param('requestId', ParseUUIDPipe) requestId: string) {
+  @Get(':id')
+  @Resource('Project')
+  @UseGuards(ResourceGuard)
+  @Scopes('view')
+  details(@Param('id', ParseUUIDPipe) requestId: string) {
     return this.connectionRequestService.details(requestId);
   }
 

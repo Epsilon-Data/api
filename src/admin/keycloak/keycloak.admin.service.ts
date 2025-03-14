@@ -46,18 +46,6 @@ export class KeycloakAdminService {
     private kcAdminClient: KeycloakAdminClient,
   ) {}
 
-  // async init(credentials: Credentials) {
-  //   this.kcAdminClient = new KeycloakAdminClient({
-  //     baseUrl: this.config.issuerBaseURL,
-  //     realmName: this.config.realm,
-  //   });
-  //   await this.kcAdminClient.auth(credentials);
-  // }
-  // async check() {
-  //   const client = await this.getClientByName();
-  //   console.log(client);
-  // }
-
   async createUser(user: UserRepresentation) {
     try {
       const userId = await this.kcAdminClient.users.create(user);
