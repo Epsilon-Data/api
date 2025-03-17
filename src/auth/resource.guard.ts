@@ -18,8 +18,6 @@ import {
 export class ResourceGuard implements CanActivate {
   private readonly logger = new Logger(ResourceGuard.name);
   private readonly reflector = new Reflector();
-  // project 12231321323:view
-  // private keyCloakInstance: KeycloakService, // @Inject(KEYCLOAK_INSTANCE)
   constructor(private keycloakConnect: KeycloakService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,9 +52,12 @@ export class ResourceGuard implements CanActivate {
       this.reflector.get<string>(META_RESOURCE, context.getHandler()) ||
       this.reflector.get<string>(META_RESOURCE, context.getClass());
 
+    // get id
+    // TODO: make it more general so you can use either params or request body
     const resource = request.params.id
       ? `${metaResource} ${request.params.id}`
       : metaResource;
+
     //get scopes
     const explicitScopes =
       this.reflector.get<string[]>(META_SCOPES, context.getHandler()) ?? [];
@@ -88,22 +89,6 @@ export class ResourceGuard implements CanActivate {
       authzRequest,
       request,
     );
-    // const result = await fetch(
-    //   'http://localhost:8080/realms/EPSILON/protocol/openid-connect/token',
-    //   {
-    //     method: 'POST',
-    //     headers: {
-    //       Authorization: 'Bearer ' + request.auth.token,
-    //       'Content-Type': 'application/x-www-form-urlencoded',
-    //     },
-    //     body:
-    //       'grant_type=urn:ietf:params:oauth:grant-type:uma-ticket' +
-    //       '&audience=epsilon-token-handler' +
-    //       '&permission=Project 5508b930-d587-4006-b347-3ecb49eb471a#view' +
-    //       '&response_mode=permissions',
-    //   },
-    // );
-    // const text = await result.text();
 
     if (response.headersSent) {
       throw UnauthorizedException(`Invalid scopes`);

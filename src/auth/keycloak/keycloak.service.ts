@@ -7,7 +7,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import fetch from 'node-fetch';
 import * as querystring from 'querystring';
 import { AUTH_CONFIG, AuthModuleConfig } from '../config.interface';
-import { response } from 'express';
 
 @Injectable()
 export class KeycloakService {
