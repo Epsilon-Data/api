@@ -22,7 +22,7 @@ export class AdminController {
   @UseGuards(new ScopesGuard('api.permissions.users.read'))
   async getUsers() {
     // TODO: need some proper error handling here
-    return this.keycloakService.getAllUsers();
+    return this.keycloakService.getAllUsersAndLastLogin();
   }
 
   @Get('users/:id')

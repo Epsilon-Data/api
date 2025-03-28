@@ -7,6 +7,8 @@ export class AtlasService {
   private baseUrl: string;
   private password: string;
   private readonly logger = new Logger(AtlasService.name);
+  // FIXME: remove when changing to keycloak auth
+  private basicAuth = true;
 
   constructor(config: ConfigService) {
     this.baseUrl = `${config.get('ATLAS_URI')}/api/atlas/v2`;
@@ -25,7 +27,7 @@ export class AtlasService {
 
   async get(endpoint: string, params?: any, token?: string): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token
+    const authHeader = token && !this.basicAuth
       ? this.createBearerAuthHeader(token)
       : this.createBasicAuthHeader();
 
@@ -48,7 +50,7 @@ export class AtlasService {
     token?: string,
   ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token
+    const authHeader = token && !this.basicAuth
       ? this.createBearerAuthHeader(token)
       : this.createBasicAuthHeader();
 
@@ -71,8 +73,9 @@ export class AtlasService {
     token?: string,
   ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    // const authHeader = this.createBasicAuthHeader();
-    const authHeader = this.createBearerAuthHeader(token);
+    const authHeader = token && !this.basicAuth
+      ? this.createBearerAuthHeader(token)
+      : this.createBasicAuthHeader();
     try {
       const response = await axios.put(url, body, {
         params,
@@ -90,7 +93,7 @@ export class AtlasService {
 
   async delete(endpoint: string, params?: any, token?: string): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token
+    const authHeader = token && !this.basicAuth
       ? this.createBearerAuthHeader(token)
       : this.createBasicAuthHeader();
 
