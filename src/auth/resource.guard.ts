@@ -89,7 +89,7 @@ export class ResourceGuard implements CanActivate {
       authzRequest,
       request,
     );
-    
+
     if (response.headersSent) {
       throw UnauthorizedException(`Invalid scopes`);
     }

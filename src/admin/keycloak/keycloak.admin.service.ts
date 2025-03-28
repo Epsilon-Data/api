@@ -61,9 +61,10 @@ const groupPrefix = 'Collaborators of ';
 const groupPolicyPrefix = 'Collaborators on ';
 const groupPermissionPrefix = 'Collaborators ';
 const groupPermissions = ['view', 'edit', 'approve', 'analysis', 'stats'];
-const custodianPolicyPrefix = `Custodian of`;
+const custodianPolicyPrefix = 'Custodian of ';
 const custodianPermissionPrefix = `Custodian `;
 const custodianPermissions = ['view', 'edit', 'connect'];
+
 // FIXME: add to keycloak-admin-client
 export enum DecisionStrategy {
   AFFIRMATIVE = 'AFFIRMATIVE',
@@ -578,6 +579,7 @@ export class KeycloakAdminService {
       this.logger.error('Error in createPermission', error);
     }
   }
+  //FIXME: not working properly
   async deleteResource(id: string) {
     this.logger.debug('Deleting resource', id);
     try {
@@ -588,6 +590,7 @@ export class KeycloakAdminService {
         resourceId: id,
         realm: this.config.realm,
       });
+
       // const group = await this.getGroupByName(`${groupPrefix}${id}`);
       // if (group.length)
       //   await this.kcAdminClient.groups.del({ id: group[0].id });
