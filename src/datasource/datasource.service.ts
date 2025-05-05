@@ -15,59 +15,66 @@ export class DatasourceService {
     @Inject(forwardRef(() => TemplateService))
     private template: TemplateService,
   ) {}
-  async list(userId: string) {
-    const requestList = await this.prisma.connectionRequest.findMany({
-      where: {
-        requestor: userId,
-        status: 3,
-      },
-      include: {
-        Project: true,
-      },
-    });
+  // async list(userId: string) {
+  //   const requestList = await this.prisma.connection.findMany({
+  //     where: {
+  //       request: {
+  //         requestorId: userId,
+  //         status: 3,
+  //       },
+  //     },
+  //     select: {
+  //       atlasId: true,
+  //       project: {
+  //         select: {
+  //           projectId: true,
+  //           customId: true,
+  //           name: true,
+  //         },
+  //       },
+  //     },
+  //   });
 
-    const filteredList = await requestList.map(async (request) => {
-      const project = {
-        projectId: request.Project.id,
-        projectCustomId: request.Project.customId,
-        projectName: request.Project.name,
-        dbId: request.atlasId,
-      };
+  //   const filteredList = await requestList.map(async (request) => {
+  //     const project = {
+  //       projectId: request.project.projectId,
+  //       projectCustomId: request.project.customId,
+  //       projectName: request.project.name,
+  //       dbId: request.atlasId,
+  //     };
 
-      let researcherDb = null;
+  //     let researcherDb = null;
 
-      if (request.atlasId) {
-        const result = await this.atlas.get('/entity/guid/' + request.atlasId);
-        researcherDb = {
-          databaseName: request.dbName,
-          connectDate: result.entity.createTime,
-          crawlStatus: result.entity.attributes.crawl_status,
-          lastUpdated: result.entity.updateTime,
-          statusMsg: result.entity.attributes.status_msg,
-          statusPercent: result.entity.attributes.status_percent,
-        };
-      }
+  //     if (request.atlasId) {
+  //       const result = await this.atlas.get('/entity/guid/' + request.atlasId);
+  //       researcherDb = {
+  //         connectDate: result.entity.createTime,
+  //         crawlStatus: result.entity.attributes.crawl_status,
+  //         lastUpdated: result.entity.updateTime,
+  //         statusMsg: result.entity.attributes.status_msg,
+  //         statusPercent: result.entity.attributes.status_percent,
+  //       };
+  //     }
 
-      if (researcherDb) {
-        return {
-          ...project,
-          ...researcherDb,
-        };
-      }
-    });
+  //     if (researcherDb) {
+  //       return {
+  //         ...project,
+  //         ...researcherDb,
+  //       };
+  //     }
+  //   });
 
-    const result = await Promise.all(filteredList);
-    return result;
-  }
+  //   const result = await Promise.all(filteredList);
+  //   return result;
+  // }
 
   async getProjectDetails(projectId: string) {
     const request = await this.prisma.project.findUnique({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       select: {
         customId: true,
-        visualisations: true,
       },
     });
 
@@ -82,7 +89,6 @@ export class DatasourceService {
 
     return {
       customId: request.customId,
-      visualisations: request.visualisations,
       cover: cover,
       projectId: projectId,
     };
@@ -357,7 +363,7 @@ export class DatasourceService {
   async uploadCover(projectId: string, file: Express.Multer.File) {
     await this.prisma.project.update({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       data: {
         lastUpdated: new Date(),
@@ -368,23 +374,23 @@ export class DatasourceService {
     return file.buffer;
   }
 
-  async uploadVis(visualisations: { projectId: string; vis: string }) {
-    await this.prisma.project.update({
-      where: {
-        id: visualisations.projectId,
-      },
-      data: {
-        visualisations: visualisations.vis,
-        lastUpdated: new Date(),
-      },
-    });
-    return visualisations.vis;
-  }
+  // async uploadVis(visualisations: { projectId: string; vis: string }) {
+  //   await this.prisma.project.update({
+  //     where: {
+  //       id: visualisations.projectId,
+  //     },
+  //     data: {
+  //       visualisations: visualisations.vis,
+  //       lastUpdated: new Date(),
+  //     },
+  //   });
+  //   return visualisations.vis;
+  // }
 
   async deleteCover(projectId: string) {
     await this.prisma.project.update({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       data: {
         lastUpdated: new Date(),
@@ -411,7 +417,7 @@ export class DatasourceService {
   }
 
   async findDbId(projectId: string) {
-    const request = await this.prisma.connectionRequest.findUnique({
+    const request = await this.prisma.connection.findUnique({
       where: {
         projectId: projectId,
       },
@@ -425,15 +431,15 @@ export class DatasourceService {
 
   async syncDatasource(userId: string, projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const request = await this.prisma.connectionRequest.findUnique({
+    const request = await this.prisma.connection.findUnique({
       where: {
         projectId: projectId,
       },
       select: {
-        id: true,
+        requestId: true,
       },
     });
-    this.queue.dataBrokerJob(userId, request.id, { databaseId: dbId });
+    this.queue.dataBrokerJob(userId, request.requestId, { databaseId: dbId });
     return dbId;
   }
 }

@@ -37,11 +37,10 @@ export class DockerService {
       `OWNER=${ownerId}`,
     ];
     if (!('databaseId' in database)) {
-      await this.prisma.connectionRequest.update({
-        where: { id: sourceId },
+      await this.prisma.connection.update({
+        where: { requestId: sourceId },
         data: {
-          temp_username: database.username,
-          temp_password: database.password,
+          tempDbDetails: JSON.stringify(database),
         },
       });
 
@@ -51,17 +50,18 @@ export class DockerService {
       envArgs.push(`DATABASE_URL=${url}`);
       envArgs.push(`SOURCE_ID=${sourceId}`);
     } else {
-      const request = await this.prisma.connectionRequest.findUnique({
-        where: { id: sourceId },
+      const request = await this.prisma.connection.findUnique({
+        where: { requestId: sourceId },
         select: {
-          temp_username: true,
-          temp_password: true,
+          tempDbDetails: true,
         },
       });
 
+      const tempDbDetails = JSON.parse(request.tempDbDetails as string);
+
       envArgs.push(`DATABASE_ID=${database.databaseId}`);
-      envArgs.push(`TEMP_USERNAME=${request.temp_username}`);
-      envArgs.push(`TEMP_PASSWORD=${request.temp_password}`);
+      envArgs.push(`TEMP_USERNAME=${tempDbDetails.username}`);
+      envArgs.push(`TEMP_PASSWORD=${tempDbDetails.password}`);
     }
 
     try {
@@ -81,16 +81,6 @@ export class DockerService {
         sourceId,
       );
 
-      if (!('databaseId' in database)) {
-        await this.prisma.connectionRequest.update({
-          where: { id: sourceId },
-          data: {
-            status: 3,
-            dbName: database.name,
-          },
-        });
-      }
-
       const containerOutput = await this.captureContainerOutput(container);
 
       this.logger.log('Waiting for the container to finish...');
@@ -105,8 +95,8 @@ export class DockerService {
 
       const guidMatch = containerOutput.match(guidRegex);
       if (guidMatch && guidMatch[0]) {
-        await this.prisma.connectionRequest.update({
-          where: { id: sourceId },
+        await this.prisma.connection.update({
+          where: { requestId: sourceId },
           data: {
             atlasId: guidMatch[0].trim(),
           },
@@ -120,12 +110,6 @@ export class DockerService {
       }
     } catch (error) {
       this.logger.error('Error running Data Broker container', error);
-      await this.prisma.connectionRequest.update({
-        where: { id: sourceId },
-        data: {
-          status: 2,
-        },
-      });
     }
   }
 

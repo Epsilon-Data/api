@@ -60,26 +60,26 @@ export class DataProcessingService {
         `Rscript ${process.cwd()}/scripts/execute.R ${yamlFilePath}`,
         async (error) => {
           if (error) {
-            const statusMessage = `Error: ${error.message}`;
-            await this.prisma.script.update({
-              where: {
-                id: scriptId,
-              },
-              data: {
-                status: 2,
-                statusMsg: statusMessage,
-              },
-            });
+            // const statusMessage = `Error: ${error.message}`;
+            // await this.prisma.script.update({
+            //   where: {
+            //     id: scriptId,
+            //   },
+            //   data: {
+            //     status: 2,
+            //     statusMsg: statusMessage,
+            //   },
+            // });
           } else {
-            await this.prisma.script.update({
-              where: {
-                id: scriptId,
-              },
-              data: {
-                status: 3,
-                statusMsg: 'Script validated successfully',
-              },
-            });
+            // await this.prisma.script.update({
+            //   where: {
+            //     id: scriptId,
+            //   },
+            //   data: {
+            //     status: 3,
+            //     statusMsg: 'Script validated successfully',
+            //   },
+            // });
             const htmlContent = fs.readFileSync(outputPath, 'utf-8');
             const multerFile = this.createMulterFile(outputPath, htmlContent);
             await this.fileStorage.putFile(
@@ -111,16 +111,16 @@ export class DataProcessingService {
     const csvColumns = await this.csvColumns(atlasId, role);
 
     if (csvColumns == null) {
-      await this.prisma.script.update({
-        where: {
-          id: scriptDetails.id,
-        },
-        data: {
-          status: 2,
-          statusMsg:
-            'No columns allowed for analysis. Contact data owner to update permissions or column.',
-        },
-      });
+      // await this.prisma.script.update({
+      //   where: {
+      //     id: scriptDetails.id,
+      //   },
+      //   data: {
+      //     status: 2,
+      //     statusMsg:
+      //       'No columns allowed for analysis. Contact data owner to update permissions or column.',
+      //   },
+      // });
     } else {
       return new Promise((resolve, reject) => {
         const args = {
@@ -159,9 +159,9 @@ export class DataProcessingService {
   async dataSynthesis(sourceId: string) {
     const scriptPath = process.cwd() + '/scripts/synthesis.py';
 
-    const request = await this.prisma.connectionRequest.findUnique({
+    const request = await this.prisma.connection.findUnique({
       where: {
-        id: sourceId,
+        requestId: sourceId,
       },
       select: {
         atlasId: true,

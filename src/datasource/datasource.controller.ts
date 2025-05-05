@@ -21,11 +21,11 @@ import { Request } from 'express';
 export class DatasourceController {
   constructor(private databaseSourceService: DatasourceService) {}
 
-  @Get()
-  async list(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.databaseSourceService.list(userId);
-  }
+  // @Get()
+  // async list(@Req() request: Request) {
+  //   const userId = request.auth.payload.sub.toString();
+  //   return await this.databaseSourceService.list(userId);
+  // }
 
   @Get(':projectId')
   async getProjectDetails(
@@ -73,10 +73,10 @@ export class DatasourceController {
     return result;
   }
 
-  @Post('upload-vis')
-  uploadVis(@Body() visualisations: { projectId: string; vis: string }) {
-    return this.databaseSourceService.uploadVis(visualisations);
-  }
+  // @Post('upload-vis')
+  // uploadVis(@Body() visualisations: { projectId: string; vis: string }) {
+  //   return this.databaseSourceService.uploadVis(visualisations);
+  // }
 
   @Delete('delete-cover')
   deleteCover(@Query('projectId', ParseUUIDPipe) projectId: string) {

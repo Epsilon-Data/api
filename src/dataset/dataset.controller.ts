@@ -1,37 +1,30 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Res } from '@nestjs/common';
 import { DatasetService } from './dataset.service';
 import * as fs from 'fs';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 
 @Controller('dataset')
 export class DatasetController {
   constructor(private datasetService: DatasetService) {}
 
-  @Get()
-  async list(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.datasetService.list(userId);
-  }
+  // @Get()
+  // async list(@Req() request: Request) {
+  //   const userId = request.auth.payload.sub.toString();
+  //   return await this.datasetService.list(userId);
+  // }
 
-  @Get('/user')
-  async getDatasetsByUser(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.datasetService.getDatasetsByUser(userId, false);
-  }
+  // @Get('/user')
+  // async getDatasetsByUser(@Req() request: Request) {
+  //   const userId = request.auth.payload.sub.toString();
+  //   return await this.datasetService.getDatasetsByUser(userId, false);
+  // }
 
-  @Get(':userRequestId')
-  async analysisList(
-    @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
-  ) {
-    return await this.datasetService.analysisList(userRequestId);
-  }
+  // @Get(':userRequestId')
+  // async analysisList(
+  //   @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
+  // ) {
+  //   return await this.datasetService.analysisList(userRequestId);
+  // }
 
   @Get('/columns/:userRequestId')
   async getColumns(
@@ -40,11 +33,11 @@ export class DatasetController {
     return await this.datasetService.getColumns(userRequestId);
   }
 
-  @Get('/download/user')
-  async getDownloadsByUser(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.datasetService.getDatasetsByUser(userId, true);
-  }
+  // @Get('/download/user')
+  // async getDownloadsByUser(@Req() request: Request) {
+  //   const userId = request.auth.payload.sub.toString();
+  //   return await this.datasetService.getDatasetsByUser(userId, true);
+  // }
 
   @Get('/download/:userRequestId')
   async downloadDataset(
@@ -66,8 +59,8 @@ export class DatasetController {
     });
   }
 
-  @Get('/reports/:scriptId')
-  async getReport(@Param('scriptId', ParseUUIDPipe) scriptId: string) {
-    return await this.datasetService.getReport(scriptId);
-  }
+  // @Get('/reports/:scriptId')
+  // async getReport(@Param('scriptId', ParseUUIDPipe) scriptId: string) {
+  //   return await this.datasetService.getReport(scriptId);
+  // }
 }

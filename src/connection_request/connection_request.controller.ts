@@ -1,22 +1,18 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpException,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
-  Patch,
   Post,
-  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { RevisionDto, ConnectionRequestDto, DatabaseInfoDto } from './dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Request } from 'express';
+import { DatabaseInfoDto } from './dto';
 
 @Controller('connection-request')
 export class ConnectionRequestController {
@@ -24,46 +20,10 @@ export class ConnectionRequestController {
 
   @Get()
   @UseGuards(new AuthGuard('api.hub.read'))
-  summary(@Req() request: Request) {
+  getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
-    const email = request.auth.payload.email.toString();
 
-    return this.connectionRequestService.summary(userId, email);
-  }
-
-  @Post()
-  create(@Body() dto: ConnectionRequestDto) {
-    return this.connectionRequestService.create(dto);
-  }
-
-  @Get(':requestId')
-  details(@Param('requestId', ParseUUIDPipe) requestId: string) {
-    return this.connectionRequestService.details(requestId);
-  }
-
-  @Put(':requestId')
-  edit(@Body() dto: ConnectionRequestDto) {
-    return this.connectionRequestService.edit(dto);
-  }
-
-  @Delete(':requestId')
-  delete(@Param('requestId', ParseUUIDPipe) requestId: string) {
-    return this.connectionRequestService.delete(requestId);
-  }
-
-  @Patch(':requestId')
-  approve(
-    @Body() dto: DatabaseInfoDto,
-    @Param('requestId', ParseUUIDPipe) requestId: string,
-    @Req() request: Request,
-  ) {
-    const userId = request.auth.payload.sub.toString();
-    return this.connectionRequestService.approve(userId, dto, requestId);
-  }
-
-  @Put(':requestId/revision')
-  revision(@Body() dto: RevisionDto) {
-    return this.connectionRequestService.revision(dto);
+    return this.connectionRequestService.getList(userId);
   }
 
   @Post('test')
@@ -82,12 +42,8 @@ export class ConnectionRequestController {
     }
   }
 
-  @Post(':projectId')
-  async validProjectId(
-    @Req() request: Request,
-    @Param('projectId') projectId: string,
-  ) {
-    const userId = request.auth.payload.sub.toString();
-    return this.connectionRequestService.validProjectId(userId, projectId);
+  @Post(':requestId')
+  async approve(@Param('requestId') requestId: string) {
+    return await this.connectionRequestService.approve(requestId);
   }
 }

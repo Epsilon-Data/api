@@ -15,76 +15,90 @@ export class DatasetService {
     private fileStorage: FileStorageService,
   ) {}
 
-  async list(userId: string) {
-    const requestList = await this.prisma.userRequest.findMany({
-      where: {
-        requestor: userId,
-        status: 3,
-      },
-      include: {
-        Project: true,
-      },
-    });
+  // async list(userId: string) {
+  //   const requestList = await this.prisma.analysis.findMany({
+  //     where: {
+  //       request: {
+  //         requestorId: userId,
+  //         status: 3,
+  //       },
+  //     },
+  //     select: {
+  //       requestId: true,
+  //       request: {
+  //         select: {
+  //           createdDate: true,
+  //         },
+  //       },
+  //       project: {
+  //         select: {
+  //           projectId: true,
+  //           customId: true,
+  //           name: true,
+  //         },
+  //       },
+  //     },
+  //   });
 
-    const filteredList = requestList.map(async (request) => {
-      return {
-        id: request.id,
-        projectId: request.Project.id,
-        projectCustomId: request.Project.customId,
-        projectName: request.Project.name,
-        connectDate: request.completeDate,
-      };
-    });
+  //   const filteredList = requestList.map(async (request) => {
+  //     return {
+  //       id: request.requestId,
+  //       projectId: request.project.projectId,
+  //       projectCustomId: request.project.customId,
+  //       projectName: request.project.name,
+  //       connectDate: request.request.createdDate,
+  //     };
+  //   });
 
-    const result = await Promise.all(filteredList);
-    return result;
-  }
+  //   const result = await Promise.all(filteredList);
+  //   return result;
+  // }
 
-  async analysisList(userRequestId: string) {
-    const requestList = await this.prisma.analysis.findMany({
-      where: {
-        userRequestId: userRequestId,
-      },
-      select: {
-        id: true,
-        name: true,
-        createdDate: true,
-        lastUpdated: true,
-        lastUpdatedUser: true,
-      },
-    });
+  // async analysisList(userRequestId: string) {
+  //   const requestList = await this.prisma.analysis.findMany({
+  //     where: {
+  //       userRequestId: userRequestId,
+  //     },
+  //     select: {
+  //       id: true,
+  //       name: true,
+  //       createdDate: true,
+  //       lastUpdated: true,
+  //       lastUpdatedUser: true,
+  //     },
+  //   });
 
-    return requestList;
-  }
+  //   return requestList;
+  // }
 
   async getColumns(userRequestId: string) {
-    const request = await this.prisma.userRequest.findUnique({
+    const request = await this.prisma.analysis.findUnique({
       where: {
-        id: userRequestId,
+        requestId: userRequestId,
       },
       select: {
-        Project: {
+        project: {
           select: {
-            id: true,
+            projectId: true,
           },
         },
       },
     });
 
-    return await this.databaseSource.columns(request.Project.id);
+    return await this.databaseSource.columns(request.project.projectId);
   }
 
   async downloadDataset(userRequestId: string) {
-    const userRequest = await this.prisma.userRequest.findUnique({
+    const userRequest = await this.prisma.analysis.findUnique({
       where: {
-        id: userRequestId,
+        requestId: userRequestId,
       },
       select: {
-        Project: {
+        project: {
           select: {
-            ConnectionRequest: {
+            connection: {
               select: {
-                id: true,
+                requestId: true,
                 atlasId: true,
               },
             },
@@ -93,8 +107,8 @@ export class DatasetService {
       },
     });
 
-    const sourceId = userRequest.Project.ConnectionRequest.id;
-    const atlasId = userRequest.Project.ConnectionRequest.atlasId;
+    const sourceId = userRequest.project.connection.requestId;
+    const atlasId = userRequest.project.connection.atlasId;
 
     const result = await this.dataProcess.generateDownloadDataset(
       sourceId,
@@ -108,84 +122,86 @@ export class DatasetService {
     return zipFilePath;
   }
 
-  async getReport(scriptId: string) {
-    const script = await this.prisma.script.findUnique({
-      where: {
-        id: scriptId,
-      },
-      select: {
-        name: true,
-        Analysis: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    });
+  // async getReport(scriptId: string) {
+  //   const script = await this.prisma.script.findUnique({
+  //     where: {
+  //       id: scriptId,
+  //     },
+  //     select: {
+  //       name: true,
+  //       Analysis: {
+  //         select: {
+  //           id: true,
+  //         },
+  //       },
+  //     },
+  //   });
 
-    const analysisId = script.Analysis.id;
+  //   const analysisId = script.Analysis.id;
 
-    const url = await this.fileStorage.getFileUrl(
-      'report',
-      `${analysisId}/${script.name}`.replace('.R', '.html'),
-    );
+  //   const url = await this.fileStorage.getFileUrl(
+  //     'report',
+  //     `${analysisId}/${script.name}`.replace('.R', '.html'),
+  //   );
 
-    return url;
-  }
+  //   return url;
+  // }
 
-  async getDatasetsByUser(userId: string, isSynthetic: boolean) {
-    const requestList = await this.prisma.userRequest.findMany({
-      where: {
-        requestor: userId,
-        status: 3,
-      },
-      include: {
-        Project: {
-          include: {
-            ConnectionRequest: true,
-          },
-        },
-      },
-    });
+  // async getDatasetsByUser(userId: string, isSynthetic: boolean) {
+  //   const requestList = await this.prisma.analysis.findMany({
+  //     where: {
+  //       request: {
+  //         requestorId: userId,
+  //         status: 3,
+  //       },
+  //     },
+  //     include: {
+  //       project: {
+  //         include: {
+  //           connection: true,
+  //         },
+  //       },
+  //     },
+  //   });
 
-    const datasetList = [];
+  //   const datasetList = [];
 
-    for (const request of requestList) {
-      const sourceId = request.Project.ConnectionRequest.id;
-      const atlasId = request.Project.ConnectionRequest.atlasId;
+  //   for (const request of requestList) {
+  //     const sourceId = request.project.connection.requestId;
+  //     const atlasId = request.project.connection.atlasId;
 
-      let result = { data: [], csvColumns: [] };
+  //     let result = { data: [], csvColumns: [] };
 
-      if (isSynthetic) {
-        result = await this.dataProcess.generateDownloadDataset(
-          sourceId,
-          atlasId,
-        );
-      } else {
-        result = await this.dataProcess.generateDataset(sourceId, atlasId);
-      }
+  //     if (isSynthetic) {
+  //       result = await this.dataProcess.generateDownloadDataset(
+  //         sourceId,
+  //         atlasId,
+  //       );
+  //     } else {
+  //       result = await this.dataProcess.generateDataset(sourceId, atlasId);
+  //     }
 
-      if (result.data.length === 0) {
-        continue;
-      }
+  //     if (result.data.length === 0) {
+  //       continue;
+  //     }
 
-      const datasetWithLinks = await this.uploadDatasets(
-        result.data,
-        'temp',
-        userId,
-      );
+  //     const datasetWithLinks = await this.uploadDatasets(
+  //       result.data,
+  //       'temp',
+  //       userId,
+  //     );
 
-      datasetList.push({
-        projectId: request.Project.id,
-        sourceId: sourceId,
-        atlasId: atlasId,
-        csvColumns: result.csvColumns,
-        dataset: datasetWithLinks,
-      });
-    }
+  //     datasetList.push({
+  //       projectId: request.project.projectId,
+  //       sourceId: sourceId,
+  //       atlasId: atlasId,
+  //       csvColumns: result.csvColumns,
+  //       dataset: datasetWithLinks,
+  //     });
+  //   }
 
-    return datasetList;
-  }
+  //   return datasetList;
+  // }
 
   private async uploadDatasets(
     datasets: { filename: string; data: any[]; link?: string }[],

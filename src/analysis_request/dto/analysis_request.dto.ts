@@ -5,25 +5,19 @@ import {
   IsString,
   IsUUID,
   IsDate,
-  ArrayNotEmpty,
   IsOptional,
-  IsNumber,
 } from 'class-validator';
 
-export class RequestDto {
+export class AnalysisDto {
   @IsDefined()
   @IsUUID()
   @IsNotEmpty()
-  id: string;
-
-  @IsOptional()
-  @IsString()
-  customId: string;
+  requestId: string;
 
   @IsDefined()
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
-  name: string;
+  projectId: string;
 
   @IsDefined()
   @IsString()
@@ -32,7 +26,7 @@ export class RequestDto {
 
   @IsOptional()
   @IsUUID()
-  requestor: string;
+  requestorId: string;
 
   @IsDefined()
   @IsString()
@@ -42,17 +36,17 @@ export class RequestDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  email: string;
+  requestorEmail: string;
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  orgName: string;
+  requestorOrgName: string;
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  position: string;
+  requestorPosition: string;
 
   @IsDefined()
   @IsString()
@@ -60,10 +54,14 @@ export class RequestDto {
   projectName: string;
 
   @IsDefined()
-  @IsDate({ each: true })
-  @ArrayNotEmpty()
-  @Transform(({ value }) => value.map((item) => transformDateString(item)))
-  projectDuration: string[];
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  projectStartDate: Date;
+
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  projectEndDate: Date;
 
   @IsDefined()
   @IsString()
@@ -93,30 +91,6 @@ export class RequestDto {
   @IsString()
   @IsNotEmpty()
   ethicsId: string;
-
-  @IsOptional()
-  @IsNumber()
-  status: number;
-
-  @IsOptional()
-  @IsDate()
-  @Transform(({ value }) => transformDateString(value))
-  createdDate: Date;
-
-  @IsOptional()
-  @IsString()
-  revisionInfo: string;
-}
-
-export class RevisionDto {
-  @IsDefined()
-  @IsUUID()
-  @IsNotEmpty()
-  requestId: string;
-
-  @IsDefined()
-  @IsString()
-  revisionInfo: string;
 }
 
 function transformDateString(value: any): Date {

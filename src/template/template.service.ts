@@ -18,51 +18,6 @@ export class TemplateService {
   async templateNames(projectId: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
 
-    const deleteJobsResult = await this.prisma.project.findUnique({
-      where: {
-        id: projectId,
-      },
-      select: {
-        templateDeleteJobs: true,
-      },
-    });
-
-    let deleteJobs = deleteJobsResult.templateDeleteJobs;
-    const deletingTemplates = [];
-    if (deleteJobsResult.templateDeleteJobs.length != 0) {
-      for (let i = 0; i < deleteJobsResult.templateDeleteJobs.length; i++) {
-        const job = await this.queue.getJob(
-          deleteJobsResult.templateDeleteJobs[i],
-        );
-
-        if (job == null) {
-          deleteJobs[i] = null;
-          continue;
-        }
-
-        const state = await job.getState();
-
-        if (state === 'completed') {
-          await job.remove();
-          deleteJobs[i] = null;
-        } else {
-          const data = job.data;
-          deletingTemplates.push(data.templateId);
-        }
-      }
-    }
-
-    deleteJobs = deleteJobs.filter((item) => item != null);
-
-    await this.prisma.project.update({
-      where: {
-        id: projectId,
-      },
-      data: {
-        templateDeleteJobs: deleteJobs,
-      },
-    });
-
     let activeTemplates = [];
 
     const params = {
@@ -72,10 +27,7 @@ export class TemplateService {
       .get('/search/dsl', params)
       .then((res) => {
         activeTemplates = res.attributes.values
-          .filter(
-            (item) =>
-              item[0] === 'ACTIVE' && !deletingTemplates.includes(item[1]),
-          )
+          .filter((item) => item[0] === 'ACTIVE')
           .map((item) => {
             return {
               guid: item[1],
@@ -165,17 +117,7 @@ export class TemplateService {
   }
 
   async deleteTemplate(template: TemplateDto) {
-    const job = await this.queue.deleteTemplateJob(template);
-    await this.prisma.project.update({
-      where: {
-        id: template.projectId,
-      },
-      data: {
-        templateDeleteJobs: {
-          push: job.id.toString(),
-        },
-      },
-    });
+    return await this.queue.deleteTemplateJob(template);
   }
 
   async createTemplate(template: TemplateDto) {

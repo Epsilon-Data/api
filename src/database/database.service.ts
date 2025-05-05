@@ -20,13 +20,14 @@ export class DatabaseService {
     };
     const result = await this.atlas.get('/entity/guid/' + sourceId, params);
 
-    const request = await this.prisma.connectionRequest.findUnique({
-      where: { id: sourceId },
+    const request = await this.prisma.connection.findUnique({
+      where: { requestId: sourceId },
       select: {
-        temp_username: true,
-        temp_password: true,
+        tempDbDetails: true,
       },
     });
+
+    const tempDbDetails = JSON.parse(request.tempDbDetails as string);
 
     const dbDetails = {
       type: result.entity.attributes.rdbms_type,
@@ -35,8 +36,8 @@ export class DatabaseService {
           ? 'localhost'
           : result.entity.attributes.hostname,
       port: result.entity.attributes.port,
-      username: request.temp_username,
-      password: request.temp_password,
+      username: tempDbDetails.username,
+      password: tempDbDetails.password,
       database: result.entity.attributes.name,
     };
 

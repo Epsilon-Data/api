@@ -180,7 +180,7 @@ export class AtlasProcessor {
     await this.atlas.put('/entity/guid/' + archetypeId, '80', params);
 
     await this.prisma.project.update({
-      where: { id: projectId },
+      where: { projectId: projectId },
       data: { lastUpdated: new Date() },
     });
 
@@ -256,7 +256,7 @@ export class AtlasProcessor {
     await this.atlas.delete('/entity/guid/' + templateId);
     await this.prisma.project.update({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       data: {
         lastUpdated: new Date(),
@@ -454,7 +454,7 @@ export class AtlasProcessor {
 
     await this.prisma.project.update({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       data: {
         lastUpdated: new Date(),

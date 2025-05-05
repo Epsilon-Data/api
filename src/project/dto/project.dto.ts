@@ -1,23 +1,44 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,
   IsNotEmpty,
   IsString,
   IsUUID,
   IsDate,
-  ArrayNotEmpty,
+  IsOptional,
+  IsNumber,
+  IsNotEmptyObject,
+  IsObject,
+  ValidateNested,
 } from 'class-validator';
 
-export class AccessDto {
+class ConnectionDto {
+  @IsOptional()
+  @IsUUID()
+  requestId?: string;
+
+  @IsOptional()
+  @IsString()
+  orgAdminEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  tempDbDetails?: string;
+
+  @IsOptional()
+  @IsString()
+  additionalInfo?: string;
+}
+
+export class ProjectDto {
+  @IsOptional()
+  @IsUUID()
+  projectId: string;
+
   @IsDefined()
   @IsUUID()
   @IsNotEmpty()
-  id: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  customId: string;
+  ownerId: string;
 
   @IsDefined()
   @IsString()
@@ -27,72 +48,71 @@ export class AccessDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  accessPurpose: string;
-
-  @IsDefined()
-  @IsUUID()
-  @IsNotEmpty()
-  requestor: string;
+  lead: string;
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  requestorName: string;
+  university: string;
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  email: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  orgName: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  position: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  projectName: string;
-
-  @IsDefined()
-  @IsDate({ each: true })
-  @ArrayNotEmpty()
-  @Transform(({ value }) => value.map((item) => transformDateString(item)))
-  projectDuration: Date[];
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  projectBackground: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  projectObjective: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  projectHypotheses: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  projectOutcome: string;
-
-  @IsDefined()
-  @IsString({ each: true })
-  projectMembers: string[];
+  faculty: string;
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   ethicsId: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  startDate: Date;
+
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  endDate: Date;
+
+  @IsDefined()
+  @IsString({ each: true })
+  members: string[];
+
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  dbCollectionStartDate: Date;
+
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  dbCollectionEndDate: Date;
+
+  @IsDefined()
+  @IsNumber()
+  @IsNotEmpty()
+  @Transform(({ value }) => parseInt(value))
+  dbParticipantsNum: number;
+
+  @IsOptional()
+  @IsString()
+  dbDescription?: string;
+
+  @IsOptional()
+  @IsString({ each: true })
+  dbKeywords?: string[];
+
+  @IsDefined()
+  @IsNotEmptyObject()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ConnectionDto)
+  connection: ConnectionDto;
 }
 
 function transformDateString(value: any): Date {
