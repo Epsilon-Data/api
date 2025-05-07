@@ -40,6 +40,10 @@ export class ProjectDto {
   @IsNotEmpty()
   ownerId: string;
 
+  @IsOptional()
+  @IsString()
+  customId?: string;
+
   @IsDefined()
   @IsString()
   @IsNotEmpty()

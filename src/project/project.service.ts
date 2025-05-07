@@ -148,6 +148,45 @@ export class ProjectService {
     return project;
   }
 
+  async update(dto: ProjectDto) {
+    return await this.prisma.project.update({
+      where: { projectId: dto.projectId },
+      data: {
+        name: dto.name,
+        lead: dto.lead,
+        university: dto.university,
+        faculty: dto.faculty,
+        ethicsId: dto.ethicsId,
+        description: dto.description,
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        members: dto.members,
+        dbParticipantsNum: dto.dbParticipantsNum,
+        dbCollectionStartDate: dto.dbCollectionStartDate,
+        dbCollectionEndDate: dto.dbCollectionEndDate,
+        dbDescription: dto.dbDescription,
+        dbKeywords: dto.dbKeywords,
+        connection: {
+          update: {
+            tempDbDetails: dto.connection.tempDbDetails,
+          },
+        },
+      },
+    });
+  }
+
+  async delete(projectId: string) {
+    return await this.prisma.project.delete({
+      where: {
+        projectId: projectId,
+      },
+      include: {
+        connection: true,
+        analysis: true,
+      },
+    });
+  }
+
   async generateProjectCustomId(userId: string) {
     const MAX_ATTEMPTS = 10;
 
@@ -192,123 +231,6 @@ export class ProjectService {
   //     name: request.name,
   //     university: request.university,
   //   };
-  // }
-
-  // async createAnalysisRequest(details: AccessDto) {
-  //   await this.prisma.analysis.create({
-  //     data: {
-  //       request: {
-  //         create: {
-  //           requestorId: details.requestor,
-  //           status: 1,
-  //         },
-  //       },
-  //       project: {
-  //         connect: {
-  //           projectId: details.id,
-  //         },
-  //       },
-  //       accessPurpose: details.accessPurpose,
-  //       requestorName: details.requestorName,
-  //       requestorEmail: details.email,
-  //       requestorOrgName: details.orgName,
-  //       requestorPosition: details.position,
-  //       projectName: details.projectName,
-  //       projectStartDate: details.projectDuration[0],
-  //       projectEndDate: details.projectDuration[1],
-  //       projectBackground: details.projectBackground,
-  //       projectObjective: details.projectObjective,
-  //       projectHypotheses: details.projectHypotheses,
-  //       projectOutcome: details.projectOutcome,
-  //       projectMembers: details.projectMembers,
-  //       ethicsId: details.ethicsId,
-  //     },
-  //     include: {
-  //       request: true,
-  //     },
-  //   });
-  //   return details;
-  // }
-
-  // async edit(dto: ConnectionRequestDto) {
-  //   const request = await this.prisma.connection.findUnique({
-  //     where: {
-  //       requestId: dto.id,
-  //     },
-  //     include: {
-  //       project: true,
-  //     },
-  //   });
-
-  //   const projectUpdate = this.prisma.project.update({
-  //     where: { projectId: request.project.projectId },
-  //     data: {
-  //       name: dto.projectInfo.name,
-  //       lead: dto.projectInfo.lead,
-  //       university: dto.projectInfo.university,
-  //       faculty: dto.projectInfo.faculty,
-  //       ethicsId: dto.projectInfo.ethicsId,
-  //       description: dto.projectInfo.description,
-  //       startDate: dto.projectInfo.duration[0],
-  //       endDate: dto.projectInfo.duration[1],
-  //       members: dto.projectInfo.members,
-  //       additionalInfo: dto.additionalInfo,
-  //       dbParticipantsNum: dto.dataInfo.participantsNumber,
-  //       dbDescription: dto.dataInfo.description,
-  //       dbKeywords: dto.dataInfo.keywords,
-  //       dbCollectionStartDate: dto.dataInfo.collectionDuration[0],
-  //       dbCollectionEndDate: dto.dataInfo.collectionDuration[1],
-  //     },
-  //   });
-
-  //   let transactions = [];
-
-  //   if (request.orgAdminEmail == null) {
-  //     await this.atlas.delete('/entity/guid/' + request.atlasId);
-  //     await this.queue.dataBrokerJob(dto.requestor, dto.id, dto.databaseInfo);
-  //     transactions = [projectUpdate];
-  //   } else {
-  //     const orgAdminUpdate = this.prisma.connection.update({
-  //       where: { requestId: dto.id },
-  //       data: {
-  //         request: {
-  //           update: {
-  //             status: 1,
-  //           },
-  //         },
-  //         orgAdminEmail: dto.orgAdminEmail,
-  //       },
-  //     });
-  //     transactions = [projectUpdate, orgAdminUpdate];
-  //     //TODO: get boolean whether if email is a registered org admin
-  //   }
-
-  //   return await this.prisma.$transaction(transactions);
-  // }
-
-  // async delete(requestId: string) {
-  //   const request = await this.prisma.connection.findUnique({
-  //     where: {
-  //       requestId: requestId,
-  //     },
-  //     select: {
-  //       atlasId: true,
-  //     },
-  //   });
-
-  //   if (request.atlasId) {
-  //     await this.atlas.delete('/entity/guid/' + request.atlasId);
-  //   }
-
-  //   return await this.prisma.request.delete({
-  //     where: {
-  //       requestId: requestId,
-  //     },
-  //     include: {
-  //       connection: true,
-  //       comments: true,
-  //     },
-  //   });
   // }
 
   // async approve(userId: string, dto: DatabaseInfoDto, requestId: string) {
