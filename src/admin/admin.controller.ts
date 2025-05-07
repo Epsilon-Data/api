@@ -3,7 +3,9 @@ import { KeycloakService } from './keycloak/keycloak.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ConfigService } from '@nestjs/config';
 import { Credentials } from '@epsilon-data/keycloak-admin-client';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('admin')
 @Controller('admin')
 export class AdminController {
   credentials: Credentials;

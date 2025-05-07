@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ConnectionRequestModule } from './connection_request/connection_request.module';
@@ -12,7 +11,6 @@ import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
 import { ProjectModule } from './project/project.module';
 import { AnalysisRequestModule } from './analysis_request/analysis_request.module';
-import { DatasetModule } from './dataset/dataset.module';
 import { DataProcessingModule } from './data_processing/data_processing.module';
 import { DatabaseModule } from './database/database.module';
 import { StandardAnalysisModule } from './standard_analysis/standard_analysis.module';
@@ -70,7 +68,6 @@ import configuration from './config/configuration';
     }),
     ProjectModule,
     AnalysisRequestModule,
-    DatasetModule,
     DataProcessingModule,
     DatabaseModule,
     StandardAnalysisModule,

@@ -14,17 +14,25 @@ import { AnalysisRequestService } from './analysis_request.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { AnalysisDto } from './dto';
 import { Request } from 'express';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Analysis Request')
 @Controller('analysis-request')
 export class AnalysisRequestController {
   constructor(private analysisRequestService: AnalysisRequestService) {}
 
   @Get(':requestId')
+  @ApiOperation({
+    summary: 'Get analysis request details',
+  })
   async getDetails(@Param('requestId', ParseUUIDPipe) requestId: string) {
     return await this.analysisRequestService.getDetails(requestId);
   }
 
   @Get()
+  @ApiOperation({
+    summary: 'Get list of analysis requests',
+  })
   @UseGuards(new AuthGuard('api.hub.read'))
   async getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
@@ -32,16 +40,25 @@ export class AnalysisRequestController {
   }
 
   @Patch(':requestId')
+  @ApiOperation({
+    summary: 'Approve analysis request',
+  })
   approve(@Param('requestId', ParseUUIDPipe) requestId: string) {
     return this.analysisRequestService.approve(requestId);
   }
 
   @Put(':requestId')
+  @ApiOperation({
+    summary: 'Update analysis request',
+  })
   async update(@Body() dto: AnalysisDto) {
     return await this.analysisRequestService.update(dto);
   }
 
   @Delete(':requestId')
+  @ApiOperation({
+    summary: 'Delete analysis request',
+  })
   async delete(@Param('requestId', ParseUUIDPipe) requestId: string) {
     return await this.analysisRequestService.delete(requestId);
   }
