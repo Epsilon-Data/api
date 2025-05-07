@@ -54,23 +54,6 @@ export class DatasetService {
   //   return result;
   // }
 
-  // async analysisList(userRequestId: string) {
-  //   const requestList = await this.prisma.analysis.findMany({
-  //     where: {
-  //       userRequestId: userRequestId,
-  //     },
-  //     select: {
-  //       id: true,
-  //       name: true,
-  //       createdDate: true,
-  //       lastUpdated: true,
-  //       lastUpdatedUser: true,
-  //     },
-  //   });
-
-  //   return requestList;
-  // }
-
   async getColumns(userRequestId: string) {
     const request = await this.prisma.analysis.findUnique({
       where: {

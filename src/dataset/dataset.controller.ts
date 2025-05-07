@@ -19,13 +19,6 @@ export class DatasetController {
   //   return await this.datasetService.getDatasetsByUser(userId, false);
   // }
 
-  // @Get(':userRequestId')
-  // async analysisList(
-  //   @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
-  // ) {
-  //   return await this.datasetService.analysisList(userRequestId);
-  // }
-
   @Get('/columns/:userRequestId')
   async getColumns(
     @Param('userRequestId', ParseUUIDPipe) userRequestId: string,
