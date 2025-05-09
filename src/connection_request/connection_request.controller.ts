@@ -27,7 +27,6 @@ export class ConnectionRequestController {
   @UseGuards(new AuthGuard('api.hub.read'))
   getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
-
     return this.connectionRequestService.getList(userId);
   }
 
@@ -54,7 +53,11 @@ export class ConnectionRequestController {
   @ApiOperation({
     summary: 'Approve connection request',
   })
-  async approve(@Param('requestId') requestId: string) {
-    return await this.connectionRequestService.approve(requestId);
+  async approve(
+    @Req() request: Request,
+    @Param('requestId') requestId: string,
+  ) {
+    const userId = request.auth.payload.sub.toString();
+    return await this.connectionRequestService.approve(userId, requestId);
   }
 }

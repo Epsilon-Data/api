@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DatabaseInfoDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
+import { QueueService } from 'src/queue/queue.service';
 
 @Injectable()
 export class ConnectionRequestService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private queue: QueueService,
+  ) {}
 
   async getList(userId: string) {
     const requestList = await this.prisma.connection.findMany({
@@ -48,7 +52,8 @@ export class ConnectionRequestService {
     return await testConnection(connectionData);
   }
 
-  async approve(requestId: string) {
+  async approve(userId: string, requestId: string) {
+    // await this.queue.dataBrokerJob(userId, requestId);
     return await this.prisma.request.update({
       where: { requestId: requestId },
       data: {
