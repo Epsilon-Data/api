@@ -10,6 +10,7 @@ import {
   IsNotEmptyObject,
   IsObject,
   ValidateNested,
+  IsUrl,
 } from 'class-validator';
 
 class ConnectionDto {
@@ -117,6 +118,34 @@ export class ProjectDto {
   @ValidateNested()
   @Type(() => ConnectionDto)
   connection: ConnectionDto;
+}
+
+export class SettingsDto {
+  @IsDefined()
+  @IsUUID()
+  @IsNotEmpty()
+  projectId: string;
+
+  @IsOptional()
+  cover?: Buffer;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested({ each: true })
+  @Type(() => VisualDto)
+  visualizations?: VisualDto[];
+}
+
+class VisualDto {
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsDefined()
+  @IsUrl()
+  @IsNotEmpty()
+  link: string;
 }
 
 function transformDateString(value: any): Date {

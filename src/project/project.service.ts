@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ProjectDto } from './dto';
+import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 
 @Injectable()
@@ -187,6 +187,47 @@ export class ProjectService {
     });
   }
 
+  async getSettings(projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        visualizations: true,
+      },
+    });
+
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
+    let cover = null;
+
+    const exists = await this.fileStorage.fileExists(bucket, key);
+    if (exists) {
+      cover = await this.fileStorage.getFileUrl(bucket, key);
+    }
+
+    return {
+      projectId: projectId,
+      visualizations: project.visualizations,
+      cover: cover,
+    };
+  }
+
+  async updateSettings(dto: SettingsDto) {
+    await this.prisma.project.update({
+      where: {
+        projectId: dto.projectId,
+      },
+      data: {
+        visualizations: JSON.stringify(dto.visualizations),
+      },
+    });
+
+    const projectId = dto.projectId;
+    this.fileStorage.deleteFile('cover', `${projectId}`);
+    return projectId;
+  }
+
   async generateProjectCustomId(userId: string) {
     const MAX_ATTEMPTS = 10;
 
@@ -231,19 +272,5 @@ export class ProjectService {
   //     name: request.name,
   //     university: request.university,
   //   };
-  // }
-
-  // async approve(userId: string, dto: DatabaseInfoDto, requestId: string) {
-  //   await this.queue.dataBrokerJob(userId, requestId, dto);
-  // }
-
-  // async revision(dto: RevisionDto) {
-  //   //TODO: add comments rather than revision string
-  //   return await this.prisma.request.update({
-  //     where: { requestId: dto.requestId },
-  //     data: {
-  //       status: 2,
-  //     },
-  //   });
   // }
 }
