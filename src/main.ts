@@ -27,7 +27,11 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup(
+    `${configService.get<string>('apiBaseUrl')}/docs`,
+    app,
+    document,
+  );
 
   // start api service
   await app.listen(configService.get('apiPort'));
