@@ -78,6 +78,7 @@ model Project {
   dbDescription         String        @db.Text
   dbKeywords            String[]
   createdDate           DateTime      @default(now()) @db.Date
+  visualizations        Json?         @db.Json 
   status                ProjectStatus @default(CRAWLING)
   connection            Connection?
   analysis              Analysis[]

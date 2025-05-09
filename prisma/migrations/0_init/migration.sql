@@ -86,6 +86,7 @@ CREATE TABLE "Project" (
     "dbDescription" TEXT NOT NULL,
     "dbKeywords" TEXT[],
     "createdDate" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "visualizations" JSON,
     "status" "ProjectStatus" NOT NULL DEFAULT 'CRAWLING',
 
     CONSTRAINT "project_pkey" PRIMARY KEY ("projectId")
