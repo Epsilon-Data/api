@@ -23,7 +23,7 @@ export class NotificationService {
     }
   }
 
-  async getUserNotifications(userId: string) {
+  async getNotifications(userId: string) {
     try {
       const response = await axios.get(`${this.url}/user/${userId}`);
       return response.data;

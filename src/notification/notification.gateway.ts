@@ -34,7 +34,7 @@ export class NotificationGateway
 
   @SubscribeMessage('fetchNotifications')
   async handleFetchNotifications(client: Socket, payload: { userId: string }) {
-    const notifications = await this.notificationService.getUserNotifications(
+    const notifications = await this.notificationService.getNotifications(
       payload.userId,
     );
     client.emit('notificationsList', notifications);

@@ -3,9 +3,9 @@ import { KeycloakService } from './keycloak/keycloak.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ConfigService } from '@nestjs/config';
 import { Credentials } from '@epsilon-data/keycloak-admin-client';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('admin')
+@ApiTags('Keycloak Admin')
 @Controller('admin')
 export class AdminController {
   credentials: Credentials;
@@ -21,6 +21,7 @@ export class AdminController {
   }
 
   @Get('users')
+  @ApiOperation({ summary: 'Get all users' })
   @UseGuards(new AuthGuard('api.permissions.users.read'))
   async getUsers() {
     await this.keycloakService.init(this.credentials);
@@ -29,6 +30,7 @@ export class AdminController {
   }
 
   @Get('users/:id')
+  @ApiOperation({ summary: 'Get user by id' })
   @UseGuards(new AuthGuard('api.permissions.users.read'))
   async getUserById(@Param('id') id: string) {
     this.keycloakService.init(this.credentials);

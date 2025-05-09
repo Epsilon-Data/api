@@ -3,7 +3,7 @@ import { ChatService } from './chat.service';
 import { CommentDto } from './dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('Connection Request')
+@ApiTags('Chat')
 @Controller('chat')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
