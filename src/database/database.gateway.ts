@@ -13,14 +13,14 @@ import { Server, Socket } from 'socket.io';
 import { AtlasService } from 'src/atlas/atlas.service';
 
 @WebSocketGateway({ namespace: '/datasource', cors: { origin: true } })
-export class DatasourceGateway
+export class DatabaseGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   constructor(
     private readonly configService: ConfigService,
     private atlas: AtlasService,
   ) {}
-  private readonly logger = new Logger(DatasourceGateway.name);
+  private readonly logger = new Logger(DatabaseGateway.name);
 
   @WebSocketServer() server: Server;
 

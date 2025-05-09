@@ -4,7 +4,6 @@ import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
-import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 @Processor('atlas-queue')
@@ -13,7 +12,6 @@ export class AtlasProcessor {
     private readonly docker: DockerService,
     private readonly atlas: AtlasService,
     private prisma: PrismaService,
-    private dataProcess: DataProcessingService,
   ) {}
 
   @Process('process-add-archetype')
@@ -466,6 +464,5 @@ export class AtlasProcessor {
   async handleDataBrokerJob(job: Job) {
     const { ownerId, sourceId, database } = job.data;
     await this.docker.runDataBroker(ownerId, sourceId, database);
-    await this.dataProcess.dataSynthesis(sourceId);
   }
 }

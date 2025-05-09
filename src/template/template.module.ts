@@ -1,10 +1,10 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TemplateService } from './template.service';
 import { TemplateController } from './template.controller';
-import { DatasourceModule } from 'src/datasource/datasource.module';
+import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
-  imports: [forwardRef(() => DatasourceModule)],
+  imports: [forwardRef(() => DatabaseModule)],
   controllers: [TemplateController],
   providers: [TemplateService],
   exports: [TemplateService],

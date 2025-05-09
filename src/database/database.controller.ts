@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseFilePipe,
@@ -12,39 +11,31 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { DatasourceService } from './datasource.service';
+import { DatabaseService } from './database.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
 import { Request } from 'express';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@Controller('datasource')
-export class DatasourceController {
-  constructor(private databaseSourceService: DatasourceService) {}
-
-  // @Get()
-  // async list(@Req() request: Request) {
-  //   const userId = request.auth.payload.sub.toString();
-  //   return await this.databaseSourceService.list(userId);
-  // }
-
-  @Get(':projectId')
-  async getProjectDetails(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-  ) {
-    return await this.databaseSourceService.getProjectDetails(projectId);
-  }
+@ApiTags('Database')
+@Controller('database')
+export class DatabaseController {
+  constructor(private databaseSourceService: DatabaseService) {}
 
   @Get(':projectId/summary')
+  @ApiOperation({ summary: 'Get database summary' })
   async summary(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.databaseSourceService.summary(projectId);
   }
 
   @Get(':projectId/tables')
+  @ApiOperation({ summary: 'Get database tables' })
   async tables(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.databaseSourceService.tables(projectId);
   }
 
   @Get(':projectId/columns')
+  @ApiOperation({ summary: 'Get database columns' })
   async columns(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.databaseSourceService.columns(projectId);
   }
@@ -71,16 +62,6 @@ export class DatasourceController {
   ) {
     const result = this.databaseSourceService.uploadCover(projectId, file);
     return result;
-  }
-
-  // @Post('upload-vis')
-  // uploadVis(@Body() visualisations: { projectId: string; vis: string }) {
-  //   return this.databaseSourceService.uploadVis(visualisations);
-  // }
-
-  @Delete('delete-cover')
-  deleteCover(@Query('projectId', ParseUUIDPipe) projectId: string) {
-    return this.databaseSourceService.deleteCover(projectId);
   }
 
   @Post(':projectId/sync')

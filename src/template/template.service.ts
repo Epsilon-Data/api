@@ -1,6 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { DatasourceService } from 'src/datasource/datasource.service';
+import { DatabaseService } from 'src/database/database.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { TemplateDto } from './dto';
@@ -11,8 +11,8 @@ export class TemplateService {
     private prisma: PrismaService,
     private atlas: AtlasService,
     private readonly queue: QueueService,
-    @Inject(forwardRef(() => DatasourceService))
-    private databaseSource: DatasourceService,
+    @Inject(forwardRef(() => DatabaseService))
+    private databaseSource: DatabaseService,
   ) {}
 
   async templateNames(projectId: string) {
