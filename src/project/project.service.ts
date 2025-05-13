@@ -148,9 +148,9 @@ export class ProjectService {
     return project;
   }
 
-  async update(dto: ProjectDto) {
+  async update(projectId: string, dto: ProjectDto) {
     return await this.prisma.project.update({
-      where: { projectId: dto.projectId },
+      where: { projectId: projectId },
       data: {
         name: dto.name,
         lead: dto.lead,
@@ -213,17 +213,16 @@ export class ProjectService {
     };
   }
 
-  async updateSettings(dto: SettingsDto) {
+  async updateSettings(projectId: string, dto: SettingsDto) {
     await this.prisma.project.update({
       where: {
-        projectId: dto.projectId,
+        projectId: projectId,
       },
       data: {
         visualizations: JSON.stringify(dto.visualizations),
       },
     });
 
-    const projectId = dto.projectId;
     this.fileStorage.deleteFile('cover', `${projectId}`);
     return projectId;
   }

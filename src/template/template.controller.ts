@@ -34,7 +34,10 @@ export class TemplateController {
   }
 
   @Post(':projectId')
-  createTemplate(@Body() template: TemplateDto) {
-    return this.templateService.createTemplate(template);
+  createTemplate(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() template: TemplateDto,
+  ) {
+    return this.templateService.createTemplate(projectId, template);
   }
 }

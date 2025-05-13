@@ -120,8 +120,8 @@ export class TemplateService {
     return await this.queue.deleteTemplateJob(template);
   }
 
-  async createTemplate(template: TemplateDto) {
-    const dbId = await this.databaseSource.findDbId(template.projectId);
+  async createTemplate(projectId: string, template: TemplateDto) {
+    const dbId = await this.databaseSource.findDbId(projectId);
     await this.queue.addArchetypeJob(template, dbId);
   }
 }

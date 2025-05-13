@@ -50,8 +50,11 @@ export class ProjectController {
 
   @Put(':projectId')
   @ApiOperation({ summary: 'Edit project' })
-  update(@Body() dto: ProjectDto) {
-    return this.projectService.update(dto);
+  update(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: ProjectDto,
+  ) {
+    return this.projectService.update(projectId, dto);
   }
 
   @Delete(':projectId')
@@ -68,8 +71,11 @@ export class ProjectController {
 
   @Put(':projectId/settings')
   @ApiOperation({ summary: 'Update project settings' })
-  async updateSettings(@Body() dto: SettingsDto) {
-    return await this.projectService.updateSettings(dto);
+  async updateSettings(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: SettingsDto,
+  ) {
+    return await this.projectService.updateSettings(projectId, dto);
   }
 
   // @Get(':projectId/summary')
