@@ -174,113 +174,113 @@ export class DatabaseService {
     return output;
   }
 
-  async permissions(projectId: string) {
-    const activeTemplates = await this.template.templateNames(projectId);
+  // async permissions(projectId: string) {
+  //   const activeTemplates = await this.template.templateNames(projectId);
 
-    const output = [];
-    for (const template of activeTemplates) {
-      const templateGuid = template.guid;
+  //   const output = [];
+  //   for (const template of activeTemplates) {
+  //     const templateGuid = template.guid;
 
-      const templateInfo = {
-        templateId: templateGuid,
-        active: true,
-        settings: [
-          {
-            role: 'research',
-            access: [],
-          },
-          {
-            role: 'govOrg',
-            access: [],
-          },
-          {
-            role: 'others',
-            access: [],
-          },
-        ],
-      };
+  //     const templateInfo = {
+  //       templateId: templateGuid,
+  //       active: true,
+  //       settings: [
+  //         {
+  //           role: 'research',
+  //           access: [],
+  //         },
+  //         {
+  //           role: 'govOrg',
+  //           access: [],
+  //         },
+  //         {
+  //           role: 'others',
+  //           access: [],
+  //         },
+  //       ],
+  //     };
 
-      const templateEntity = await this.atlas.get(
-        `/entity/guid/${templateGuid}`,
-      );
+  //     const templateEntity = await this.atlas.get(
+  //       `/entity/guid/${templateGuid}`,
+  //     );
 
-      templateInfo.active = templateEntity.entity.attributes.is_active;
+  //     templateInfo.active = templateEntity.entity.attributes.is_active;
 
-      for (const key in templateEntity.referredEntities) {
-        const entity = templateEntity.referredEntities[key];
+  //     for (const key in templateEntity.referredEntities) {
+  //       const entity = templateEntity.referredEntities[key];
 
-        if (
-          entity.typeName.includes('archetype_') &&
-          entity.status === 'ACTIVE'
-        ) {
-          if (
-            entity.relationshipAttributes.permissions === undefined ||
-            entity.relationshipAttributes.permissions.length === 0
-          ) {
-            continue;
-          }
+  //       if (
+  //         entity.typeName.includes('archetype_') &&
+  //         entity.status === 'ACTIVE'
+  //       ) {
+  //         if (
+  //           entity.relationshipAttributes.permissions === undefined ||
+  //           entity.relationshipAttributes.permissions.length === 0
+  //         ) {
+  //           continue;
+  //         }
 
-          const splitted = entity.attributes.qualifiedName.split('@');
-          const node = {
-            nodeId: splitted[2],
-            nodeName: entity.attributes.name,
-            nodeType: entity.typeName.replace('archetype_', ''),
-            permissions: [],
-          };
+  //         const splitted = entity.attributes.qualifiedName.split('@');
+  //         const node = {
+  //           nodeId: splitted[2],
+  //           nodeName: entity.attributes.name,
+  //           nodeType: entity.typeName.replace('archetype_', ''),
+  //           permissions: [],
+  //         };
 
-          for (const permission of entity.relationshipAttributes.permissions) {
-            if (permission.relationshipStatus !== 'ACTIVE') {
-              continue;
-            }
+  //         for (const permission of entity.relationshipAttributes.permissions) {
+  //           if (permission.relationshipStatus !== 'ACTIVE') {
+  //             continue;
+  //           }
 
-            node.permissions.push(permission.displayText);
+  //           node.permissions.push(permission.displayText);
 
-            const permissionType = permission.qualifiedName.split('@')[1];
+  //           const permissionType = permission.qualifiedName.split('@')[1];
 
-            const settings = templateInfo.settings.find(
-              (setting: any) => setting.role === permissionType,
-            );
+  //           const settings = templateInfo.settings.find(
+  //             (setting: any) => setting.role === permissionType,
+  //           );
 
-            const isExist = settings.access.some(
-              (node) =>
-                node.nodeId == splitted[2] &&
-                node.nodeName == entity.attributes.name,
-            );
+  //           const isExist = settings.access.some(
+  //             (node) =>
+  //               node.nodeId == splitted[2] &&
+  //               node.nodeName == entity.attributes.name,
+  //           );
 
-            if (!isExist) {
-              settings.access.push(node);
-            } else {
-              const index = settings.access.findIndex(
-                (node) =>
-                  node.nodeId == splitted[2] &&
-                  node.nodeName == entity.attributes.displayName,
-              );
+  //           if (!isExist) {
+  //             settings.access.push(node);
+  //           } else {
+  //             const index = settings.access.findIndex(
+  //               (node) =>
+  //                 node.nodeId == splitted[2] &&
+  //                 node.nodeName == entity.attributes.displayName,
+  //             );
 
-              if (
-                !settings.access[index].permissions.includes(
-                  permission.displayText,
-                )
-              ) {
-                settings.access[index].permissions.push(permission.displayText);
-              }
-            }
+  //             if (
+  //               !settings.access[index].permissions.includes(
+  //                 permission.displayText,
+  //               )
+  //             ) {
+  //               settings.access[index].permissions.push(permission.displayText);
+  //             }
+  //           }
 
-            templateInfo.settings = templateInfo.settings.map((s: any) =>
-              s.role === permissionType ? settings : s,
-            );
-          }
-        }
-      }
+  //           templateInfo.settings = templateInfo.settings.map((s: any) =>
+  //             s.role === permissionType ? settings : s,
+  //           );
+  //         }
+  //       }
+  //     }
 
-      output.push(templateInfo);
-    }
+  //     output.push(templateInfo);
+  //   }
 
-    return output;
-  }
+  //   return output;
+  // }
 
-  async addPermissions(projectId: string, permissions: any) {
-    await this.queue.addPermissionsJob(permissions, projectId);
-  }
+  // async addPermissions(projectId: string, permissions: any) {
+  //   await this.queue.addPermissionsJob(permissions, projectId);
+  // }
 
   async uploadCover(projectId: string, file: Express.Multer.File) {
     await this.prisma.project.update({

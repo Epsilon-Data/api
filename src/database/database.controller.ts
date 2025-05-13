@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   Param,
@@ -40,18 +39,18 @@ export class DatabaseController {
     return await this.databaseSourceService.columns(projectId);
   }
 
-  @Get(':projectId/permissions')
-  async permissions(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.databaseSourceService.permissions(projectId);
-  }
+  // @Get(':projectId/permissions')
+  // async permissions(@Param('projectId', ParseUUIDPipe) projectId: string) {
+  //   return await this.databaseSourceService.permissions(projectId);
+  // }
 
-  @Post(':projectId/permissions')
-  addPermissions(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() permissions: any,
-  ) {
-    return this.databaseSourceService.addPermissions(projectId, permissions);
-  }
+  // @Post(':projectId/permissions')
+  // addPermissions(
+  //   @Param('projectId', ParseUUIDPipe) projectId: string,
+  //   @Body() permissions: any,
+  // ) {
+  //   return this.databaseSourceService.addPermissions(projectId, permissions);
+  // }
 
   @Post('upload-cover')
   @UseInterceptors(FileInterceptor('file', coverOptions))
