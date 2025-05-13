@@ -50,9 +50,9 @@ export class AnalysisRequestService {
     });
   }
 
-  async update(dto: AnalysisDto) {
+  async update(requestId: string, dto: AnalysisDto) {
     return await this.prisma.analysis.update({
-      where: { requestId: dto.requestId },
+      where: { requestId: requestId },
       data: {
         accessPurpose: dto.accessPurpose,
         requestorOrgName: dto.requestorOrgName,

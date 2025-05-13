@@ -51,8 +51,11 @@ export class AnalysisRequestController {
   @ApiOperation({
     summary: 'Update analysis request',
   })
-  async update(@Body() dto: AnalysisDto) {
-    return await this.analysisRequestService.update(dto);
+  async update(
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() dto: AnalysisDto,
+  ) {
+    return await this.analysisRequestService.update(requestId, dto);
   }
 
   @Delete(':requestId')

@@ -9,9 +9,8 @@ import {
 } from 'class-validator';
 
 export class AnalysisDto {
-  @IsDefined()
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
   requestId: string;
 
   @IsDefined()
