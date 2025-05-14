@@ -3,10 +3,10 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { DatabaseService } from 'src/database/database.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
-import { TemplateDto } from './dto';
+import { ArchetypeDto } from './dto';
 
 @Injectable()
-export class TemplateService {
+export class ArchetypeService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
@@ -116,11 +116,11 @@ export class TemplateService {
     return output;
   }
 
-  async deleteTemplate(template: TemplateDto) {
+  async deleteTemplate(template: ArchetypeDto) {
     return await this.queue.deleteTemplateJob(template);
   }
 
-  async createTemplate(projectId: string, template: TemplateDto) {
+  async createTemplate(projectId: string, template: ArchetypeDto) {
     const dbId = await this.databaseSource.findDbId(projectId);
     await this.queue.addArchetypeJob(template, dbId);
   }

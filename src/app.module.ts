@@ -14,7 +14,7 @@ import { AnalysisRequestModule } from './analysis_request/analysis_request.modul
 import { StandardAnalysisModule } from './standard_analysis/standard_analysis.module';
 import { FileStorageModule } from './file_storage/file_storage.module';
 import { QueueModule } from './queue/queue.module';
-import { TemplateModule } from './template/template.module';
+import { ArchetypeModule } from './archetype/archetype.module';
 import { NotificationModule } from './notification/notification.module';
 import { ChatModule } from './chat/chat.module';
 import configuration from './config/configuration';
@@ -69,7 +69,7 @@ import configuration from './config/configuration';
     StandardAnalysisModule,
     FileStorageModule,
     QueueModule,
-    TemplateModule,
+    ArchetypeModule,
     NotificationModule,
     ChatModule,
   ],

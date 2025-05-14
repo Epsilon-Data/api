@@ -6,7 +6,7 @@ import {
   IsUUID,
 } from 'class-validator';
 
-export class TemplateDto {
+export class ArchetypeDto {
   @IsDefined()
   @IsUUID()
   @IsNotEmpty()

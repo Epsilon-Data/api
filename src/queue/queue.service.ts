@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { TemplateDto } from 'src/template/dto';
+import { ArchetypeDto } from 'src/archetype/dto';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 @Injectable()
 export class QueueService {
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
-  async addArchetypeJob(template: TemplateDto, dbId: string) {
+  async addArchetypeJob(template: ArchetypeDto, dbId: string) {
     const parsedMapping = JSON.parse(template.columnMapping);
     const parsedTemplate = JSON.parse(template.template);
     const postData = {
@@ -23,7 +23,7 @@ export class QueueService {
     });
   }
 
-  async deleteTemplateJob(template: TemplateDto) {
+  async deleteTemplateJob(template: ArchetypeDto) {
     const postData = {
       templateId: template.templateId,
       projectId: template.projectId,

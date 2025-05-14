@@ -7,12 +7,12 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
-import { TemplateService } from './template.service';
-import { TemplateDto } from './dto';
+import { ArchetypeService } from './archetype.service';
+import { ArchetypeDto } from './dto';
 
 @Controller('template')
-export class TemplateController {
-  constructor(private readonly templateService: TemplateService) {}
+export class ArchetypeController {
+  constructor(private readonly templateService: ArchetypeService) {}
 
   @Get(':projectId/names')
   async templateNames(@Param('projectId', ParseUUIDPipe) projectId: string) {
@@ -29,14 +29,14 @@ export class TemplateController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('templateId', ParseUUIDPipe) templateId: string,
   ) {
-    const template = { projectId, templateId } as TemplateDto;
+    const template = { projectId, templateId } as ArchetypeDto;
     return await this.templateService.deleteTemplate(template);
   }
 
   @Post(':projectId')
   createTemplate(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() template: TemplateDto,
+    @Body() template: ArchetypeDto,
   ) {
     return this.templateService.createTemplate(projectId, template);
   }
