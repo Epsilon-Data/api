@@ -254,6 +254,20 @@ export class ProjectService {
     return null;
   }
 
+  async uploadCover(projectId: string, file: Express.Multer.File) {
+    await this.prisma.project.update({
+      where: {
+        projectId: projectId,
+      },
+      data: {
+        lastUpdated: new Date(),
+      },
+    });
+
+    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
+    return file.buffer;
+  }
+
   // async projectSummary(projectId: string) {
   //   const request = await this.prisma.project.findUnique({
   //     where: {

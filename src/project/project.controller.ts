@@ -8,11 +8,17 @@ import {
   ParseUUIDPipe,
   Put,
   Delete,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  Query,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { coverOptions } from 'src/options';
 
 @ApiTags('Project')
 @Controller('project')
@@ -76,6 +82,17 @@ export class ProjectController {
     @Body() dto: SettingsDto,
   ) {
     return await this.projectService.updateSettings(projectId, dto);
+  }
+
+  @Post('upload-cover')
+  @UseInterceptors(FileInterceptor('file', coverOptions))
+  async uploadCover(
+    @UploadedFile(new ParseFilePipe())
+    file: Express.Multer.File,
+    @Query('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    const result = this.projectService.uploadCover(projectId, file);
+    return result;
   }
 
   // @Get(':projectId/summary')

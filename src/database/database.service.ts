@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { QueueService } from 'src/queue/queue.service';
-import { TemplateService } from 'src/template/template.service';
+import { ArchetypeService } from 'src/archetype/archetype.service';
 
 @Injectable()
 export class DatabaseService {
@@ -12,8 +12,8 @@ export class DatabaseService {
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
     private readonly queue: QueueService,
-    @Inject(forwardRef(() => TemplateService))
-    private template: TemplateService,
+    @Inject(forwardRef(() => ArchetypeService))
+    private archetype: ArchetypeService,
   ) {}
 
   async summary(projectId: string) {
@@ -281,20 +281,6 @@ export class DatabaseService {
   // async addPermissions(projectId: string, permissions: any) {
   //   await this.queue.addPermissionsJob(permissions, projectId);
   // }
-
-  async uploadCover(projectId: string, file: Express.Multer.File) {
-    await this.prisma.project.update({
-      where: {
-        projectId: projectId,
-      },
-      data: {
-        lastUpdated: new Date(),
-      },
-    });
-
-    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
-    return file.buffer;
-  }
 
   async convertToDiagramCode(dbId: string): Promise<string> {
     const params = {

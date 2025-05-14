@@ -2,17 +2,12 @@ import {
   Controller,
   Get,
   Param,
-  ParseFilePipe,
   ParseUUIDPipe,
   Post,
-  Query,
   Req,
-  UploadedFile,
-  UseInterceptors,
 } from '@nestjs/common';
 import { DatabaseService } from './database.service';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { coverOptions } from 'src/options';
+
 import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -51,17 +46,6 @@ export class DatabaseController {
   // ) {
   //   return this.databaseSourceService.addPermissions(projectId, permissions);
   // }
-
-  @Post('upload-cover')
-  @UseInterceptors(FileInterceptor('file', coverOptions))
-  async uploadCover(
-    @UploadedFile(new ParseFilePipe())
-    file: Express.Multer.File,
-    @Query('projectId', ParseUUIDPipe) projectId: string,
-  ) {
-    const result = this.databaseSourceService.uploadCover(projectId, file);
-    return result;
-  }
 
   @Post(':projectId/sync')
   syncDatasource(
