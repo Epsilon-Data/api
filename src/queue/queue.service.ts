@@ -8,11 +8,11 @@ import { DatabaseInfoDto } from 'src/connection_request/dto';
 export class QueueService {
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
-  async addArchetypeJob(template: ArchetypeDto, dbId: string) {
-    const parsedMapping = JSON.parse(template.columnMapping);
-    const parsedTemplate = JSON.parse(template.template);
+  async addArchetypeJob(archetype: ArchetypeDto, dbId: string) {
+    const parsedMapping = JSON.parse(archetype.columnMapping);
+    const parsedTemplate = JSON.parse(archetype.archetype);
     const postData = {
-      projectId: template.projectId,
+      projectId: archetype.projectId,
       columnMapping: parsedMapping,
       template: parsedTemplate,
       dbId: dbId,
@@ -23,10 +23,10 @@ export class QueueService {
     });
   }
 
-  async deleteTemplateJob(template: ArchetypeDto) {
+  async deleteTemplateJob(archetype: ArchetypeDto) {
     const postData = {
-      templateId: template.templateId,
-      projectId: template.projectId,
+      templateId: archetype.archetypeId,
+      projectId: archetype.projectId,
     };
     return await this.atlasQueue.add('process-delete-archetype', postData, {
       attempts: 5,

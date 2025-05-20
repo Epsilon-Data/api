@@ -10,34 +10,34 @@ import {
 import { ArchetypeService } from './archetype.service';
 import { ArchetypeDto } from './dto';
 
-@Controller('template')
+@Controller('archetype')
 export class ArchetypeController {
   constructor(private readonly templateService: ArchetypeService) {}
 
   @Get(':projectId/names')
-  async templateNames(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.templateService.templateNames(projectId);
+  async archetypeNames(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.templateService.archetypeNames(projectId);
   }
 
   @Get(':projectId')
-  async templates(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.templateService.templates(projectId);
+  async archetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.templateService.archetypes(projectId);
   }
 
-  @Delete(':projectId/:templateId')
-  async deleteTemplate(
+  @Delete(':projectId/:archetypeId')
+  async deleteArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('templateId', ParseUUIDPipe) templateId: string,
+    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
   ) {
-    const template = { projectId, templateId } as ArchetypeDto;
-    return await this.templateService.deleteTemplate(template);
+    const template = { projectId, archetypeId } as ArchetypeDto;
+    return await this.templateService.deleteArchetype(template);
   }
 
   @Post(':projectId')
-  createTemplate(
+  createArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() template: ArchetypeDto,
   ) {
-    return this.templateService.createTemplate(projectId, template);
+    return this.templateService.createArchetype(projectId, template);
   }
 }

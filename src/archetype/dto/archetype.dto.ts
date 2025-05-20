@@ -14,7 +14,7 @@ export class ArchetypeDto {
 
   @IsOptional()
   @IsString()
-  template: string;
+  archetype: string;
 
   @IsOptional()
   @IsString()
@@ -22,5 +22,5 @@ export class ArchetypeDto {
 
   @IsOptional()
   @IsString()
-  templateId: string;
+  archetypeId: string;
 }

@@ -15,7 +15,7 @@ export class ArchetypeService {
     private databaseSource: DatabaseService,
   ) {}
 
-  async templateNames(projectId: string) {
+  async archetypeNames(projectId: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
 
     let activeTemplates = [];
@@ -43,8 +43,8 @@ export class ArchetypeService {
     return activeTemplates;
   }
 
-  async templates(projectId: string) {
-    const activeTemplates = await this.templateNames(projectId);
+  async archetypes(projectId: string) {
+    const activeTemplates = await this.archetypeNames(projectId);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -116,11 +116,11 @@ export class ArchetypeService {
     return output;
   }
 
-  async deleteTemplate(template: ArchetypeDto) {
+  async deleteArchetype(template: ArchetypeDto) {
     return await this.queue.deleteTemplateJob(template);
   }
 
-  async createTemplate(projectId: string, template: ArchetypeDto) {
+  async createArchetype(projectId: string, template: ArchetypeDto) {
     const dbId = await this.databaseSource.findDbId(projectId);
     await this.queue.addArchetypeJob(template, dbId);
   }
