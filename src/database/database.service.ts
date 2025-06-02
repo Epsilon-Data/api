@@ -21,7 +21,7 @@ export class DatabaseService {
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
     const schemaParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select __guid, __state`,

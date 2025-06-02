@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { KeycloakService } from './keycloak.service';
+import { KeycloakAdminService } from './keycloak.admin.service';
 
 describe('KeycloakService', () => {
-  let service: KeycloakService;
+  let service: KeycloakAdminService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [KeycloakService],
+      providers: [KeycloakAdminService],
     }).compile();
 
-    service = module.get<KeycloakService>(KeycloakService);
+    service = module.get<KeycloakAdminService>(KeycloakAdminService);
   });
 
   it('should be defined', () => {

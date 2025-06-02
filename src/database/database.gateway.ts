@@ -46,12 +46,16 @@ export class DatabaseGateway
     this.logger.log(`Client id:${client.id} disconnected`);
   }
 
-  async generateStatusList(output: any) {
+  async generateStatusList(output: any, token?: string) {
     if (!output.entities) return [];
 
     const modResult = await Promise.all(
       output.entities.map(async (entity) => {
-        const details = await this.atlas.get('/entity/guid/' + entity.guid);
+        const details = await this.atlas.get(
+          '/entity/guid/' + entity.guid,
+          undefined,
+          token,
+        );
 
         return {
           id: entity.guid,
@@ -66,13 +70,13 @@ export class DatabaseGateway
   }
 
   @SubscribeMessage('listenToDatabaseStatuses')
-  async listenToDatabaseStatuses(client: Socket) {
+  async listenToDatabaseStatuses(client: Socket, token?: string) {
     const interval = setInterval(async () => {
       let params = {
         query: 'from rdbms_instance where crawl_status = 1 or crawl_status = 2',
       };
 
-      let result = await this.atlas.get('/search/dsl', params);
+      let result = await this.atlas.get('/search/dsl', params, token);
 
       if (result.entities) {
         const modResult = await this.generateStatusList(result);
@@ -81,7 +85,7 @@ export class DatabaseGateway
         params = {
           query: 'from rdbms_instance where crawl_status = 3',
         };
-        result = await this.atlas.get('/search/dsl', params);
+        result = await this.atlas.get('/search/dsl', params, token);
 
         const modResult = await this.generateStatusList(result);
 

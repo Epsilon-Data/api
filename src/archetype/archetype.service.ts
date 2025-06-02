@@ -15,7 +15,7 @@ export class ArchetypeService {
     private databaseSource: DatabaseService,
   ) {}
 
-  async archetypeNames(projectId: string) {
+  async archetypeNames(projectId: string, token?: string) {
     const dbId = await this.databaseSource.findDbId(projectId);
 
     let activeTemplates = [];
@@ -43,7 +43,7 @@ export class ArchetypeService {
     return activeTemplates;
   }
 
-  async archetypes(projectId: string) {
+  async archetypes(projectId: string, token?: string) {
     const activeTemplates = await this.archetypeNames(projectId);
 
     const output = [];
@@ -60,6 +60,8 @@ export class ArchetypeService {
 
       const templateEntity = await this.atlas.get(
         `/entity/guid/${templateGuid}`,
+        undefined,
+        token,
       );
 
       for (const key in templateEntity.referredEntities) {

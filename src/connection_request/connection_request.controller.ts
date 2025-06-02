@@ -11,10 +11,13 @@ import {
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { ScopesGuard } from 'src/auth/scopes.guard';
+import { Resource } from 'src/auth/resource.decorator';
 import { Request } from 'express';
 import { DatabaseInfoDto } from './dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+// @Resource('Project')
 @ApiTags('Connection Request')
 @Controller('connection-request')
 export class ConnectionRequestController {

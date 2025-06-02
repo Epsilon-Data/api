@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CassandraService } from './cassandra.service';
+import { AtlasService } from './atlas.service';
 
-describe('CassandraService', () => {
-  let service: CassandraService;
+describe('AtlasService', () => {
+  let service: AtlasService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CassandraService],
+      providers: [AtlasService],
     }).compile();
 
-    service = module.get<CassandraService>(CassandraService);
+    service = module.get<AtlasService>(AtlasService);
   });
 
   it('should be defined', () => {

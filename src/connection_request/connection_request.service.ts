@@ -3,9 +3,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { DatabaseInfoDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { QueueService } from 'src/queue/queue.service';
+// import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+// import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+// import { ConfigService } from '@nestjs/config';
+// import { Credentials } from '@epsilon-data/keycloak-admin-client';
 
 @Injectable()
 export class ConnectionRequestService {
+  // credentials: Credentials;
   constructor(
     private prisma: PrismaService,
     private queue: QueueService,
