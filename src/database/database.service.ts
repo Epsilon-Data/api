@@ -16,7 +16,7 @@ export class DatabaseService {
     private archetype: ArchetypeService,
   ) {}
 
-  async summary(projectId: string) {
+  async summary(projectId: string, token?: string) {
     const dbId = await this.findDbId(projectId);
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
@@ -27,7 +27,11 @@ export class DatabaseService {
       query: `from rdbms_db where instance.__guid = "${dbId}" select __guid, __state`,
     };
 
-    const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+    const schemaResult = await this.atlas.get(
+      '/search/dsl',
+      schemaParams,
+      token,
+    );
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -41,7 +45,7 @@ export class DatabaseService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params);
+      const result = await this.atlas.get('/search/dsl', params, token);
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -65,13 +69,17 @@ export class DatabaseService {
     return { overall: overall, diagram: diagram };
   }
 
-  async tables(projectId: string) {
+  async tables(projectId: string, token?: string) {
     const dbId = await this.findDbId(projectId);
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
 
-    const tablesResult = await this.atlas.get('/search/dsl', tableParams);
+    const tablesResult = await this.atlas.get(
+      '/search/dsl',
+      tableParams,
+      token,
+    );
 
     let activeTables;
 
@@ -89,7 +97,11 @@ export class DatabaseService {
       const columnsParams = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const columnsResult = await this.atlas.get('/search/dsl', columnsParams);
+      const columnsResult = await this.atlas.get(
+        '/search/dsl',
+        columnsParams,
+        token,
+      );
 
       let activeColumns;
       if (columnsResult.entities) {
@@ -113,6 +125,7 @@ export class DatabaseService {
           const result = await this.atlas.get(
             '/entity/guid/' + column.guid,
             params,
+            token,
           );
 
           return {
@@ -137,13 +150,13 @@ export class DatabaseService {
     return resultArray;
   }
 
-  async columns(projectId: string) {
+  async columns(projectId: string, token?: string) {
     const dbId = await this.findDbId(projectId);
 
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -158,7 +171,7 @@ export class DatabaseService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params);
+      const result = await this.atlas.get('/search/dsl', params, token);
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -282,11 +295,11 @@ export class DatabaseService {
   //   await this.queue.addPermissionsJob(permissions, projectId);
   // }
 
-  async convertToDiagramCode(dbId: string): Promise<string> {
+  async convertToDiagramCode(dbId: string, token?: string): Promise<string> {
     const params = {
       ignoreRelationships: true,
     };
-    const result = await this.atlas.get('/entity/guid/' + dbId, params);
+    const result = await this.atlas.get('/entity/guid/' + dbId, params, token);
     if (result.entity.attributes.erd) {
       const diagramCode = result.entity.attributes.erd.replace(
         /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,

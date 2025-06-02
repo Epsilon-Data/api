@@ -24,7 +24,7 @@ export class ArchetypeService {
       query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
     };
     await this.atlas
-      .get('/search/dsl', params)
+      .get('/search/dsl', params, token)
       .then((res) => {
         activeTemplates = res.attributes.values
           .filter((item) => item[0] === 'ACTIVE')

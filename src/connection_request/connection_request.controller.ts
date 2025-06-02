@@ -10,12 +10,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { AuthGuard } from 'src/auth/auth.guard';
-import { ScopesGuard } from 'src/auth/scopes.guard';
-import { Resource } from 'src/auth/resource.decorator';
 import { Request } from 'express';
 import { DatabaseInfoDto } from './dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+
+// import { Scopes } from 'src/auth/scopes.decorator';
+// import { Resource } from 'src/auth/resource.decorator';
+// import { ResourceGuard } from 'src/auth/resource.guard';
+import { ScopesGuard } from 'src/auth/scopes.guard';
 
 // @Resource('Project')
 @ApiTags('Connection Request')
@@ -27,7 +29,7 @@ export class ConnectionRequestController {
   @ApiOperation({
     summary: 'Get list of connection requests',
   })
-  @UseGuards(new AuthGuard('api.hub.read'))
+  @UseGuards(new ScopesGuard('api.hub.read'))
   getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     return this.connectionRequestService.getList(userId);
@@ -37,7 +39,7 @@ export class ConnectionRequestController {
   @ApiOperation({
     summary: 'Test connection',
   })
-  @UseGuards(new AuthGuard('api.hub.read'))
+  @UseGuards(new ScopesGuard('api.hub.read'))
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {
       return await this.connectionRequestService.testConnection(databaseDto);

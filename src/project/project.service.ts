@@ -29,7 +29,7 @@ export class ProjectService {
     return projects;
   }
 
-  async getRequestList(projectId: string, email: string, token?: string) {
+  async getRequestList(projectId: string, email: string) {
     const requestList = { connection: [], analysis: [] };
     requestList.connection = await this.prisma.connection.findMany({
       where: {

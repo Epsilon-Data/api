@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { KeycloakAdminService } from './keycloak.admin.service';
 
-describe('KeycloakService', () => {
+describe('KeycloakAdminService', () => {
   let service: KeycloakAdminService;
 
   beforeEach(async () => {

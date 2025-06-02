@@ -27,9 +27,10 @@ export class AtlasService {
 
   async get(endpoint: string, params?: any, token?: string): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token && !this.basicAuth
-      ? this.createBearerAuthHeader(token)
-      : this.createBasicAuthHeader();
+    const authHeader =
+      token && !this.basicAuth
+        ? this.createBearerAuthHeader(token)
+        : this.createBasicAuthHeader();
 
     try {
       const response = await axios.get(url, {
@@ -50,9 +51,10 @@ export class AtlasService {
     token?: string,
   ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token && !this.basicAuth
-      ? this.createBearerAuthHeader(token)
-      : this.createBasicAuthHeader();
+    const authHeader =
+      token && !this.basicAuth
+        ? this.createBearerAuthHeader(token)
+        : this.createBasicAuthHeader();
 
     try {
       const response = await axios.post(url, body, {
@@ -73,9 +75,10 @@ export class AtlasService {
     token?: string,
   ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token && !this.basicAuth
-      ? this.createBearerAuthHeader(token)
-      : this.createBasicAuthHeader();
+    const authHeader =
+      token && !this.basicAuth
+        ? this.createBearerAuthHeader(token)
+        : this.createBasicAuthHeader();
     try {
       const response = await axios.put(url, body, {
         params,
@@ -93,9 +96,10 @@ export class AtlasService {
 
   async delete(endpoint: string, params?: any, token?: string): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
-    const authHeader = token && !this.basicAuth
-      ? this.createBearerAuthHeader(token)
-      : this.createBasicAuthHeader();
+    const authHeader =
+      token && !this.basicAuth
+        ? this.createBearerAuthHeader(token)
+        : this.createBasicAuthHeader();
 
     try {
       const response = await axios.delete(url, {
