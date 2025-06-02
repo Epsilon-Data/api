@@ -1,6 +1,6 @@
 import { ScopesGuard } from './scopes.guard';
 
-describe('AuthGuard', () => {
+describe('ScopesGuard', () => {
   it('should be defined', () => {
     expect(new ScopesGuard()).toBeDefined();
   });

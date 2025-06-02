@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis_request.service';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { ScopesGuard } from 'src/auth/scopes.guard';
 import { AnalysisDto } from './dto';
 import { Request } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
@@ -33,7 +33,7 @@ export class AnalysisRequestController {
   @ApiOperation({
     summary: 'Get list of analysis requests',
   })
-  @UseGuards(new AuthGuard('api.hub.read'))
+  @UseGuards(new ScopesGuard('api.hub.read'))
   async getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     return await this.analysisRequestService.getList(userId);
