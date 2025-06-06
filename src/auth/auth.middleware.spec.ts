@@ -8,6 +8,7 @@ const mockAuthConfig = {
   encryptionKey: 'string',
   trustedWebOrigins: ['string'],
   allowTokenAuth: true,
+  clientId: 'string',
 };
 
 describe('AuthMiddleware', () => {

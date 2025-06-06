@@ -48,6 +48,7 @@ export class DatabaseController {
   // }
 
   @Post(':projectId/sync')
+  @ApiOperation({ summary: 'Sync Database' })
   syncDatasource(
     @Req() request: Request,
     @Param('projectId', ParseUUIDPipe) projectId: string,

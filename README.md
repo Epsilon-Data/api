@@ -18,12 +18,12 @@ pnpm i # installs all dependent packages under node_modules
 
 ## Development
 
-1. Modify DATABASE_URL in .env to the pg_platform database url.
+1. Modify DATABASE_URL in .env to the pg_platform database url.s
 
 2. Apply prisma migrations:
 
 ```bash
-npx prisma migrate dev
+export DATABASE_URL="postgresql://epsilon_admin:supersecret@localhost:6543/epsilon" && npx prisma migrate dev
 ```
 
 Install all necessary prisma packages when prompted.
@@ -33,10 +33,13 @@ Install all necessary prisma packages when prompted.
 ```bash
 pnpm start:dev
 ```
+
 ### MinIO
+
 Access [MinIO Console](http://localhost:9002/) to manage the server in browser.
 
 ### Prisma
+
 To apply your own migrations:
 
 ```bash

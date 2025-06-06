@@ -26,7 +26,8 @@ export class ProjectController {
   constructor(private projectService: ProjectService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get list of projects' })
+  @ApiOperation({ summary: 'Get list of projects for logged in user' })
+  // TODO: this needs to get all projects that user is associated with (owner or collaborator)
   async getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     return await this.projectService.getList(userId);

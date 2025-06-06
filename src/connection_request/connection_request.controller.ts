@@ -7,7 +7,7 @@ import {
   Param,
   Post,
   Req,
-  UseGuards,
+  // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { Request } from 'express';
@@ -17,7 +17,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 // import { Scopes } from 'src/auth/scopes.decorator';
 // import { Resource } from 'src/auth/resource.decorator';
 // import { ResourceGuard } from 'src/auth/resource.guard';
-import { ScopesGuard } from 'src/auth/scopes.guard';
+// import { ScopesGuard } from 'src/common/guards/scopes.guard';
 
 // @Resource('Project')
 @ApiTags('Connection Request')
@@ -27,19 +27,18 @@ export class ConnectionRequestController {
 
   @Get()
   @ApiOperation({
-    summary: 'Get list of connection requests',
+    summary: 'Get list of logged in user connection requests',
   })
-  @UseGuards(new ScopesGuard('api.hub.read'))
   getList(@Req() request: Request) {
+    // TODO: use decorator for this
     const userId = request.auth.payload.sub.toString();
     return this.connectionRequestService.getList(userId);
   }
 
   @Post('test')
   @ApiOperation({
-    summary: 'Test connection',
+    summary: 'Test connection credentials',
   })
-  @UseGuards(new ScopesGuard('api.hub.read'))
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {
       return await this.connectionRequestService.testConnection(databaseDto);
@@ -54,6 +53,7 @@ export class ConnectionRequestController {
     }
   }
 
+  // TODO: protect with resource guard of projects + connect scope
   @Post(':requestId')
   @ApiOperation({
     summary: 'Approve connection request',

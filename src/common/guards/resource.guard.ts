@@ -6,13 +6,13 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
-import { KeycloakService } from './keycloak/keycloak.service';
-import { META_RESOURCE } from './resource.decorator';
-import { META_SCOPES } from 'nest-keycloak-connect';
+import { KeycloakService } from '../../auth/keycloak/keycloak.service';
+import { META_RESOURCE } from '../decorators/resource.decorator';
+import { META_SCOPES } from '../decorators/scopes.decorator';
 import {
   ConditionalScopeFn,
   META_CONDITIONAL_SCOPES,
-} from './scopes.decorator';
+} from '../decorators/scopes.decorator';
 
 @Injectable()
 export class ResourceGuard implements CanActivate {

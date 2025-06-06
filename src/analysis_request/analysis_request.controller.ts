@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis_request.service';
-import { ScopesGuard } from 'src/auth/scopes.guard';
+import { ScopesGuard } from 'src/common/guards/scopes.guard';
 import { AnalysisDto } from './dto';
 import { Request } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
