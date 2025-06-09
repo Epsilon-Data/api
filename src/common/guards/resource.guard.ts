@@ -13,6 +13,13 @@ import {
   ConditionalScopeFn,
   META_CONDITIONAL_SCOPES,
 } from '../decorators/scopes.decorator';
+import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
+type RouteParamMetadata = {
+  index: number;
+  data: any;
+  pipes: any[];
+  type: string;
+};
 
 @Injectable()
 export class ResourceGuard implements CanActivate {
@@ -39,43 +46,57 @@ export class ResourceGuard implements CanActivate {
     //   // },
     // };
 
+    // get context
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();
     const response = ctx.getResponse();
+
     // if is not an HTTP request ignore this guard
     if (!request) {
       return true;
     }
 
-    // get resource
+    // get resource meta
     const metaResource =
       this.reflector.get<string>(META_RESOURCE, context.getHandler()) ||
       this.reflector.get<string>(META_RESOURCE, context.getClass());
 
-    // get id
+    // get parameterName
+    const parameterName = (
+      Object.values(
+        this.reflector.get<RouteParamMetadata>(
+          ROUTE_ARGS_METADATA,
+          context.getHandler(),
+        ) || {},
+      ).find((p: RouteParamMetadata) => p.type === 'param') || {}
+    ).data;
+
     // TODO: make it more general so you can use either params or request body
-    const resource = request.params.id
-      ? `${metaResource} ${request.params.id}`
+    const resource = request.params[parameterName]
+      ? `${metaResource} ${request.params[parameterName]}`
       : metaResource;
 
-    //get scopes
+    // get explicit scopes
     const explicitScopes =
       this.reflector.get<string[]>(META_SCOPES, context.getHandler()) ?? [];
+
+    // get conditional scopes
     const conditionalScopes = this.reflector.get<ConditionalScopeFn>(
       META_CONDITIONAL_SCOPES,
       context.getHandler(),
     );
-    // Build the required scopes
     const conditionalScopesResult =
       conditionalScopes != null || conditionalScopes != undefined
         ? conditionalScopes(request, request.auth.token)
         : [];
 
+    // combine scopes
     const scopes = [...explicitScopes, ...conditionalScopesResult];
 
     // Attach resolved scopes
     request.scopes = [scopes];
 
+    // build permissions object
     const permission = {
       id: resource,
       scopes: scopes,

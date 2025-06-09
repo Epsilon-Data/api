@@ -103,6 +103,7 @@ export class AdminModule {
           });
           // init keycloak admin client
           await kcAdminClient.auth(credentials);
+          setInterval(() => kcAdminClient.auth(credentials), 58 * 1000);
           return kcAdminClient;
         },
         inject: [ADMIN_CONFIG],

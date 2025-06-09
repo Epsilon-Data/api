@@ -12,6 +12,7 @@ import {
   UploadedFile,
   ParseFilePipe,
   Query,
+  // UseGuards,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { ProjectDto, SettingsDto } from './dto';
@@ -19,6 +20,10 @@ import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
+
+// import { Resource } from 'src/common/decorators/resource.decorator';
+// import { Scopes } from 'src/common/decorators/scopes.decorator';
+// import { ResourceGuard } from 'src/common/guards/resource.guard';
 
 @ApiTags('Project')
 @Controller('project')
@@ -32,7 +37,10 @@ export class ProjectController {
     const userId = request.auth.payload.sub.toString();
     return await this.projectService.getList(userId);
   }
-
+  // NOTE: example usage of resource guard
+  // @Resource('Project')
+  // @UseGuards(ResourceGuard)
+  // @Scopes('view,edit')
   @Get(':projectId/requests')
   @ApiOperation({ summary: 'Get list of incoming requests' })
   async getRequestList(

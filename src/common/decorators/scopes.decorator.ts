@@ -23,16 +23,15 @@ export const Scopes = (...scopes: string[]) => SetMetadata(META_SCOPES, scopes);
 export const ConditionalScopes = (resolver: ConditionalScopeFn) =>
   SetMetadata(META_CONDITIONAL_SCOPES, resolver);
 
-// import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-// import { extractRequest } from '../internal.util';
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
-// /**
-//  * Retrieves the resolved scopes.
-//  * @since 1.5.0
-//  */
-// export const ResolvedScopes = createParamDecorator(
-//   (data: unknown, ctx: ExecutionContext) => {
-//     const [req] = extractRequest(ctx);
-//     return req.scopes;
-//   },
-// );
+/**
+ * Retrieves the resolved scopes.
+ * @since 1.5.0
+ */
+export const ResolvedScopes = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const req = ctx.switchToHttp().getRequest();
+    return req.scopes;
+  },
+);
