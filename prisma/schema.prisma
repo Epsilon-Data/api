@@ -59,29 +59,26 @@ model Analysis {
 }
 
 model Project {
-  projectId             String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
-  ownerId               String        @db.Uuid
-  customId              String        @db.VarChar(6)
-  name                  String        @db.Text
-  lead                  String        @db.Text
-  university            String        @db.Text
-  faculty               String        @db.Text
-  ethicsId              String        @db.Text
-  description           String        @db.Text
-  startDate             DateTime      @db.Date
-  endDate               DateTime      @db.Date
-  members               String[]
-  lastUpdated           DateTime      @default(now()) @db.Timestamp(6)
-  dbCollectionStartDate DateTime      @db.Date
-  dbCollectionEndDate   DateTime      @db.Date
-  dbParticipantsNum     Int           @db.SmallInt
-  dbDescription         String        @db.Text
-  dbKeywords            String[]
-  createdDate           DateTime      @default(now()) @db.Date
-  visualizations        Json?         @db.Json 
-  status                ProjectStatus @default(CRAWLING)
-  connection            Connection?
-  analysis              Analysis[]
+  projectId       String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
+  ownerId         String        @db.Uuid
+  customId        String        @db.VarChar(6)
+  name            String        @db.Text
+  lead            String        @db.Text
+  university      String        @db.Text
+  faculty         String        @db.Text
+  ethicsId        String        @db.Text
+  description     String        @db.Text
+  startDate       DateTime      @db.Date
+  endDate         DateTime      @db.Date
+  members         String[]
+  lastModified    DateTime      @default(now()) @db.Timestamp(6)
+  participantsNum Int           @db.SmallInt
+  dbKeywords      String[]
+  createdDate     DateTime      @default(now()) @db.Date
+  visualizations  Json?         @db.Json
+  status          ProjectStatus @default(CRAWLING)
+  connection      Connection?
+  analysis        Analysis[]
 
   @@unique([ownerId, customId])
 }

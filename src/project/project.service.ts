@@ -3,13 +3,14 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
-
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 @Injectable()
 export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
+    private keycloak: KeycloakAdminService,
   ) {}
 
   async getList(userId: string) {
@@ -21,8 +22,11 @@ export class ProjectService {
         projectId: true,
         customId: true,
         name: true,
+        lastModified: true,
         createdDate: true,
         status: true,
+        university: true,
+        faculty: true,
       },
     });
 
@@ -85,10 +89,7 @@ export class ProjectService {
       startDate: dto.startDate,
       endDate: dto.endDate,
       members: dto.members,
-      dbCollectionStartDate: dto.dbCollectionStartDate,
-      dbCollectionEndDate: dto.dbCollectionEndDate,
-      dbParticipantsNum: dto.dbParticipantsNum,
-      dbDescription: dto.dbDescription,
+      participantsNum: dto.participantsNum,
       dbKeywords: dto.dbKeywords,
       connection: {
         create: {
@@ -161,10 +162,7 @@ export class ProjectService {
         startDate: dto.startDate,
         endDate: dto.endDate,
         members: dto.members,
-        dbParticipantsNum: dto.dbParticipantsNum,
-        dbCollectionStartDate: dto.dbCollectionStartDate,
-        dbCollectionEndDate: dto.dbCollectionEndDate,
-        dbDescription: dto.dbDescription,
+        participantsNum: dto.participantsNum,
         dbKeywords: dto.dbKeywords,
         connection: {
           update: {
@@ -260,7 +258,7 @@ export class ProjectService {
         projectId: projectId,
       },
       data: {
-        lastUpdated: new Date(),
+        lastModified: new Date(),
       },
     });
 

@@ -179,7 +179,7 @@ export class AtlasProcessor {
 
     await this.prisma.project.update({
       where: { projectId: projectId },
-      data: { lastUpdated: new Date() },
+      data: { lastModified: new Date() },
     });
 
     const tableParams = {
@@ -260,7 +260,7 @@ export class AtlasProcessor {
         projectId: projectId,
       },
       data: {
-        lastUpdated: new Date(),
+        lastModified: new Date(),
       },
     });
   }
@@ -479,7 +479,7 @@ export class AtlasProcessor {
         projectId: projectId,
       },
       data: {
-        lastUpdated: new Date(),
+        lastModified: new Date(),
       },
     });
   }

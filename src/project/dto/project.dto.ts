@@ -89,24 +89,10 @@ export class ProjectDto {
   members: string[];
 
   @IsDefined()
-  @IsDate()
-  @Transform(({ value }) => transformDateString(value))
-  dbCollectionStartDate: Date;
-
-  @IsDefined()
-  @IsDate()
-  @Transform(({ value }) => transformDateString(value))
-  dbCollectionEndDate: Date;
-
-  @IsDefined()
   @IsNumber()
   @IsNotEmpty()
   @Transform(({ value }) => parseInt(value))
-  dbParticipantsNum: number;
-
-  @IsOptional()
-  @IsString()
-  dbDescription?: string;
+  participantsNum: number;
 
   @IsOptional()
   @IsString({ each: true })
