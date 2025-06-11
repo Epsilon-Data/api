@@ -3,17 +3,15 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 @Injectable()
 export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
-    private keycloak: KeycloakAdminService,
   ) {}
 
-  async getList(userId: string) {
+  async getUserProjects(userId: string) {
     const projects = await this.prisma.project.findMany({
       where: {
         ownerId: userId,
@@ -33,7 +31,22 @@ export class ProjectService {
     return projects;
   }
 
-  async getRequestList(projectId: string, email: string) {
+  async getAllProjects() {
+    return await this.prisma.project.findMany({
+      select: {
+        projectId: true,
+        customId: true,
+        name: true,
+        lastModified: true,
+        createdDate: true,
+        status: true,
+        university: true,
+        faculty: true,
+      },
+    });
+  }
+
+  async getProjectRequests(projectId: string, email: string) {
     const requestList = { connection: [], analysis: [] };
     requestList.connection = await this.prisma.connection.findMany({
       where: {
@@ -75,7 +88,7 @@ export class ProjectService {
     return requestList;
   }
 
-  async create(dto: ProjectDto) {
+  async createProject(dto: ProjectDto) {
     const customId = await this.generateProjectCustomId(dto.ownerId);
     const request = {
       ownerId: dto.ownerId,
@@ -130,7 +143,7 @@ export class ProjectService {
     return project;
   }
 
-  async getDetails(projectId: string) {
+  async getProjectDetails(projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: {
         projectId: projectId,
@@ -151,7 +164,7 @@ export class ProjectService {
     return project;
   }
 
-  async update(projectId: string, dto: ProjectDto) {
+  async updateProject(projectId: string, dto: ProjectDto) {
     return await this.prisma.project.update({
       where: { projectId: projectId },
       data: {
@@ -175,7 +188,7 @@ export class ProjectService {
     });
   }
 
-  async delete(projectId: string) {
+  async deleteProject(projectId: string) {
     return await this.prisma.project.delete({
       where: {
         projectId: projectId,
@@ -187,7 +200,7 @@ export class ProjectService {
     });
   }
 
-  async getSettings(projectId: string) {
+  async getProjectSettings(projectId: string) {
     const project = await this.prisma.project.findUnique({
       where: {
         projectId: projectId,
@@ -213,7 +226,7 @@ export class ProjectService {
     };
   }
 
-  async updateSettings(projectId: string, dto: SettingsDto) {
+  async updateProjectSettings(projectId: string, dto: SettingsDto) {
     await this.prisma.project.update({
       where: {
         projectId: projectId,
@@ -254,7 +267,7 @@ export class ProjectService {
     return null;
   }
 
-  async uploadCover(projectId: string, file: Express.Multer.File) {
+  async uploadProjectCover(projectId: string, file: Express.Multer.File) {
     await this.prisma.project.update({
       where: {
         projectId: projectId,

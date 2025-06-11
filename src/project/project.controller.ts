@@ -33,74 +33,85 @@ export class ProjectController {
   @Get()
   @ApiOperation({ summary: 'Get list of projects for logged in user' })
   // TODO: this needs to get all projects that user is associated with (owner or collaborator)
-  async getList(@Req() request: Request) {
+  async getUserProjects(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
-    return await this.projectService.getList(userId);
+    return await this.projectService.getUserProjects(userId);
   }
+
+  @Get('all')
+  @ApiOperation({ summary: 'Get list of all projects' })
+  async getAllProjects() {
+    return await this.projectService.getAllProjects();
+  }
+
   // NOTE: example usage of resource guard
   // @Resource('Project')
   // @UseGuards(ResourceGuard)
   // @Scopes('view,edit')
   @Get(':projectId/requests')
   @ApiOperation({ summary: 'Get list of incoming requests' })
-  async getRequestList(
+  async getProjectRequests(
     @Req() request: Request,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     const email = request.auth.payload.email.toString();
-    return await this.projectService.getRequestList(projectId, email);
+    return await this.projectService.getProjectRequests(projectId, email);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create project' })
-  create(@Body() dto: ProjectDto) {
-    return this.projectService.create(dto);
+  createProject(@Body() dto: ProjectDto) {
+    return this.projectService.createProject(dto);
   }
 
   @Get(':projectId')
   @ApiOperation({ summary: 'Get project details' })
-  async getDetails(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.projectService.getDetails(projectId);
+  async getProjectDetails(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.projectService.getProjectDetails(projectId);
   }
 
   @Put(':projectId')
   @ApiOperation({ summary: 'Edit project' })
-  update(
+  updateProject(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: ProjectDto,
   ) {
-    return this.projectService.update(projectId, dto);
+    return this.projectService.updateProject(projectId, dto);
   }
 
   @Delete(':projectId')
   @ApiOperation({ summary: 'Delete project' })
-  delete(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return this.projectService.delete(projectId);
+  deleteProject(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return this.projectService.deleteProject(projectId);
   }
 
   @Get(':projectId/settings')
   @ApiOperation({ summary: 'Get project settings' })
-  async getSettings(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.projectService.getSettings(projectId);
+  async getProjectSettings(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.projectService.getProjectSettings(projectId);
   }
 
   @Put(':projectId/settings')
   @ApiOperation({ summary: 'Update project settings' })
-  async updateSettings(
+  async updateProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: SettingsDto,
   ) {
-    return await this.projectService.updateSettings(projectId, dto);
+    return await this.projectService.updateProjectSettings(projectId, dto);
   }
 
   @Post('upload-cover')
   @UseInterceptors(FileInterceptor('file', coverOptions))
-  async uploadCover(
+  async uploadProjectCover(
     @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,
     @Query('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    const result = this.projectService.uploadCover(projectId, file);
+    const result = this.projectService.uploadProjectCover(projectId, file);
     return result;
   }
 
