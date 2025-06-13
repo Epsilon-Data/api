@@ -3,18 +3,44 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 @Injectable()
 export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
+    private keycloak: KeycloakAdminService,
   ) {}
 
-  async getUserProjects(userId: string) {
+  async getUserOwnedProjects(userId: string) {
     const projects = await this.prisma.project.findMany({
       where: {
         ownerId: userId,
+      },
+      select: {
+        projectId: true,
+        customId: true,
+        name: true,
+        lastModified: true,
+        createdDate: true,
+        status: true,
+        university: true,
+        faculty: true,
+      },
+    });
+
+    return projects;
+  }
+
+  async getUserProjects(permissions: any) {
+    const uuids = permissions.map((item) => item.rsname.split(':')[1]);
+    console.log(uuids);
+    const projects = await this.prisma.project.findMany({
+      where: {
+        projectId: {
+          in: uuids, // find all projects associated
+        },
       },
       select: {
         projectId: true,
@@ -128,7 +154,7 @@ export class ProjectService {
       },
     });
     // NOTE: example of add resource and permissions
-    // this.keycloak.newResource(project.projectId, 'test_user', project.members);
+    this.keycloak.newResource(project.projectId, 'test_user', project.members);
 
     if (dto.connection.additionalInfo) {
       await this.prisma.comment.create({

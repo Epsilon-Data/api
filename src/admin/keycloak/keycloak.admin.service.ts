@@ -23,7 +23,7 @@ export type UserQueryParams = {
   readonly username?: string;
 };
 
-const resourcePrefix = 'Project ';
+const resourcePrefix = 'project:';
 const projectScopes = [
   {
     name: 'view',

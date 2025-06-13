@@ -20,6 +20,7 @@ import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/options';
+import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 
 // import { Resource } from 'src/common/decorators/resource.decorator';
 // import { Scopes } from 'src/common/decorators/scopes.decorator';
@@ -28,14 +29,31 @@ import { coverOptions } from 'src/options';
 @ApiTags('Project')
 @Controller('project')
 export class ProjectController {
-  constructor(private projectService: ProjectService) {}
+  constructor(
+    private projectService: ProjectService,
+    private keycloakConnect: KeycloakService,
+  ) {}
 
-  @Get()
-  @ApiOperation({ summary: 'Get list of projects for logged in user' })
-  // TODO: this needs to get all projects that user is associated with (owner or collaborator)
-  async getUserProjects(@Req() request: Request) {
+  @Get('me')
+  @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
+  async getUserOwnedProjects(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
-    return await this.projectService.getUserProjects(userId);
+    return await this.projectService.getUserOwnedProjects(userId);
+  }
+
+  @Get('')
+  @ApiOperation({ summary: 'Get list of all projects for logged in user' })
+  async getUserProjects(@Req() request: Request) {
+    // check for user resorce permissions
+    // TODO: perhaps call this once and cache
+    const authzRequest = {
+      response_mode: 'permissions',
+    };
+    const permissions = await this.keycloakConnect.checkPermission(
+      authzRequest,
+      request,
+    );
+    return await this.projectService.getUserProjects(permissions);
   }
 
   @Get('all')
