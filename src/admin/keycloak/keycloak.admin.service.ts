@@ -486,7 +486,7 @@ export class KeycloakAdminService {
     await collaborators.map(async (email) => {
       const users = await this.checkUser({ email });
       if (!users.length) {
-        // TODO: add realmroles to user
+        // TODO: add realm roles to user
         const user = await this.createUser({
           username: email,
           email,
@@ -579,6 +579,36 @@ export class KeycloakAdminService {
       this.logger.error('Error in createPermission', error);
     }
   }
+
+  async getAccessToken(
+    clientId: string,
+    clientSecret: string,
+  ): Promise<{
+    access_token: string;
+    expires_in?: number;
+  }> {
+    try {
+      const { issuerBaseURL, realm } = this.config;
+
+      await this.kcAdminClient.setConfig({
+        baseUrl: issuerBaseURL,
+        realmName: realm,
+      });
+
+      await this.kcAdminClient.auth({
+        grantType: 'client_credentials',
+        clientId,
+        clientSecret,
+      });
+
+      const token = await this.kcAdminClient.getAccessToken();
+      return { access_token: token };
+    } catch (error) {
+      this.logger.error('Error getting access token', error);
+      throw error;
+    }
+  }
+
   //FIXME: not working properly
   async deleteResource(id: string) {
     this.logger.debug('Deleting resource', id);

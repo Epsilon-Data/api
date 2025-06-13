@@ -1,12 +1,18 @@
 const { env } = process;
 
+const trustedWebOrigins = () =>
+  (
+    env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN ||
+    'http://localhost:3000,http://localhost:3334'
+  )
+    .split(',')
+    .map((origin) => origin.trim());
+
 export default () => ({
   apiBaseUrl: env.API_BASE_URL || '/api/v1/hub',
   apiPort: parseInt(env.API_SERVICE_PORT) || 3334,
   auth: {
-    trustedWebOrigins: [
-      env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://localhost:3000',
-    ],
+    trustedWebOrigins: trustedWebOrigins(),
     issuerBaseURL:
       env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/EPSILON',
     // TODO: check changing for client-id

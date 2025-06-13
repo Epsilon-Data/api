@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { KeycloakAdminService } from './keycloak/keycloak.admin.service';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
@@ -22,5 +22,14 @@ export class AdminController {
   async getUserById(@Param('id') id: string) {
     // TODO: need some proper error handling here
     return this.keycloakService.getUserById(id);
+  }
+
+  @Get('access-token')
+  @ApiOperation({ summary: 'Get access token' })
+  async getAccessToken(
+    @Query('clientId') clientId: string,
+    @Query('clientSecret') clientSecret: string,
+  ) {
+    return this.keycloakService.getAccessToken(clientId, clientSecret);
   }
 }
