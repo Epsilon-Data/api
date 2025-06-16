@@ -12,7 +12,7 @@ export class ProjectService {
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
-    private keycloak: KeycloakAdminService,
+    private readonly keycloak: KeycloakAdminService,
   ) {}
 
   async getUserOwnedProjects(userId: string) {
@@ -31,7 +31,6 @@ export class ProjectService {
         faculty: true,
       },
     });
-
     return projects;
   }
 

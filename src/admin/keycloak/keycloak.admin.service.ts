@@ -14,6 +14,7 @@ import {
 } from '../config.interface';
 
 import { ConfigService } from '@nestjs/config';
+import { LoginDto } from 'src/analysis/dto';
 
 export type UserQueryParams = {
   readonly email?: string;
@@ -583,26 +584,16 @@ export class KeycloakAdminService {
     }
   }
 
-  async getAccessToken(
-    username: string,
-    password: string,
-  ): Promise<{
+  async getAccessToken(login: LoginDto): Promise<{
     access_token: string;
     expires_in?: number;
   }> {
     try {
-      const { issuerBaseURL, realm } = this.config;
-      await this.kcAdminClient.setConfig({
-        baseUrl: issuerBaseURL,
-        realmName: realm,
-      });
-
       await this.kcAdminClient.auth({
         grantType: 'password',
         clientId: this.configService.get<string>('sdk.clientId'),
-        clientSecret: this.configService.get<string>('sdk.clientSecret'),
-        username,
-        password,
+        username: login.username,
+        password: login.password,
       });
 
       const token = await this.kcAdminClient.getAccessToken();
