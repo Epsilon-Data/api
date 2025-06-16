@@ -40,6 +40,11 @@ export default () => ({
       env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://localhost:3000',
     ],
   },
+  sdk: {
+    clientId: env.EPSILON_SDK_CLIENT_ID || 'sdk-client',
+    clientSecret:
+      env.EPSILON_SDK_CLIENT_SECRET || '6nHzYqIlwcQDqDc2TuJtilucZxAH3O6N',
+  },
   atlas: {
     uri: env.ATLAS_URI || 'http://localhost:21000',
     adminPassword: env.ATLAS_ADMIN_PASSWORD || 'secret',

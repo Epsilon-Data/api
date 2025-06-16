@@ -30,6 +30,7 @@ import { AuthConfigService } from './config/auth.config.service';
 // } from 'nest-keycloak-connect';
 // import { KeycloakConfigService } from './config/keycloak-config.service';
 // import { KeycloakModule } from './config/keycloak.module';
+import { AnalysisModule } from './analysis/analysis.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AuthConfigService } from './config/auth.config.service';
     ArchetypeModule,
     NotificationModule,
     ChatModule,
+    AnalysisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
