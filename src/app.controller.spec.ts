@@ -14,8 +14,8 @@ describe('AppController', () => {
 
   describe('health', () => {
     it('should return {"status":"OK","title":"Epsilon API Hub"}', () => {
-      expect(appController.getHealth()).toBe(
-        '{"status":"OK","title":"Epsilon API Hub"}',
+      expect(appController.getHealth()).toStrictEqual(
+        JSON.parse('{"status":"OK","title":"Epsilon API Hub"}'),
       );
     });
   });
