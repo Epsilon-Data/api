@@ -13,7 +13,7 @@ export class AuthConfigService implements AuthModuleConfigFactory {
         env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://localhost:3000',
       ],
       issuerBaseURL:
-        env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/EPSILON',
+        env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/epsilon',
       // TODO: check changing for client-id
       audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
       scopePrefix: env.EPSILON_AUTH_SCOPE_PREFIX || 'api.test',

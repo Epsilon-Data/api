@@ -14,7 +14,7 @@ export default () => ({
   auth: {
     trustedWebOrigins: trustedWebOrigins(),
     issuerBaseURL:
-      env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/EPSILON',
+      env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/epsilon',
     // TODO: check changing for client-id
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
     scopePrefix: env.EPSILON_AUTH_SCOPE_PREFIX || 'api.test',
@@ -26,7 +26,7 @@ export default () => ({
   },
   admin: {
     issuerBaseURL: env.EPSILON_AUTH_ISSUER_BASE_URL || 'http://localhost:8080',
-    realm: env.EPSILON_AUTH_REALM || 'EPSILON',
+    realm: env.EPSILON_AUTH_REALM || 'epsilon',
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
     scopePrefix: env.EPSILON_ADMIN_AUTH_SCOPE_PREFIX || 'api.permissions',
     clientId: env.EPSILON_ADMIN_API_CLIENT_ID || 'epsilon-admin-api',
@@ -65,5 +65,5 @@ export default () => ({
     'postgresql://epsilon_admin:supersecret@localhost:6543/epsilon',
   tokenEndpoint:
     env.EPSILON_TOKEN_ENDPOINT ||
-    'http://localhost:8080/realms/EPSILON/protocol/openid-connect/token',
+    'http://localhost:8080/realms/epsilon/protocol/openid-connect/token',
 });
