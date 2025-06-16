@@ -13,6 +13,8 @@ import {
   KEYCLOAK_ADMIN_INSTANCE,
 } from '../config.interface';
 
+import { ConfigService } from '@nestjs/config';
+
 export type UserQueryParams = {
   readonly email?: string;
   readonly emailVerified?: string;
@@ -128,6 +130,7 @@ export class KeycloakAdminService {
     @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     @Inject(KEYCLOAK_ADMIN_INSTANCE)
     private kcAdminClient: KeycloakAdminClient,
+    private configService: ConfigService,
   ) {}
 
   async createUser(user: UserRepresentation) {
@@ -581,24 +584,25 @@ export class KeycloakAdminService {
   }
 
   async getAccessToken(
-    clientId: string,
-    clientSecret: string,
+    username: string,
+    password: string,
   ): Promise<{
     access_token: string;
     expires_in?: number;
   }> {
     try {
       const { issuerBaseURL, realm } = this.config;
-
       await this.kcAdminClient.setConfig({
         baseUrl: issuerBaseURL,
         realmName: realm,
       });
 
       await this.kcAdminClient.auth({
-        grantType: 'client_credentials',
-        clientId,
-        clientSecret,
+        grantType: 'password',
+        clientId: this.configService.get<string>('sdk.clientId'),
+        clientSecret: this.configService.get<string>('sdk.clientSecret'),
+        username,
+        password,
       });
 
       const token = await this.kcAdminClient.getAccessToken();
