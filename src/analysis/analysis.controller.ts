@@ -1,47 +1,20 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { AnalysisService } from './analysis.service';
-import { Request } from 'express';
-import { DescriptiveDto } from './dto';
+import { ApiOperation } from '@nestjs/swagger';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 
 @Controller('analysis')
 export class AnalysisController {
-  constructor(private readonly analysisService: AnalysisService) {}
-
-  @Post()
-  createAnalysis(
-    @Req() request: Request,
-    @Body() dto: { userRequestId: string; name: string },
+  constructor(
+    private readonly analysisService: AnalysisService,
+    private readonly keycloakService: KeycloakAdminService,
+  ) {}
+  @Get('access-token')
+  @ApiOperation({ summary: 'Get access token' })
+  async getAccessToken(
+    @Query('username') username: string,
+    @Query('password') password: string,
   ) {
-    return this.analysisService.createAnalysis(
-      request,
-      dto.userRequestId,
-      dto.name,
-    );
-  }
-
-  @Get(':analysisId')
-  async analysisDetails(
-    @Param('analysisId', ParseUUIDPipe) analysisId: string,
-  ) {
-    return await this.analysisService.analysisDetails(analysisId);
-  }
-
-  @Post('/descriptive')
-  async descriptiveAnalysis(@Body() dto: DescriptiveDto) {
-    return await this.analysisService.descriptiveAnalysis(dto);
-  }
-
-  @Delete(':analysisId')
-  deleteAnalysis(@Param('analysisId', ParseUUIDPipe) analysisId: string) {
-    return this.analysisService.deleteAnalysis(analysisId);
+    return await this.keycloakService.getAccessToken(username, password);
   }
 }

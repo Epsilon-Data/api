@@ -4,7 +4,6 @@ import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
-import { DataProcessingService } from 'src/data_processing/data_processing.service';
 
 @Injectable()
 @Processor('atlas-queue')
@@ -13,11 +12,10 @@ export class AtlasProcessor {
     private readonly docker: DockerService,
     private readonly atlas: AtlasService,
     private prisma: PrismaService,
-    private dataProcess: DataProcessingService,
   ) {}
 
   @Process('process-add-archetype')
-  async handleAddArchetypeJob(job: Job) {
+  async handleAddArchetypeJob(job: Job, token?: string) {
     const { dbId, columnMapping, template, projectId } = job.data;
     const params = {
       name: 'progress',
@@ -42,9 +40,9 @@ export class AtlasProcessor {
       },
     };
 
-    const result = await this.atlas.post('/entity', archetypeBody);
+    const result = await this.atlas.post('/entity', archetypeBody, token);
     const archetypeId = Object.values(result.guidAssignments)[0];
-    await this.atlas.put('/entity/guid/' + archetypeId, '20', params);
+    await this.atlas.put('/entity/guid/' + archetypeId, '20', params, token);
 
     const entities = [];
     let initialGuid = -1;
@@ -86,7 +84,7 @@ export class AtlasProcessor {
 
     entities.push(objectBody);
 
-    await this.atlas.put('/entity/guid/' + archetypeId, '40', params);
+    await this.atlas.put('/entity/guid/' + archetypeId, '40', params, token);
 
     const catBodyList = catList.map((node: any) => {
       initialGuid -= 1;
@@ -130,7 +128,7 @@ export class AtlasProcessor {
       catIdList[name[2]] = cat.guid;
     }
 
-    await this.atlas.put('/entity/guid/' + archetypeId, '60', params);
+    await this.atlas.put('/entity/guid/' + archetypeId, '60', params, token);
 
     for (const node of subcatList) {
       const relatedEdge = template.edges.filter(
@@ -177,18 +175,18 @@ export class AtlasProcessor {
 
     await this.atlas.post('/entity/bulk', { entities: entities });
 
-    await this.atlas.put('/entity/guid/' + archetypeId, '80', params);
+    await this.atlas.put('/entity/guid/' + archetypeId, '80', params, token);
 
     await this.prisma.project.update({
-      where: { id: projectId },
-      data: { lastUpdated: new Date() },
+      where: { projectId: projectId },
+      data: { lastModified: new Date() },
     });
 
     const tableParams = {
       query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
     };
 
-    const tableResult = await this.atlas.get('/search/dsl', tableParams);
+    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -202,6 +200,7 @@ export class AtlasProcessor {
       const result = await this.atlas.get(
         `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
         params,
+        token,
       );
 
       if (result.entity.relationshipAttributes.columns.length !== 0) {
@@ -218,7 +217,7 @@ export class AtlasProcessor {
         const colParams = {
           query: `from rdbms_column where table.__guid = "${tableGuid}"`,
         };
-        const colResult = await this.atlas.get('/search/dsl', colParams);
+        const colResult = await this.atlas.get('/search/dsl', colParams, token);
 
         const activeColumns = colResult.entities.filter(
           (entity: any) => entity.status === 'ACTIVE',
@@ -230,6 +229,8 @@ export class AtlasProcessor {
 
         const relationship = await this.atlas.get(
           `/types/relationshipdef/name/archetype_${node.nodeType}_rdbms_columns`,
+          undefined,
+          token,
         );
 
         const columnInfo = {
@@ -244,28 +245,28 @@ export class AtlasProcessor {
         result.entity.relationshipAttributes.columns.push(columnInfo);
       }
 
-      await this.atlas.post('/entity', result);
+      await this.atlas.post('/entity', result, undefined, token);
     }
-    await this.atlas.put('/entity/guid/' + archetypeId, '100', params);
+    await this.atlas.put('/entity/guid/' + archetypeId, '100', params, token);
   }
 
   @Process('process-delete-archetype')
-  async handleDeleteTemplateJob(job: Job) {
+  async handleDeleteTemplateJob(job: Job, token?: string) {
     const { templateId, projectId } = job.data;
 
-    await this.atlas.delete('/entity/guid/' + templateId);
+    await this.atlas.delete('/entity/guid/' + templateId, undefined, token);
     await this.prisma.project.update({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       data: {
-        lastUpdated: new Date(),
+        lastModified: new Date(),
       },
     });
   }
 
   @Process('process-add-permissions')
-  async handleAddPermissionsJob(job: Job) {
+  async handleAddPermissionsJob(job: Job, token?: string) {
     const { projectId, permissions } = job.data;
 
     for (const p of permissions) {
@@ -273,6 +274,8 @@ export class AtlasProcessor {
 
       const templateEntity = await this.atlas.get(
         `/entity/guid/${templateGuid}`,
+        undefined,
+        token,
       );
 
       const templateNodesGuid = [];
@@ -304,6 +307,7 @@ export class AtlasProcessor {
         `/entity/guid/${templateGuid}`,
         JSON.stringify(p.active ? 'true' : 'false'),
         params,
+        token,
       );
 
       if (p.active) {
@@ -311,7 +315,11 @@ export class AtlasProcessor {
           query: `from permission where __state = "ACTIVE"`,
         };
 
-        const activeResult = await this.atlas.get('/search/dsl', activeParams);
+        const activeResult = await this.atlas.get(
+          '/search/dsl',
+          activeParams,
+          token,
+        );
 
         if (activeResult.entities) {
           let guidList = [];
@@ -323,6 +331,7 @@ export class AtlasProcessor {
             const permissionEntity = await this.atlas.get(
               `/entity/guid/${entity.guid}`,
               params,
+              token,
             );
 
             const objects =
@@ -355,7 +364,11 @@ export class AtlasProcessor {
           guidList = Array.from(new Set(guidList));
 
           for (const guid of guidList) {
-            await this.atlas.delete(`/relationship/guid/${guid}`);
+            await this.atlas.delete(
+              `/relationship/guid/${guid}`,
+              undefined,
+              token,
+            );
           }
         }
 
@@ -379,6 +392,7 @@ export class AtlasProcessor {
               const permissionResult = await this.atlas.get(
                 '/search/dsl',
                 permissionParams,
+                token,
               );
 
               if (permissionResult.entities) {
@@ -386,6 +400,8 @@ export class AtlasProcessor {
 
                 const permissionEntity = await this.atlas.get(
                   `/entity/guid/${permissionGuid}`,
+                  undefined,
+                  token,
                 );
 
                 const hasRelationship =
@@ -408,7 +424,11 @@ export class AtlasProcessor {
                     status: 'ACTIVE',
                   };
 
-                  await this.atlas.post('/relationship', relationshipBody);
+                  await this.atlas.post(
+                    '/relationship',
+                    relationshipBody,
+                    token,
+                  );
                 }
               } else {
                 const permissionBody = {
@@ -430,6 +450,8 @@ export class AtlasProcessor {
 
                 const relationship = await this.atlas.get(
                   `/types/relationshipdef/name/${nodeType}_permissions`,
+                  undefined,
+                  token,
                 );
                 const relationshipInfo = {
                   guid: nodeGuid,
@@ -444,7 +466,7 @@ export class AtlasProcessor {
                   node.nodeType
                 ].push(relationshipInfo);
 
-                await this.atlas.post('/entity', permissionBody);
+                await this.atlas.post('/entity', permissionBody, token);
               }
             }
           }
@@ -454,10 +476,10 @@ export class AtlasProcessor {
 
     await this.prisma.project.update({
       where: {
-        id: projectId,
+        projectId: projectId,
       },
       data: {
-        lastUpdated: new Date(),
+        lastModified: new Date(),
       },
     });
   }
@@ -466,6 +488,5 @@ export class AtlasProcessor {
   async handleDataBrokerJob(job: Job) {
     const { ownerId, sourceId, database } = job.data;
     await this.docker.runDataBroker(ownerId, sourceId, database);
-    await this.dataProcess.dataSynthesis(sourceId);
   }
 }

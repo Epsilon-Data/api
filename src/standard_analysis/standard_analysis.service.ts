@@ -1,21 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class StandardAnalysisService {
-  constructor(private database: DatabaseService) {}
-
-  setDatabaseService(databaseService: DatabaseService) {
-    this.database = databaseService;
-  }
-
-  private async getColumnData(
-    tableName: string,
-    columnName: string,
-  ): Promise<any[]> {
-    return await this.database.query(`SELECT ${columnName} FROM ${tableName}`);
-  }
-
   private async calculateMean(
     data: any[],
     columnName: string,
@@ -113,7 +99,7 @@ export class StandardAnalysisService {
     columnName: string,
     calculations: string[],
   ): Promise<any> {
-    const data = await this.getColumnData(tableName, columnName);
+    const data = []; //await this.getColumnData(tableName, columnName);
 
     const result = {};
 
@@ -161,12 +147,12 @@ export class StandardAnalysisService {
     return result;
   }
 
-  async getNominalAnalysis(
-    tableName: string,
-    columnName: string,
-  ): Promise<any> {
-    const data = await this.getColumnData(tableName, columnName);
-    const frequency = await this.calculateFrequency(data, columnName);
-    return { frequency: frequency };
-  }
+  // async getNominalAnalysis(
+  //   tableName: string,
+  //   columnName: string,
+  // ): Promise<any> {
+  //   const data = await this.getColumnData(tableName, columnName);
+  //   const frequency = await this.calculateFrequency(data, columnName);
+  //   return { frequency: frequency };
+  // }
 }

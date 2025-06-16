@@ -7,95 +7,131 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model ConnectionRequest {
-  id                      String    @id(map: "request_pkey") @default(uuid()) @db.Uuid
-  atlasId                 String?   @db.Uuid
-  requestor               String?   @db.Uuid
-  projectId               String?   @unique @db.Uuid
-  status                  Int?      @db.SmallInt
-  dbName                  String?   @db.Text
-  orgAdminEmail           String?   @db.Text
-  dataParticipantsNum     Int?      @db.SmallInt
-  dataDescription         String?   @db.Text
-  dataKeywords            String[]
-  additionalInfo          String?   @db.Text
-  createdDate             DateTime? @default(now()) @db.Date
-  dataCollectionStartDate DateTime? @db.Date
-  dataCollectionEndDate   DateTime? @db.Date
-  revisionInfo            String?   @db.Text
-  temp_username           String?   @db.Text
-  temp_password           String?   @db.Text
-  Project                 Project?  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_request_project_id")
+model Request {
+  requestId    String        @id(map: "request_pkey") @default(uuid()) @db.Uuid
+  requestorId  String        @db.Uuid
+  lastModified DateTime      @default(now()) @db.Date
+  createdDate  DateTime      @default(now()) @db.Date
+  status       RequestStatus @default(PENDING)
+  comments     Comment[]
+  connection   Connection?
+  analysis     Analysis?
 }
 
-model Project {
-  id                 String             @id(map: "project_pkey") @default(uuid()) @db.Uuid
-  customId           String?            @db.Text
-  name               String?            @db.Text
-  lead               String?            @db.Text
-  university         String?            @db.Text
-  faculty            String?            @db.Text
-  ethicsId           String?            @db.Text
-  description        String?            @db.Text
-  startDate          DateTime?          @db.Date
-  endDate            DateTime?          @db.Date
-  members            String[]
-  visualisations     Json?
-  lastUpdated        DateTime           @default(now()) @db.Timestamp(6)
-  templateDeleteJobs String[]
-  ConnectionRequest  ConnectionRequest?
-  UserRequest        UserRequest[]
+model Comment {
+  commentId   String   @id(map: "comment_pkey") @default(uuid()) @db.Uuid
+  requestId   String   @db.Uuid
+  authorId    String   @db.Uuid
+  content     String   @db.Text
+  createdDate DateTime @default(now()) @db.Date
+  request     Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_comment_request_id")
 }
 
-model UserRequest {
-  id                String     @id(map: "user_request_pkey") @default(uuid()) @db.Uuid
-  projectId         String     @db.Uuid
-  accessPurpose     String     @db.Text
-  requestor         String     @db.Uuid
-  requestorName     String     @db.Text
-  requestorEmail    String     @db.Text
-  requestorOrgName  String     @db.Text
-  requestorPosition String     @db.Text
-  projectName       String     @db.Text
-  projectStartDate  DateTime   @db.Date
-  projectEndDate    DateTime   @db.Date
-  projectBackground String     @db.Text
-  projectObjective  String     @db.Text
-  projectHypotheses String     @db.Text
-  projectOutcome    String     @db.Text
-  projectMembers    String[]
-  ethicsId          String     @db.Text
-  status            Int        @db.SmallInt
-  createdDate       DateTime   @default(now()) @db.Date
-  revisionInfo      String?    @db.Text
-  completeDate      DateTime?  @db.Date
-  Project           Project    @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_request_project_id")
-  Analysis          Analysis[]
+model Connection {
+  requestId     String  @id @db.Uuid
+  projectId     String  @unique @db.Uuid
+  atlasId       String? @db.Uuid
+  orgAdminEmail String? @db.Text
+  tempDbDetails Json?   @db.Json
+  request       Request @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_request_id")
+  project       Project @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_project_id")
 }
 
 model Analysis {
-  id              String      @id(map: "analysis_pkey") @default(uuid()) @db.Uuid
-  userRequestId   String      @db.Uuid
-  name            String      @db.Text
-  createdDate     DateTime    @default(now()) @db.Date
-  lastUpdated     DateTime    @default(now()) @db.Timestamp(6)
-  lastUpdatedUser String      @db.Text
-  description     String?     @db.Text
-  UserRequest     UserRequest @relation(fields: [userRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_user_request_id")
-  Script          Script[]
+  requestId         String   @id @db.Uuid
+  projectId         String   @db.Uuid
+  accessPurpose     String   @db.Text
+  requestorName     String   @db.Text
+  requestorEmail    String   @db.Text
+  requestorOrgName  String   @db.Text
+  requestorPosition String   @db.Text
+  projectName       String   @db.Text
+  projectStartDate  DateTime @db.Date
+  projectEndDate    DateTime @db.Date
+  projectBackground String   @db.Text
+  projectObjective  String   @db.Text
+  projectHypotheses String   @db.Text
+  projectOutcome    String   @db.Text
+  projectMembers    String[]
+  ethicsId          String   @db.Text
+  request           Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_request_id")
+  project           Project  @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_project_id")
 }
 
-model Script {
-  id                String   @id(map: "scripts_pkey") @default(uuid()) @db.Uuid
-  analysisId        String   @db.Uuid
-  name              String   @db.Text
-  status            Int      @db.SmallInt
-  statusMsg         String   @db.Text
-  lastUpdated       DateTime @default(now()) @db.Timestamp(6)
-  lastUpdatedUser   String   @db.Text
-  executionSettings Json?
-  mapping           Json?
-  Analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_script_analysis_id")
+model Project {
+  projectId       String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
+  ownerId         String        @db.Uuid
+  customId        String        @db.VarChar(6)
+  name            String        @db.Text
+  lead            String        @db.Text
+  university      String        @db.Text
+  faculty         String        @db.Text
+  ethicsId        String        @db.Text
+  description     String        @db.Text
+  startDate       DateTime      @db.Date
+  endDate         DateTime      @db.Date
+  members         String[]
+  lastModified    DateTime      @default(now()) @db.Timestamp(6)
+  participantsNum Int           @db.SmallInt
+  dbKeywords      String[]
+  createdDate     DateTime      @default(now()) @db.Date
+  visualizations  Json?         @db.Json
+  status          ProjectStatus @default(CRAWLING)
+  connection      Connection?
+  analysis        Analysis[]
 
-  @@unique([analysisId, name])
+  @@unique([ownerId, customId])
+}
+
+model Notification {
+  notificationId        String                  @id(map: "notify_pkey") @default(uuid()) @db.Uuid
+  title                 String                  @db.Text
+  message               String                  @db.Text
+  type                  Int                     @db.SmallInt
+  createdDate           DateTime                @default(now()) @db.Date
+  NotificationSender    NotificationSender[]
+  NotificationRecipient NotificationRecipient[]
+}
+
+model NotificationSender {
+  notificationId String       @db.Uuid
+  senderId       String       @db.Uuid
+  status         Int          @db.SmallInt
+  senderType     SenderType
+  Notification   Notification @relation(fields: [notificationId], references: [notificationId], onDelete: NoAction, onUpdate: NoAction, map: "fk_notify_sender_id")
+
+  @@id([notificationId, senderId])
+}
+
+model NotificationRecipient {
+  notificationId String             @db.Uuid
+  recipientId    String             @db.Uuid
+  status         NotificationStatus @default(UNREAD)
+  deliveredAt    DateTime?
+  Notification   Notification       @relation(fields: [notificationId], references: [notificationId], onDelete: NoAction, onUpdate: NoAction, map: "fk_notify_recipient_id")
+
+  @@id([notificationId, recipientId])
+}
+
+enum SenderType {
+  USER
+  SYSTEM
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+}
+
+enum ProjectStatus {
+  CRAWLING
+  ACTIVE
+  MAPPED
+  LINKED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
 }

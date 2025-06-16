@@ -1,73 +1,44 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpException,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
-  Patch,
   Post,
-  Put,
   Req,
-  UseGuards,
+  // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { RevisionDto, ConnectionRequestDto, DatabaseInfoDto } from './dto';
-import { AuthGuard } from 'src/auth/auth.guard';
 import { Request } from 'express';
+import { DatabaseInfoDto } from './dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+// import { Scopes } from 'src/auth/scopes.decorator';
+// import { Resource } from 'src/auth/resource.decorator';
+// import { ResourceGuard } from 'src/auth/resource.guard';
+// import { ScopesGuard } from 'src/common/guards/scopes.guard';
+
+// @Resource('Project')
+@ApiTags('Connection Request')
 @Controller('connection-request')
 export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
 
   @Get()
-  @UseGuards(new AuthGuard('api.hub.read'))
-  summary(@Req() request: Request) {
+  @ApiOperation({
+    summary: 'Get list of logged in user connection requests',
+  })
+  getList(@Req() request: Request) {
+    // TODO: use decorator for this
     const userId = request.auth.payload.sub.toString();
-    const email = request.auth.payload.email.toString();
-
-    return this.connectionRequestService.summary(userId, email);
-  }
-
-  @Post()
-  create(@Body() dto: ConnectionRequestDto) {
-    return this.connectionRequestService.create(dto);
-  }
-
-  @Get(':requestId')
-  details(@Param('requestId', ParseUUIDPipe) requestId: string) {
-    return this.connectionRequestService.details(requestId);
-  }
-
-  @Put(':requestId')
-  edit(@Body() dto: ConnectionRequestDto) {
-    return this.connectionRequestService.edit(dto);
-  }
-
-  @Delete(':requestId')
-  delete(@Param('requestId', ParseUUIDPipe) requestId: string) {
-    return this.connectionRequestService.delete(requestId);
-  }
-
-  @Patch(':requestId')
-  approve(
-    @Body() dto: DatabaseInfoDto,
-    @Param('requestId', ParseUUIDPipe) requestId: string,
-    @Req() request: Request,
-  ) {
-    const userId = request.auth.payload.sub.toString();
-    return this.connectionRequestService.approve(userId, dto, requestId);
-  }
-
-  @Put(':requestId/revision')
-  revision(@Body() dto: RevisionDto) {
-    return this.connectionRequestService.revision(dto);
+    return this.connectionRequestService.getList(userId);
   }
 
   @Post('test')
-  @UseGuards(new AuthGuard('api.hub.read'))
+  @ApiOperation({
+    summary: 'Test connection credentials',
+  })
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {
       return await this.connectionRequestService.testConnection(databaseDto);
@@ -82,12 +53,16 @@ export class ConnectionRequestController {
     }
   }
 
-  @Post(':projectId')
-  async validProjectId(
+  // TODO: protect with resource guard of projects + connect scope
+  @Post(':requestId')
+  @ApiOperation({
+    summary: 'Approve connection request',
+  })
+  async approve(
     @Req() request: Request,
-    @Param('projectId') projectId: string,
+    @Param('requestId') requestId: string,
   ) {
     const userId = request.auth.payload.sub.toString();
-    return this.connectionRequestService.validProjectId(userId, projectId);
+    return await this.connectionRequestService.approve(userId, requestId);
   }
 }

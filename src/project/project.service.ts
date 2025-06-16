@@ -1,219 +1,328 @@
 import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AccessDto } from './dto';
+import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
-
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 @Injectable()
 export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
+    private keycloak: KeycloakAdminService,
   ) {}
 
-  async projects() {
-    const request = await this.prisma.connectionRequest.findMany({
+  async getUserOwnedProjects(userId: string) {
+    const projects = await this.prisma.project.findMany({
       where: {
-        status: {
-          equals: 3,
+        ownerId: userId,
+      },
+      select: {
+        projectId: true,
+        customId: true,
+        name: true,
+        lastModified: true,
+        createdDate: true,
+        status: true,
+        university: true,
+        faculty: true,
+      },
+    });
+
+    return projects;
+  }
+
+  async getUserProjects(permissions: any) {
+    const uuids = permissions.map((item) => item.rsname.split(':')[1]);
+    console.log(uuids);
+    const projects = await this.prisma.project.findMany({
+      where: {
+        projectId: {
+          in: uuids, // find all projects associated
         },
       },
       select: {
-        dataKeywords: true,
+        projectId: true,
+        customId: true,
+        name: true,
+        lastModified: true,
         createdDate: true,
-        Project: true,
+        status: true,
+        university: true,
+        faculty: true,
       },
     });
 
-    const browseList = request.map(async (item) => {
-      const bucket = 'cover';
-      const key = `${item.Project.id}/cover.jpg`;
-      let cover = null;
-
-      const exists = await this.fileStorage.fileExists(bucket, key);
-      if (exists) {
-        cover = await this.fileStorage.getFileUrl(bucket, key);
-      }
-
-      return {
-        id: item.Project.id,
-        name: item.Project.name,
-        organisation: item.Project.university,
-        createdDate: item.createdDate,
-        description: item.Project.description,
-        keywords: item.dataKeywords,
-        cover: cover,
-      };
-    });
-
-    return Promise.all(browseList);
+    return projects;
   }
 
-  async projectDetails(userId: string, projectId: string) {
-    const isOwnProject = await this.prisma.connectionRequest.findFirst({
+  async getAllProjects() {
+    return await this.prisma.project.findMany({
+      select: {
+        projectId: true,
+        customId: true,
+        name: true,
+        lastModified: true,
+        createdDate: true,
+        status: true,
+        university: true,
+        faculty: true,
+      },
+    });
+  }
+
+  async getProjectRequests(projectId: string, email: string) {
+    const requestList = { connection: [], analysis: [] };
+    requestList.connection = await this.prisma.connection.findMany({
       where: {
-        requestor: userId,
-        projectId: projectId,
+        orgAdminEmail: email,
+      },
+      select: {
+        request: {
+          select: {
+            requestId: true,
+            status: true,
+            createdDate: true,
+          },
+        },
+        project: {
+          select: {
+            projectId: true,
+            name: true,
+          },
+        },
       },
     });
 
-    const request = await this.prisma.connectionRequest.findUnique({
+    requestList.analysis = await this.prisma.analysis.findMany({
       where: {
         projectId: projectId,
       },
       select: {
-        atlasId: true,
-        dataDescription: true,
-        dataParticipantsNum: true,
-        dataKeywords: true,
-        dataCollectionStartDate: true,
-        dataCollectionEndDate: true,
-        Project: true,
+        request: {
+          select: {
+            requestId: true,
+            status: true,
+            createdDate: true,
+          },
+        },
+        projectName: true,
       },
     });
 
-    const params = {
-      query: `from archetype where instance.__guid = "${request.atlasId}" select is_active, __state, __guid, qualifiedName`,
+    return requestList;
+  }
+
+  async createProject(dto: ProjectDto) {
+    const customId = await this.generateProjectCustomId(dto.ownerId);
+    const request = {
+      ownerId: dto.ownerId,
+      customId: customId,
+      name: dto.name,
+      lead: dto.lead,
+      university: dto.university,
+      faculty: dto.faculty,
+      ethicsId: dto.ethicsId,
+      description: dto.description,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      members: dto.members,
+      participantsNum: dto.participantsNum,
+      dbKeywords: dto.dbKeywords,
+      connection: {
+        create: {
+          orgAdminEmail: dto.connection.orgAdminEmail,
+          tempDbDetails: dto.connection.tempDbDetails,
+          request: {
+            create: {
+              requestorId: dto.ownerId,
+            },
+          },
+        },
+      },
     };
 
-    let templateInfo = null;
-    await this.atlas
-      .get('/search/dsl', params)
-      .then(async (res) => {
-        const activeTemplate = res.attributes.values.find(
-          (item) => item[0] === true && item[1] === 'ACTIVE',
-        );
+    const project = await this.prisma.project.create({
+      data: request,
+      include: {
+        connection: {
+          include: {
+            request: true,
+          },
+        },
+      },
+    });
+    // NOTE: example of add resource and permissions
+    this.keycloak.newResource(project.projectId, 'test_user', project.members);
 
-        const templateGuid = activeTemplate[2];
-        const templateName = activeTemplate[3].split('@', 2)[1];
-
-        templateInfo = {
-          id: templateGuid,
-          name: templateName,
-          nodes: [],
-          edges: [],
-        };
-
-        const templateEntity = await this.atlas.get(
-          `/entity/guid/${templateGuid}`,
-        );
-        for (const key in templateEntity.referredEntities) {
-          const entity = templateEntity.referredEntities[key];
-
-          if (entity.typeName.includes('archetype_')) {
-            const splitted = entity.attributes.qualifiedName.split('@', 3);
-            const node = {
-              id: splitted[2],
-              position: {
-                x: Number(entity.attributes.position.x),
-                y: Number(entity.attributes.position.y),
-              },
-              data: {
-                label: entity.attributes.displayName,
-              },
-              type: entity.typeName.replace('archetype_', ''),
-              width: entity.attributes.width,
-              height: entity.attributes.height,
-              selected: false,
-              positionAbsolute: {
-                x: Number(entity.attributes.position.x),
-                y: Number(entity.attributes.position.y),
-              },
-              dragging: false,
-            };
-            templateInfo.nodes.push(node);
-
-            if (entity.typeName != 'archetype_object') {
-              const edge = {
-                source: splitted[2],
-                target: '',
-                sourceHandle: null,
-                targetHandle: null,
-                id: '',
-              };
-
-              const name =
-                entity.typeName == 'archetype_category'
-                  ? entity.relationshipAttributes.object.qualifiedName
-                  : entity.relationshipAttributes.category.qualifiedName;
-
-              edge.target = name.split('@')[2];
-              edge.id = `edge_${edge.source}_${edge.target}`;
-
-              templateInfo.edges.push(edge);
-            }
-          }
-        }
-      })
-      .catch(() => {
-        templateInfo = null;
+    if (dto.connection.additionalInfo) {
+      await this.prisma.comment.create({
+        data: {
+          requestId: project.connection.request.requestId,
+          authorId: dto.ownerId,
+          content: dto.connection.additionalInfo,
+        },
       });
+    }
 
-    const details = {
-      name: request.Project.name,
-      duration: [request.Project.startDate, request.Project.endDate],
-      lead: request.Project.lead,
-      members: request.Project.members,
-      university: request.Project.university,
-      faculty: request.Project.faculty,
-      ethicsId: request.Project.ethicsId,
-      description: request.Project.description,
-      dataDescription: request.dataDescription,
-      collectionDuration: [
-        request.dataCollectionStartDate,
-        request.dataCollectionEndDate,
-      ],
-      dataKeywords: request.dataKeywords,
-      dataParticipantsNum: request.dataParticipantsNum,
-      archetype: templateInfo,
-      visualisations: request.Project.visualisations,
-      isOwnProject: isOwnProject ? true : false,
-      lastUpdated: request.Project.lastUpdated,
-    };
-
-    return details;
+    return project;
   }
 
-  async projectSummary(projectId: string) {
-    const request = await this.prisma.connectionRequest.findUnique({
+  async getProjectDetails(projectId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        projectId: projectId,
+      },
+      include: {
+        connection: {
+          include: {
+            request: {
+              include: {
+                comments: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return project;
+  }
+
+  async updateProject(projectId: string, dto: ProjectDto) {
+    return await this.prisma.project.update({
+      where: { projectId: projectId },
+      data: {
+        name: dto.name,
+        lead: dto.lead,
+        university: dto.university,
+        faculty: dto.faculty,
+        ethicsId: dto.ethicsId,
+        description: dto.description,
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        members: dto.members,
+        participantsNum: dto.participantsNum,
+        dbKeywords: dto.dbKeywords,
+        connection: {
+          update: {
+            tempDbDetails: dto.connection.tempDbDetails,
+          },
+        },
+      },
+    });
+  }
+
+  async deleteProject(projectId: string) {
+    return await this.prisma.project.delete({
+      where: {
+        projectId: projectId,
+      },
+      include: {
+        connection: true,
+        analysis: true,
+      },
+    });
+  }
+
+  async getProjectSettings(projectId: string) {
+    const project = await this.prisma.project.findUnique({
       where: {
         projectId: projectId,
       },
       select: {
-        Project: true,
+        visualizations: true,
       },
     });
+
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
+    let cover = null;
+
+    const exists = await this.fileStorage.fileExists(bucket, key);
+    if (exists) {
+      cover = await this.fileStorage.getFileUrl(bucket, key);
+    }
 
     return {
-      id: request.Project.customId,
-      name: request.Project.name,
-      organisation: request.Project.university,
+      projectId: projectId,
+      visualizations: project.visualizations,
+      cover: cover,
     };
   }
 
-  async createRequest(details: AccessDto) {
-    await this.prisma.userRequest.create({
+  async updateProjectSettings(projectId: string, dto: SettingsDto) {
+    await this.prisma.project.update({
+      where: {
+        projectId: projectId,
+      },
       data: {
-        projectId: details.id,
-        accessPurpose: details.accessPurpose,
-        requestor: details.requestor,
-        requestorName: details.requestorName,
-        requestorEmail: details.email,
-        requestorOrgName: details.orgName,
-        requestorPosition: details.position,
-        projectName: details.projectName,
-        projectStartDate: details.projectDuration[0],
-        projectEndDate: details.projectDuration[1],
-        projectBackground: details.projectBackground,
-        projectObjective: details.projectObjective,
-        projectHypotheses: details.projectHypotheses,
-        projectOutcome: details.projectOutcome,
-        projectMembers: details.projectMembers,
-        ethicsId: details.ethicsId,
-        status: 1,
+        visualizations: JSON.stringify(dto.visualizations),
       },
     });
-    return details;
+
+    this.fileStorage.deleteFile('cover', `${projectId}`);
+    return projectId;
   }
+
+  async generateProjectCustomId(userId: string) {
+    const MAX_ATTEMPTS = 10;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const length = 6;
+      const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let customId = '';
+      for (let i = 0; i < length; i++) {
+        customId += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      const existing = await this.prisma.project.findFirst({
+        where: {
+          ownerId: userId,
+          customId: customId,
+        },
+      });
+
+      if (!existing) {
+        return customId;
+      }
+    }
+
+    return null;
+  }
+
+  async uploadProjectCover(projectId: string, file: Express.Multer.File) {
+    await this.prisma.project.update({
+      where: {
+        projectId: projectId,
+      },
+      data: {
+        lastModified: new Date(),
+      },
+    });
+
+    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
+    return file.buffer;
+  }
+
+  // async projectSummary(projectId: string) {
+  //   const request = await this.prisma.project.findUnique({
+  //     where: {
+  //       projectId: projectId,
+  //     },
+  //     select: {
+  //       customId: true,
+  //       name: true,
+  //       university: true,
+  //     },
+  //   });
+
+  //   return {
+  //     id: request.customId,
+  //     name: request.name,
+  //     university: request.university,
+  //   };
+  // }
 }
