@@ -11,7 +11,7 @@ export class AdminConfigService implements AdminModuleConfigFactory {
     return {
       issuerBaseURL:
         env.EPSILON_AUTH_ISSUER_BASE_URL || 'http://localhost:8080',
-      realm: env.EPSILON_AUTH_REALM || 'EPSILON',
+      realm: env.EPSILON_AUTH_REALM || 'epsilon',
       audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
       scopePrefix: env.EPSILON_ADMIN_AUTH_SCOPE_PREFIX || 'api.permissions',
       clientId: env.EPSILON_ADMIN_API_CLIENT_ID || 'epsilon-admin-api',
