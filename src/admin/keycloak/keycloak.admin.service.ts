@@ -247,7 +247,7 @@ export class KeycloakAdminService {
       this.logger.error('Error in getClients', error);
     }
   }
-  async getUserById(id: string) {
+  async getUserInfoById(id: string) {
     try {
       const userQuery = await this.kcAdminClient.users.findOne(
         {
@@ -269,6 +269,20 @@ export class KeycloakAdminService {
         ...user,
         lastLogin: new Date(lastLoginEvent?.time),
       };
+    } catch (error) {
+      this.logger.error('Error in getUserInfoById', error);
+    }
+  }
+
+  async getUserById(id: string) {
+    try {
+      return await this.kcAdminClient.users.findOne(
+        {
+          id,
+          realm: this.config.realm,
+        },
+        { catchNotFound: false },
+      );
     } catch (error) {
       this.logger.error('Error in getUserById', error);
     }
@@ -416,30 +430,25 @@ export class KeycloakAdminService {
       .sort((a, b) => (b.time || 0) - (a.time || 0))[0];
   }
 
-  async createScope(scope: ClientScopeRepresentation) {
-    try {
-      // get new scope id
-      return await this.kcAdminClient.clientScopes.create(scope);
-    } catch (error) {
-      this.logger.error('Error in createScope', error);
-    }
-  }
-
   async newResource(
     id: string,
-    owner: string,
+    ownerId: string,
     collaborators: string[],
     custodian?: string,
   ) {
+    // get owner username
+    const owner = (await this.getUserById(ownerId)).username;
+
     // create resource
     await this.createResource({
       name: `${resourcePrefix}${id}`,
       type: 'project',
       displayName: `${resourcePrefix}${id}`,
+      // TODO: make this URL same as frontend
       uris: [`project/${id}`],
-      // TODO: make into const object
       scopes: projectScopes,
     });
+
     // create owner policy
     await this.createPolicy('user', {
       name: `${ownerPolicyPrefix}${id}`,
@@ -551,6 +560,14 @@ export class KeycloakAdminService {
       );
     } catch (error) {
       this.logger.error('Error in createResource', error);
+    }
+  }
+  async createScope(scope: ClientScopeRepresentation) {
+    try {
+      // get new scope id
+      return await this.kcAdminClient.clientScopes.create(scope);
+    } catch (error) {
+      this.logger.error('Error in createScope', error);
     }
   }
   async createPolicy(policyType: string, policy: PolicyRepresentation) {

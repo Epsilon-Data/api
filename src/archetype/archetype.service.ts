@@ -5,6 +5,16 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { ArchetypeDto } from './dto';
 
+type AtlasAttributeDef = {
+  name: string;
+  typeName: string; // like 'string', 'int', 'boolean', etc.
+};
+
+type AtlasEntityDef = {
+  name: string;
+  attributeDefs: AtlasAttributeDef[];
+};
+
 @Injectable()
 export class ArchetypeService {
   constructor(
@@ -125,5 +135,46 @@ export class ArchetypeService {
   async createArchetype(projectId: string, template: ArchetypeDto) {
     const dbId = await this.databaseSource.findDbId(projectId);
     await this.queue.addArchetypeJob(template, dbId);
+  }
+
+  private atlasTypeToJSONType(typeName: string): string {
+    switch (typeName) {
+      case 'string':
+      case 'date':
+        return 'string';
+      case 'int':
+        return 'integer';
+      case 'long':
+      case 'float':
+      case 'double':
+      case 'short':
+        return 'number';
+      case 'boolean':
+        return 'boolean';
+      case 'array<string>':
+      case 'list<string>':
+        return 'array';
+      // You can expand this for nested object types too
+      default:
+        return 'object'; // fallback for unknown types
+    }
+  }
+
+  convertAtlasEntityToJSONSchema(entityDef: AtlasEntityDef): object {
+    const properties: Record<string, object> = {};
+
+    entityDef.attributeDefs.forEach((attr) => {
+      //filter for lable
+      const jsonType = this.atlasTypeToJSONType(attr.typeName);
+      properties[attr.name] = { type: jsonType };
+    });
+
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema#',
+      title: entityDef.name,
+      type: 'object',
+      properties,
+      required: entityDef.attributeDefs.map((attr) => attr.name), // adjust if optional attrs exist
+    };
   }
 }

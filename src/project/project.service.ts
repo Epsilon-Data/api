@@ -152,8 +152,12 @@ export class ProjectService {
         },
       },
     });
-    // NOTE: example of add resource and permissions
-    this.keycloak.newResource(project.projectId, 'test_user', project.members);
+    // add keycloak resource
+    this.keycloak.newResource(
+      project.projectId,
+      project.ownerId,
+      project.members,
+    );
 
     if (dto.connection.additionalInfo) {
       await this.prisma.comment.create({

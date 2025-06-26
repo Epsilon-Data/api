@@ -1,15 +1,24 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { AnalysisService } from './analysis.service';
 import { ApiOperation } from '@nestjs/swagger';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { ProjectService } from 'src/project/project.service';
 import { LoginDto } from './dto/login.dto';
+import { ArchetypeService } from 'src/archetype/archetype.service';
 
 @Controller('analysis')
 export class AnalysisController {
   constructor(
-    private readonly analysisService: AnalysisService,
+    private readonly archetypeService: ArchetypeService,
     private readonly keycloakService: KeycloakAdminService,
     private readonly projectService: ProjectService,
     private readonly keycloakConnect: KeycloakService,
@@ -22,8 +31,9 @@ export class AnalysisController {
   }
 
   @Get('datasets')
+  // TODO: check if they have analysis scope for this and SDK scope
   @ApiOperation({ summary: 'Get list of all projects for logged in user' })
-  async getUserProjects(@Req() request: Request) {
+  async getUserDatasets(@Req() request: Request) {
     // check for user resorce permissions
     // TODO: perhaps call this once and cache
     const authzRequest = {
@@ -33,6 +43,17 @@ export class AnalysisController {
       authzRequest,
       request,
     );
+    //TODO: need a different query for the project to get info for SDK
     return await this.projectService.getUserProjects(permissions);
+  }
+
+  @Get('datasets/:projectId')
+  // TODO: check if they have analysis scope for this and SDK scope
+  @ApiOperation({ summary: 'Get archetype for a dataset' })
+  async getDatasetArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    //TODO: convert to JSON Schema
+    return this.archetypeService.archetypes(projectId);
   }
 }
