@@ -130,6 +130,9 @@ importers:
       multer:
         specifier: ^2.0.1
         version: 2.0.1
+      nanoid:
+        specifier: 3.0.0
+        version: 3.0.0
       node-fetch:
         specifier: 2.6.7
         version: 2.6.7
@@ -2216,8 +2219,8 @@ packages:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
 
-  chromedriver@137.0.3:
-    resolution: {integrity: sha512-ceBxOxaXl/3ddvxZicgASpL8HfxmUK/q/VI3STcyl0t+SvgydNqXQO1XWwqUIA/tMfREpUunumQvwH7r6hdT0Q==}
+  chromedriver@138.0.0:
+    resolution: {integrity: sha512-bJ/DNm5Y0TbqM71ARaAohTWVwcQ2SsWciYC5Q9Ul7DC/oTxm6B1vI2h6WscFCOOi49ul4tXZVjA/LOruljjmjA==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -3812,6 +3815,9 @@ packages:
 
   nan@2.22.2:
     resolution: {integrity: sha512-DANghxFkS1plDdRsX0X9pm0Z6SJNN6gBdtXfanwoZ8hooC5gosGFSBGRYHUVPz1asKA/kMRqDRdHrluZ61SpBQ==}
+
+  nanoid@3.0.0:
+    resolution: {integrity: sha512-5lU+F2QpTW1JLwlXxnu2/jkpTipIuYZL3Za6TQzM16HYDzZQqlthbXYSW0H2KzZu1UQPGHDPbCl1TS3xOKfqEQ==}
 
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
@@ -8108,7 +8114,7 @@ snapshots:
 
   chrome-trace-event@1.0.4: {}
 
-  chromedriver@137.0.3:
+  chromedriver@138.0.0:
     dependencies:
       '@testim/chrome-version': 1.1.4
       axios: 1.9.0
@@ -9779,7 +9785,7 @@ snapshots:
     dependencies:
       jwk-to-pem: 2.0.7
     optionalDependencies:
-      chromedriver: 137.0.3
+      chromedriver: 138.0.0
     transitivePeerDependencies:
       - debug
       - supports-color
@@ -10030,6 +10036,8 @@ snapshots:
 
   nan@2.22.2:
     optional: true
+
+  nanoid@3.0.0: {}
 
   natural-compare@1.4.0: {}
 

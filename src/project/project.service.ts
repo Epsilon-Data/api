@@ -4,6 +4,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { nanoid } from 'nanoid';
+
 @Injectable()
 export class ProjectService {
   constructor(
@@ -35,7 +37,6 @@ export class ProjectService {
 
   async getUserProjects(permissions: any) {
     const uuids = permissions.map((item) => item.rsname.split(':')[1]);
-    console.log(uuids);
     const projects = await this.prisma.project.findMany({
       where: {
         projectId: {
@@ -115,10 +116,9 @@ export class ProjectService {
   }
 
   async createProject(dto: ProjectDto) {
-    const customId = await this.generateProjectCustomId(dto.ownerId);
     const request = {
       ownerId: dto.ownerId,
-      customId: customId,
+      customId: nanoid(12),
       name: dto.name,
       lead: dto.lead,
       university: dto.university,
@@ -266,33 +266,6 @@ export class ProjectService {
     return projectId;
   }
 
-  async generateProjectCustomId(userId: string) {
-    const MAX_ATTEMPTS = 10;
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const length = 6;
-      const chars =
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let customId = '';
-      for (let i = 0; i < length; i++) {
-        customId += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-
-      const existing = await this.prisma.project.findFirst({
-        where: {
-          ownerId: userId,
-          customId: customId,
-        },
-      });
-
-      if (!existing) {
-        return customId;
-      }
-    }
-
-    return null;
-  }
-
   async uploadProjectCover(projectId: string, file: Express.Multer.File) {
     await this.prisma.project.update({
       where: {
@@ -306,23 +279,4 @@ export class ProjectService {
     this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
   }
-
-  // async projectSummary(projectId: string) {
-  //   const request = await this.prisma.project.findUnique({
-  //     where: {
-  //       projectId: projectId,
-  //     },
-  //     select: {
-  //       customId: true,
-  //       name: true,
-  //       university: true,
-  //     },
-  //   });
-
-  //   return {
-  //     id: request.customId,
-  //     name: request.name,
-  //     university: request.university,
-  //   };
-  // }
 }
