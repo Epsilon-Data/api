@@ -16,16 +16,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from 'src/analysis/dto';
 
-export type UserQueryParams = {
-  readonly email?: string;
-  readonly emailVerified?: string;
-  readonly enabled?: boolean;
-  readonly exact?: boolean;
-  readonly firstName?: string;
-  readonly lastName?: string;
-  readonly username?: string;
-};
-
+// FIXME: add to consts and DTOs
 const resourcePrefix = 'project:';
 const projectScopes = [
   {
@@ -69,6 +60,16 @@ const custodianPermissionPrefix = `Custodian `;
 const custodianPermissions = ['view', 'edit', 'connect'];
 
 // FIXME: add to keycloak-admin-client
+
+export type UserQueryParams = {
+  readonly email?: string;
+  readonly emailVerified?: string;
+  readonly enabled?: boolean;
+  readonly exact?: boolean;
+  readonly firstName?: string;
+  readonly lastName?: string;
+  readonly username?: string;
+};
 export enum DecisionStrategy {
   AFFIRMATIVE = 'AFFIRMATIVE',
   UNANIMOUS = 'UNANIMOUS',
@@ -125,7 +126,6 @@ export interface GroupRepresentation {
 @Injectable()
 export class KeycloakAdminService {
   private readonly logger = new Logger('KeycloakAdminService');
-  // private kcAdminClient: KeycloakAdminClient;
 
   constructor(
     @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,

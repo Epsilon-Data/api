@@ -137,7 +137,7 @@ export class ArchetypeService {
     await this.queue.addArchetypeJob(template, dbId);
   }
 
-  private atlasTypeToJSONType(typeName: string): string {
+  private atlasTypeToJSONType(dataType: string): string {
     switch (typeName) {
       case 'string':
       case 'date':

@@ -6,6 +6,7 @@ import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
 
+import { PermissionsDto } from 'src/auth/dto';
 @Injectable()
 export class ProjectService {
   constructor(
@@ -34,7 +35,7 @@ export class ProjectService {
     return projects;
   }
 
-  async getUserProjects(permissions: any) {
+  async getUserProjects(permissions: PermissionsDto[]) {
     const uuids = permissions.map((item) => item.rsname.split(':')[1]);
     const projects = await this.prisma.project.findMany({
       where: {
