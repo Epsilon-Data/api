@@ -138,7 +138,7 @@ export class ArchetypeService {
   }
 
   private atlasTypeToJSONType(dataType: string): string {
-    switch (typeName) {
+    switch (dataType) {
       case 'string':
       case 'date':
         return 'string';
