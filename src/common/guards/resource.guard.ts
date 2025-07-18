@@ -71,7 +71,6 @@ export class ResourceGuard implements CanActivate {
       ).find((p: RouteParamMetadata) => p.type === 'param') || {}
     ).data;
 
-    // TODO: make it more general so you can use either params or request body
     const resource = request.params[parameterName]
       ? `${metaResource} ${request.params[parameterName]}`
       : metaResource;

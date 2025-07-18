@@ -21,14 +21,6 @@ import { ChatModule } from './chat/chat.module';
 import configuration from './config/configuration';
 import { AdminConfigService } from './config/admin.config.service';
 import { AuthConfigService } from './config/auth.config.service';
-// import {
-//   AuthGuard,
-//   KeycloakConnectModule,
-//   ResourceGuard,
-//   RoleGuard,
-// } from 'nest-keycloak-connect';
-// import { KeycloakConfigService } from './config/keycloak-config.service';
-// import { KeycloakModule } from './config/keycloak.module';
 import { AnalysisModule } from './analysis/analysis.module';
 
 @Module({

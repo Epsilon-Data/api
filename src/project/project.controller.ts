@@ -19,7 +19,7 @@ import { ProjectDto, SettingsDto } from './dto';
 import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { coverOptions } from 'src/options';
+import { coverOptions } from 'src/utils/options';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 
 // import { Resource } from 'src/common/decorators/resource.decorator';
