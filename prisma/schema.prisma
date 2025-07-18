@@ -61,7 +61,7 @@ model Analysis {
 model Project {
   projectId       String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
   ownerId         String        @db.Uuid
-  customId        String        @db.VarChar(6)
+  customId        String        @db.VarChar(12)
   name            String        @db.Text
   lead            String        @db.Text
   university      String        @db.Text
