@@ -1,10 +1,11 @@
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { AuthExceptionFilter } from './common/filters/auth.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 import { ConfigService } from '@nestjs/config';
+import { PrismaClientExceptionFilter } from './prisma/prisma-client-exception/prisma-client-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -32,6 +33,10 @@ async function bootstrap() {
     app,
     document,
   );
+
+  // add prisma client exception filter
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
   // start api service
   await app.listen(configService.get('apiPort'));
