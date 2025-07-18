@@ -26,6 +26,7 @@ export class AtlasProcessor {
         typeName: 'archetype',
         status: 'ACTIVE',
         attributes: {
+          // TODO: use actual username here
           owner: 'user',
           qualifiedName: `${dbId}@${template.name}`,
           is_active: true,

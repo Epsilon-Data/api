@@ -30,6 +30,7 @@ export class ArchetypeService {
 
     let activeTemplates = [];
 
+    // TODO: I think it is better to write the projectId into atlas instance as that should have 1=1 relationship
     const params = {
       query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
     };
@@ -143,6 +144,7 @@ export class ArchetypeService {
       case 'date':
         return 'string';
       case 'int':
+      case 'integer':
         return 'integer';
       case 'long':
       case 'float':
