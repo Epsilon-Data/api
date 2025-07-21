@@ -5,16 +5,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { ArchetypeDto } from './dto';
 
-type AtlasAttributeDef = {
-  name: string;
-  typeName: string; // like 'string', 'int', 'boolean', etc.
-};
-
-type AtlasEntityDef = {
-  name: string;
-  attributeDefs: AtlasAttributeDef[];
-};
-
 @Injectable()
 export class ArchetypeService {
   constructor(
