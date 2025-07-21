@@ -30,7 +30,8 @@ export class AtlasProcessor {
           owner: 'user',
           qualifiedName: `${dbId}@${template.name}`,
           is_active: true,
-          progress: 0,
+          // FIXME: this doesn't exist in archetype model
+          // progress: 0,
         },
         relationshipAttributes: {
           instance: {

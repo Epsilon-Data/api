@@ -7,7 +7,6 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { AnalysisService } from './analysis.service';
 import { ApiOperation } from '@nestjs/swagger';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
@@ -34,7 +33,7 @@ export class AnalysisController {
   // TODO: check if they have analysis scope for this and SDK scope
   @ApiOperation({ summary: 'Get list of all projects for logged in user' })
   async getUserDatasets(@Req() request: Request) {
-    // check for user resorce permissions
+    // check for user resource permissions
     // TODO: perhaps call this once and cache
     const authzRequest = {
       response_mode: 'permissions',
@@ -43,7 +42,7 @@ export class AnalysisController {
       authzRequest,
       request,
     );
-    //TODO: need a different query for the project to get info for SDK
+    //TODO: may need a different query for the project to get info for SDK
     return await this.projectService.getUserProjects(permissions);
   }
 
@@ -54,6 +53,6 @@ export class AnalysisController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     //TODO: convert to JSON Schema
-    return this.archetypeService.archetypes(projectId);
+    return this.archetypeService.getAnalysisArchetype(projectId);
   }
 }
