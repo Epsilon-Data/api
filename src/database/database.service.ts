@@ -325,7 +325,7 @@ export class DatabaseService {
 
   async syncDatasource(userId: string, projectId: string) {
     const dbId = await this.findDbId(projectId);
-    const request = await this.prisma.connection.findUnique({
+    await this.prisma.connection.findUnique({
       where: {
         projectId: projectId,
       },
@@ -333,7 +333,7 @@ export class DatabaseService {
         requestId: true,
       },
     });
-    this.queue.dataBrokerJob(userId, request.requestId, { databaseId: dbId });
+    // this.queue.dataBrokerJob(userId, request.requestId, { databaseId: dbId });
     return dbId;
   }
 }

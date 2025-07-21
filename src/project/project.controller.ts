@@ -34,11 +34,17 @@ export class ProjectController {
     private keycloakConnect: KeycloakService,
   ) {}
 
-  @Get('me')
+  @Get('own')
   @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
   async getUserOwnedProjects(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     return await this.projectService.getUserOwnedProjects(userId);
+  }
+
+  @Get('share')
+  async getUserSharedProjects(@Req() request: Request) {
+    const userEmail = request.auth.payload.email.toString();
+    return await this.projectService.getUserSharedProjects(userEmail);
   }
 
   @Get('')
