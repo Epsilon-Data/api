@@ -25,8 +25,9 @@ export class DockerService {
 
   async runDataBroker(
     ownerId: string,
-    sourceId: string,
-    database: DatabaseInfoDto | { databaseId: string },
+    projectId: string,
+    requestId: string,
+    database: DatabaseInfoDto,
   ): Promise<string> {
     const dockerLocal = 'host.docker.internal';
     const atlasUrl = this.baseUrl.replace('localhost', dockerLocal);
@@ -36,33 +37,13 @@ export class DockerService {
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
     ];
-    if (!('databaseId' in database)) {
-      await this.prisma.connection.update({
-        where: { requestId: sourceId },
-        data: {
-          tempDbDetails: JSON.stringify(database),
-        },
-      });
 
-      const host = database.host == 'localhost' ? dockerLocal : database.host;
-      const url = `${database.type}://${database.username}:${database.password}@${host}:${database.port}/${database.name}?sslmode=disable`;
+    const url =
+      database.url.replace('localhost', 'host.docker.internal') +
+      '?sslmode=disable';
 
-      envArgs.push(`DATABASE_URL=${url}`);
-      envArgs.push(`SOURCE_ID=${sourceId}`);
-    } else {
-      const request = await this.prisma.connection.findUnique({
-        where: { requestId: sourceId },
-        select: {
-          tempDbDetails: true,
-        },
-      });
-
-      const tempDbDetails = JSON.parse(request.tempDbDetails as string);
-
-      envArgs.push(`DATABASE_ID=${database.databaseId}`);
-      envArgs.push(`TEMP_USERNAME=${tempDbDetails.username}`);
-      envArgs.push(`TEMP_PASSWORD=${tempDbDetails.password}`);
-    }
+    envArgs.push(`DATABASE_URL=${url}`);
+    envArgs.push(`SOURCE_ID=${projectId}`);
 
     try {
       const goPackagesPath = join(process.cwd(), '..', 'go-packages');
@@ -78,7 +59,7 @@ export class DockerService {
       const container = await this.createAndStartContainer(
         imageName,
         envArgs,
-        sourceId,
+        projectId,
       );
 
       const containerOutput = await this.captureContainerOutput(container);
@@ -96,19 +77,38 @@ export class DockerService {
       const guidMatch = containerOutput.match(guidRegex);
       if (guidMatch && guidMatch[0]) {
         await this.prisma.connection.update({
-          where: { requestId: sourceId },
+          where: { requestId: requestId },
           data: {
             atlasId: guidMatch[0].trim(),
           },
         });
 
+        await this.prisma.project.update({
+          where: { projectId: projectId },
+          data: {
+            status: 'ACTIVE',
+          },
+        });
+
         return guidMatch[0].trim();
       } else {
+        await this.prisma.project.update({
+          where: { projectId: projectId },
+          data: {
+            status: 'ERROR',
+          },
+        });
         throw new Error(
           `Failed to extract GUID from container output: ${containerOutput}`,
         );
       }
     } catch (error) {
+      await this.prisma.project.update({
+        where: { projectId: projectId },
+        data: {
+          status: 'ERROR',
+        },
+      });
       this.logger.error('Error running Data Broker container', error);
     }
   }

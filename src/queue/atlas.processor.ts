@@ -14,6 +14,12 @@ export class AtlasProcessor {
     private prisma: PrismaService,
   ) {}
 
+  @Process('process-data-broker')
+  async handleDataBrokerJob(job: Job) {
+    const { ownerId, projectId, requestId, database } = job.data;
+    await this.docker.runDataBroker(ownerId, projectId, requestId, database);
+  }
+
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job, token?: string) {
     const { dbId, columnMapping, template, projectId } = job.data;
@@ -482,11 +488,5 @@ export class AtlasProcessor {
         lastModified: new Date(),
       },
     });
-  }
-
-  @Process('process-data-broker')
-  async handleDataBrokerJob(job: Job) {
-    const { ownerId, sourceId, database } = job.data;
-    await this.docker.runDataBroker(ownerId, sourceId, database);
   }
 }
