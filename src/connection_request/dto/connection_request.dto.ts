@@ -1,15 +1,13 @@
-import { IsDefined, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class DatabaseInfoDto {
-  @IsDefined()
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  name?: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  type: string;
+  type?: string;
 
   @IsOptional()
   @IsString()
@@ -21,9 +19,17 @@ export class DatabaseInfoDto {
 
   @IsOptional()
   @IsString()
+  url?: string;
+
+  @IsOptional()
+  @IsString()
   username?: string;
 
   @IsOptional()
   @IsString()
   password?: string;
+
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
 }
