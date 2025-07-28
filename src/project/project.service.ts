@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
@@ -9,6 +9,7 @@ import { nanoid } from 'nanoid';
 import { PermissionsDto } from 'src/auth/dto';
 @Injectable()
 export class ProjectService {
+  private readonly logger = new Logger('ProjectService');
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
@@ -142,35 +143,38 @@ export class ProjectService {
         },
       },
     };
-
-    const project = await this.prisma.project.create({
-      data: request,
-      include: {
-        connection: {
-          include: {
-            request: true,
+    try {
+      const project = await this.prisma.project.create({
+        data: request,
+        include: {
+          connection: {
+            include: {
+              request: true,
+            },
           },
         },
-      },
-    });
-    // add keycloak resource
-    this.keycloak.newResource(
-      project.projectId,
-      project.ownerId,
-      project.members,
-    );
-
-    if (dto.connection.additionalInfo) {
-      await this.prisma.comment.create({
-        data: {
-          requestId: project.connection.request.requestId,
-          authorId: dto.ownerId,
-          content: dto.connection.additionalInfo,
-        },
       });
-    }
+      // add keycloak resource
+      this.keycloak.newResource(
+        project.projectId,
+        project.ownerId,
+        project.members,
+      );
 
-    return project;
+      if (dto.connection.additionalInfo) {
+        await this.prisma.comment.create({
+          data: {
+            requestId: project.connection.request.requestId,
+            authorId: dto.ownerId,
+            content: dto.connection.additionalInfo,
+          },
+        });
+      }
+
+      return project;
+    } catch (error) {
+      this.logger.error(error);
+    }
   }
 
   async getProjectDetails(projectId: string) {
