@@ -1,20 +1,58 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { AnalysisService } from './analysis.service';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+import { ProjectService } from 'src/project/project.service';
+import { LoginDto } from './dto/login.dto';
+import { ArchetypeService } from 'src/archetype/archetype.service';
 
 @Controller('analysis')
 export class AnalysisController {
   constructor(
-    private readonly analysisService: AnalysisService,
+    private readonly archetypeService: ArchetypeService,
     private readonly keycloakService: KeycloakAdminService,
+    private readonly projectService: ProjectService,
+    private readonly keycloakConnect: KeycloakService,
   ) {}
-  @Get('access-token')
+
+  @Post('auth')
   @ApiOperation({ summary: 'Get access token' })
-  async getAccessToken(
-    @Query('username') username: string,
-    @Query('password') password: string,
+  async getAccessToken(@Body() login: LoginDto) {
+    return await this.keycloakService.getAccessToken(login);
+  }
+
+  @Get('datasets')
+  // TODO: check if they have analysis scope for this and SDK scope
+  @ApiOperation({ summary: 'Get list of all projects for logged in user' })
+  async getUserDatasets(@Req() request: Request) {
+    // check for user resource permissions
+    // TODO: perhaps call this once and cache
+    const authzRequest = {
+      response_mode: 'permissions',
+    };
+    const permissions = await this.keycloakConnect.getPermissions(
+      authzRequest,
+      request,
+    );
+    //TODO: may need a different query for the project to get info for SDK
+    return await this.projectService.getUserProjects(permissions);
+  }
+
+  @Get('datasets/:projectId')
+  // TODO: check if they have analysis scope for this and SDK scope
+  @ApiOperation({ summary: 'Get archetype for a dataset' })
+  async getDatasetArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    return await this.keycloakService.getAccessToken(username, password);
+    //TODO: convert to JSON Schema
+    return this.archetypeService.getAnalysisArchetype(projectId);
   }
 }

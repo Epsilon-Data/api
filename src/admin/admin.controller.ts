@@ -21,6 +21,6 @@ export class AdminController {
   @UseGuards(new ScopesGuard('api.permissions.users.read'))
   async getUserById(@Param('id') id: string) {
     // TODO: need some proper error handling here
-    return this.keycloakService.getUserById(id);
+    return this.keycloakService.getUserInfoById(id);
   }
 }

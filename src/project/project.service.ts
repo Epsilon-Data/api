@@ -6,13 +6,14 @@ import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
 
+import { PermissionsDto } from 'src/auth/dto';
 @Injectable()
 export class ProjectService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
     private fileStorage: FileStorageService,
-    private keycloak: KeycloakAdminService,
+    private readonly keycloak: KeycloakAdminService,
   ) {}
 
   async getUserOwnedProjects(userId: string) {
@@ -31,11 +32,10 @@ export class ProjectService {
         faculty: true,
       },
     });
-
     return projects;
   }
 
-  async getUserProjects(permissions: any) {
+  async getUserProjects(permissions: PermissionsDto[]) {
     const uuids = permissions.map((item) => item.rsname.split(':')[1]);
     const projects = await this.prisma.project.findMany({
       where: {
@@ -153,8 +153,12 @@ export class ProjectService {
         },
       },
     });
-    // NOTE: example of add resource and permissions
-    this.keycloak.newResource(project.projectId, 'test_user', project.members);
+    // add keycloak resource
+    this.keycloak.newResource(
+      project.projectId,
+      project.ownerId,
+      project.members,
+    );
 
     if (dto.connection.additionalInfo) {
       await this.prisma.comment.create({
