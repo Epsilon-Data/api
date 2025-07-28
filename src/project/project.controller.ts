@@ -12,6 +12,7 @@ import {
   UploadedFile,
   ParseFilePipe,
   Query,
+  Logger,
   // UseGuards,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
@@ -29,6 +30,7 @@ import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 @ApiTags('Project')
 @Controller('project')
 export class ProjectController {
+  private readonly logger = new Logger('ProjectController');
   constructor(
     private projectService: ProjectService,
     private keycloakConnect: KeycloakService,
@@ -79,6 +81,7 @@ export class ProjectController {
   @Post()
   @ApiOperation({ summary: 'Create project' })
   createProject(@Body() dto: ProjectDto) {
+    this.logger.debug('CREATE PROJECT');
     return this.projectService.createProject(dto);
   }
 

@@ -117,6 +117,7 @@ export class ProjectService {
   }
 
   async createProject(dto: ProjectDto) {
+    this.logger.debug('CREATE PROJECT');
     const request = {
       ownerId: dto.ownerId,
       customId: nanoid(12),
@@ -144,6 +145,7 @@ export class ProjectService {
       },
     };
     try {
+      this.logger.debug('PRISMA PROJECT');
       const project = await this.prisma.project.create({
         data: request,
         include: {
@@ -154,6 +156,7 @@ export class ProjectService {
           },
         },
       });
+      this.logger.debug('CREATE KEYCLOAK');
       // add keycloak resource
       this.keycloak.newResource(
         project.projectId,
