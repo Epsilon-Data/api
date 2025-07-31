@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
@@ -9,7 +9,6 @@ import { nanoid } from 'nanoid';
 import { PermissionsDto } from 'src/auth/dto';
 @Injectable()
 export class ProjectService {
-  private readonly logger = new Logger('ProjectService');
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
@@ -117,7 +116,6 @@ export class ProjectService {
   }
 
   async createProject(dto: ProjectDto) {
-    this.logger.debug('CREATE PROJECT');
     const request = {
       ownerId: dto.ownerId,
       customId: nanoid(12),
@@ -144,40 +142,35 @@ export class ProjectService {
         },
       },
     };
-    try {
-      this.logger.debug('PRISMA PROJECT');
-      const project = await this.prisma.project.create({
-        data: request,
-        include: {
-          connection: {
-            include: {
-              request: true,
-            },
+
+    const project = await this.prisma.project.create({
+      data: request,
+      include: {
+        connection: {
+          include: {
+            request: true,
           },
         },
+      },
+    });
+    // add keycloak resource
+    this.keycloak.newResource(
+      project.projectId,
+      project.ownerId,
+      project.members,
+    );
+
+    if (dto.connection.additionalInfo) {
+      await this.prisma.comment.create({
+        data: {
+          requestId: project.connection.request.requestId,
+          authorId: dto.ownerId,
+          content: dto.connection.additionalInfo,
+        },
       });
-      this.logger.debug('CREATE KEYCLOAK');
-      // add keycloak resource
-      this.keycloak.newResource(
-        project.projectId,
-        project.ownerId,
-        project.members,
-      );
-
-      if (dto.connection.additionalInfo) {
-        await this.prisma.comment.create({
-          data: {
-            requestId: project.connection.request.requestId,
-            authorId: dto.ownerId,
-            content: dto.connection.additionalInfo,
-          },
-        });
-      }
-
-      return project;
-    } catch (error) {
-      this.logger.error(error);
     }
+
+    return project;
   }
 
   async getProjectDetails(projectId: string) {
