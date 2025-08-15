@@ -15,13 +15,22 @@ export class ArchetypeService {
     private databaseSource: DatabaseService,
   ) {}
 
-  async archetypeNames(projectId: string, token?: string) {
-    const dbId = await this.databaseSource.findDbId(projectId);
+  async getArchetypes(projectId: string, token?: string) {
+    const connection = await this.prisma.connection.findUnique({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        atlasId: true,
+      },
+    });
+
+    console.log(connection);
 
     let activeTemplates = [];
 
     const params = {
-      query: `from archetype where instance.__guid = "${dbId}" select __state, __guid, qualifiedName, progress`,
+      query: `from archetype where instance.__guid = "${connection.atlasId}" select __state, __guid, qualifiedName, progress`,
     };
     await this.atlas
       .get('/search/dsl', params, token)
@@ -39,12 +48,6 @@ export class ArchetypeService {
       .catch(() => {
         activeTemplates = [];
       });
-
-    return activeTemplates;
-  }
-
-  async archetypes(projectId: string, token?: string) {
-    const activeTemplates = await this.archetypeNames(projectId);
 
     const output = [];
     for (const template of activeTemplates) {
