@@ -4,6 +4,8 @@ API gateway for frontend applications (currently servicing as API to Data Hub fr
 
 ## Prerequisites
 
+You must have read access to the keycloak-admin-client. You can check if you have this by looking in the [Epsilon-Data packages](https://github.com/orgs/Epsilon-Data/packages)
+
 Install `pnpm` and `typescript` globally
 
 ```bash
