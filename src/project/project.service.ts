@@ -41,26 +41,22 @@ export class ProjectService {
   }
 
   async getUserSharedProjects(userEmail: string) {
-    const projects = await this.prisma.project.findMany({
-      where: {
-        members: {
-          some: {
-            email: userEmail,
-          },
-        },
-      },
-      select: {
-        projectId: true,
-        customId: true,
-        name: true,
-        lastModified: true,
-        createdDate: true,
-        status: true,
-        university: true,
-        faculty: true,
-      },
-    });
-    return projects;
+    return this.prisma.$queryRaw<
+      Array<{
+        projectId: string;
+        customId: string;
+        name: string;
+        lastModified: Date;
+        createdDate: Date;
+        status: string;
+        university: string | null;
+        faculty: string | null;
+      }>
+    >`
+    SELECT "projectId","customId","name","lastModified","createdDate","status","university","faculty"
+    FROM "Project"
+    WHERE "members" @> ${JSON.stringify([{ email: userEmail }])}::jsonb
+  `;
   }
 
   async getUserProjects(permissions: any) {
@@ -162,6 +158,7 @@ export class ProjectService {
       startDate: dto.startDate,
       endDate: dto.endDate,
       participantsNum: dto.participantsNum,
+      members: memberData,
       dbKeywords: dto.dbKeywords,
       connection: {
         create: {
@@ -186,19 +183,6 @@ export class ProjectService {
         },
       },
     });
-
-    if (memberData && memberData.length > 0) {
-      const members = memberData.map((member) => ({
-        projectId: project.projectId,
-        email: member.email,
-        role: member.role,
-      }));
-
-      await this.prisma.projectMember.createMany({
-        data: members,
-        skipDuplicates: true,
-      });
-    }
 
     const memberEmails = memberData.map((member) => member.email);
 
@@ -234,14 +218,12 @@ export class ProjectService {
 
     return project;
   }
-
   async getProjectDetails(projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: {
         projectId: projectId,
       },
       include: {
-        members: true,
         connection: {
           include: {
             request: {
@@ -259,7 +241,7 @@ export class ProjectService {
 
   async updateProject(projectId: string, dto: ProjectDto) {
     const dbData = JSON.stringify(dto.connection.tempDbDetails);
-    const memberData = JSON.parse(dto.members);
+    // const memberData = JSON.parse(dto.members);
     await this.prisma.project.update({
       where: { projectId: projectId },
       data: {
@@ -280,19 +262,6 @@ export class ProjectService {
         },
       },
     });
-
-    if (memberData && memberData.length > 0) {
-      const members = memberData.map((member) => ({
-        projectId: projectId,
-        email: member.email,
-        role: member.role,
-      }));
-
-      await this.prisma.projectMember.createMany({
-        data: members,
-        skipDuplicates: true,
-      });
-    }
   }
 
   async deleteProject(projectId: string) {
