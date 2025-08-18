@@ -84,8 +84,9 @@ export class ProjectController {
 
   @Post()
   @ApiOperation({ summary: 'Create project' })
-  createProject(@Body() dto: ProjectDto) {
-    return this.projectService.createProject(dto);
+  createProject(@Req() request: Request, @Body() dto: ProjectDto) {
+    const username = request.auth.payload.preferred_username.toString();
+    return this.projectService.createProject(username, dto);
   }
 
   @Get(':projectId')

@@ -143,7 +143,7 @@ export class ProjectService {
     return requestList;
   }
 
-  async createProject(dto: ProjectDto) {
+  async createProject(username: string, dto: ProjectDto) {
     const dbData = JSON.stringify(dto.connection.tempDbDetails);
     const memberData = JSON.parse(dto.members);
 
@@ -188,7 +188,7 @@ export class ProjectService {
     const memberEmails = memberData.map((member) => member.email);
 
     // NOTE: example of add resource and permissions
-    this.keycloak.newResource(project.projectId, 'test_user', memberEmails);
+    this.keycloak.newResource(project.projectId, username, memberEmails);
 
     if (dto.connection.additionalInfo) {
       await this.prisma.comment.create({
