@@ -41,7 +41,7 @@ export class ProjectService {
   }
 
   async getUserSharedProjects(userEmail: string) {
-    return this.prisma.$queryRaw<
+    const projects = await this.prisma.$queryRaw<
       Array<{
         projectId: string;
         customId: string;
@@ -55,8 +55,9 @@ export class ProjectService {
     >`
     SELECT "projectId","customId","name","lastModified","createdDate","status","university","faculty"
     FROM "Project"
-    WHERE "members" @> ${JSON.stringify([{ email: userEmail }])}::jsonb
+    WHERE "members"::jsonb @> ${JSON.stringify([{ email: userEmail }])}::jsonb
   `;
+    return projects;
   }
 
   async getUserProjects(permissions: any) {
