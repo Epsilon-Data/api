@@ -43,7 +43,7 @@ export class DockerService {
       '?sslmode=disable';
 
     envArgs.push(`DATABASE_URL=${url}`);
-    envArgs.push(`SOURCE_ID=${projectId}`);
+    envArgs.push(`PROJECT_ID=${projectId}`);
 
     try {
       const goPackagesPath = join(process.cwd(), '..', 'go-packages');
