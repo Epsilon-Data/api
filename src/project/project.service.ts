@@ -184,13 +184,11 @@ export class ProjectService {
         },
       },
     });
- 
+
+    const memberEmails = memberData.map((member) => member.email);
+
     // add keycloak resource
-    this.keycloak.newResource(
-      project.projectId,
-      project.ownerId,
-      memberEmails,
-    );
+    this.keycloak.newResource(project.projectId, project.ownerId, memberEmails);
 
     if (dto.connection.additionalInfo) {
       await this.prisma.comment.create({
