@@ -16,21 +16,10 @@ export class ArchetypeService {
   ) {}
 
   async getArchetypes(projectId: string, token?: string) {
-    const connection = await this.prisma.connection.findUnique({
-      where: {
-        projectId: projectId,
-      },
-      select: {
-        atlasId: true,
-      },
-    });
-
-    console.log(connection);
-
     let activeTemplates = [];
 
     const params = {
-      query: `from archetype where instance.__guid = "${connection.atlasId}" select __state, __guid, qualifiedName, progress`,
+      query: `from archetype where instance.projectId = "${projectId}" select __state, __guid, qualifiedName`,
     };
     await this.atlas
       .get('/search/dsl', params, token)
