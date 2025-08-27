@@ -15,7 +15,8 @@ export class KeycloakService {
   constructor(@Inject(AUTH_CONFIG) private config: AuthModuleConfig) {}
 
   async checkPermission(authzRequest, request) {
-    if (!request.auth.token) {
+    const token = request.auth?.token || this.extractTokenFromHeader(request);
+    if (!token) {
       return Promise.reject(new Error('No bearer token'));
     }
     const params = {
@@ -50,7 +51,7 @@ export class KeycloakService {
         {
           method: 'POST',
           headers: {
-            Authorization: 'Bearer ' + request.auth.token,
+            Authorization: 'Bearer ' + token,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: data,
@@ -87,13 +88,14 @@ export class KeycloakService {
   }
 
   async getPermissions(authzRequest, request) {
-    if (!request.auth.token) {
+    const token = request.auth?.token || this.extractTokenFromHeader(request);
+    if (!token) {
       return Promise.reject(new Error('No bearer token'));
     }
     const params = {
       grant_type: 'urn:ietf:params:oauth:grant-type:uma-ticket',
       audience: authzRequest.audience || this.config.clientId,
-      response_mode: authzRequest.response_mode || 'decision',
+      response_mode: authzRequest.response_mode || 'permissions',
     };
 
     const data = querystring.stringify(params);
@@ -103,13 +105,12 @@ export class KeycloakService {
         {
           method: 'POST',
           headers: {
-            Authorization: 'Bearer ' + request.auth.token,
+            Authorization: 'Bearer ' + token,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: data,
         },
       );
-
       // Read text if it exists
       const text = await res.text();
       if (res.status >= 500) {
@@ -137,5 +138,13 @@ export class KeycloakService {
         throw err;
       }
     }
+  }
+
+  private extractTokenFromHeader(request: Request): string | null {
+    const authHeader = request.headers['authorization'];
+    if (!authHeader || typeof authHeader !== 'string') return null;
+
+    const [type, token] = authHeader.split(' ');
+    return type === 'Bearer' ? token : null;
   }
 }

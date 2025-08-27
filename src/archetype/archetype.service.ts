@@ -18,6 +18,7 @@ export class ArchetypeService {
   async getArchetypes(projectId: string, token?: string) {
     let activeTemplates = [];
 
+    // TODO: I think it is better to write the projectId into atlas instance as that should have 1=1 relationship
     const params = {
       query: `from archetype where instance.projectId = "${projectId}" select __state, __guid, qualifiedName`,
     };
@@ -30,7 +31,8 @@ export class ArchetypeService {
             return {
               guid: item[1],
               name: item[2].split('@', 2)[1],
-              progress: item[3],
+              //FIXME: this doesn't exist in the archetype model
+              // progress: item[3],
             };
           });
       })
@@ -110,6 +112,75 @@ export class ArchetypeService {
     return output;
   }
 
+  async getAnalysisArchetype(projectId: string, token?: string) {
+    const activeTemplates = await this.archetypeNames(projectId);
+
+    const output = [];
+    for (const template of activeTemplates) {
+      const templateGuid = template.guid;
+
+      const properties: Record<string, object> = {};
+      const schema = {
+        $schema: 'https://json-schema.org/draft/2020-12/schema#',
+        title: template.name,
+        type: 'object',
+        properties,
+      };
+
+      const templateEntity = await this.atlas.get(
+        `/entity/guid/${templateGuid}`,
+        undefined,
+        token,
+      );
+
+      for (const key in templateEntity.referredEntities) {
+        const entity = templateEntity.referredEntities[key];
+
+        if (entity.typeName.includes('archetype_')) {
+          if (entity.typeName != 'archetype_object') {
+            const objectName = entity.attributes.qualifiedName;
+            if (entity.relationshipAttributes.subcategories?.length) {
+              const type = 'object';
+              const properties: Record<string, object> = {};
+              schema.properties[objectName] = { type, properties };
+            }
+            if (entity.relationshipAttributes.columns?.length) {
+              const properties: Record<string, object> = {};
+              for (const column of entity.relationshipAttributes.columns) {
+                const { entity } = await this.atlas.get(
+                  `/entity/guid/${column.guid}`,
+                  undefined,
+                  token,
+                );
+                const jsonType = this.atlasTypeToJSONType(
+                  entity.attributes.data_type,
+                );
+                properties[objectName] = {
+                  type: jsonType,
+                };
+              }
+              if (entity.relationshipAttributes.category) {
+                schema.properties[
+                  entity.relationshipAttributes.category.qualifiedName
+                ]['properties'] = {
+                  ...schema.properties[
+                    entity.relationshipAttributes.category.qualifiedName
+                  ]['properties'],
+                  ...properties,
+                };
+              } else {
+                schema.properties = { ...schema.properties, ...properties };
+              }
+            }
+          }
+        }
+      }
+
+      output.push(schema);
+    }
+    return output;
+  }
+
   async deleteArchetype(template: ArchetypeDto) {
     return await this.queue.deleteTemplateJob(template);
   }
@@ -117,5 +188,29 @@ export class ArchetypeService {
   async createArchetype(projectId: string, template: ArchetypeDto) {
     const dbId = await this.databaseSource.findDbId(projectId);
     await this.queue.addArchetypeJob(template, dbId);
+  }
+
+  private atlasTypeToJSONType(dataType: string): string {
+    switch (dataType) {
+      case 'string':
+      case 'date':
+        return 'string';
+      case 'int':
+      case 'integer':
+        return 'integer';
+      case 'long':
+      case 'float':
+      case 'double':
+      case 'short':
+        return 'number';
+      case 'boolean':
+        return 'boolean';
+      case 'array<string>':
+      case 'list<string>':
+        return 'array';
+      // You can expand this for nested object types too
+      default:
+        return 'object'; // fallback for unknown types
+    }
   }
 }

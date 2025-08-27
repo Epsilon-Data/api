@@ -14,17 +14,9 @@ import {
 } from '../config.interface';
 
 import { ConfigService } from '@nestjs/config';
+import { LoginDto } from 'src/analysis/dto';
 
-export type UserQueryParams = {
-  readonly email?: string;
-  readonly emailVerified?: string;
-  readonly enabled?: boolean;
-  readonly exact?: boolean;
-  readonly firstName?: string;
-  readonly lastName?: string;
-  readonly username?: string;
-};
-
+// FIXME: add to consts and DTOs
 const resourcePrefix = 'project:';
 const projectScopes = [
   {
@@ -68,6 +60,16 @@ const custodianPermissionPrefix = `Custodian `;
 const custodianPermissions = ['view', 'edit', 'connect'];
 
 // FIXME: add to keycloak-admin-client
+
+export type UserQueryParams = {
+  readonly email?: string;
+  readonly emailVerified?: string;
+  readonly enabled?: boolean;
+  readonly exact?: boolean;
+  readonly firstName?: string;
+  readonly lastName?: string;
+  readonly username?: string;
+};
 export enum DecisionStrategy {
   AFFIRMATIVE = 'AFFIRMATIVE',
   UNANIMOUS = 'UNANIMOUS',
@@ -124,7 +126,6 @@ export interface GroupRepresentation {
 @Injectable()
 export class KeycloakAdminService {
   private readonly logger = new Logger('KeycloakAdminService');
-  // private kcAdminClient: KeycloakAdminClient;
 
   constructor(
     @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
@@ -246,7 +247,7 @@ export class KeycloakAdminService {
       this.logger.error('Error in getClients', error);
     }
   }
-  async getUserById(id: string) {
+  async getUserInfoById(id: string) {
     try {
       const userQuery = await this.kcAdminClient.users.findOne(
         {
@@ -268,6 +269,20 @@ export class KeycloakAdminService {
         ...user,
         lastLogin: new Date(lastLoginEvent?.time),
       };
+    } catch (error) {
+      this.logger.error('Error in getUserInfoById', error);
+    }
+  }
+
+  async getUserById(id: string) {
+    try {
+      return await this.kcAdminClient.users.findOne(
+        {
+          id,
+          realm: this.config.realm,
+        },
+        { catchNotFound: false },
+      );
     } catch (error) {
       this.logger.error('Error in getUserById', error);
     }
@@ -415,30 +430,25 @@ export class KeycloakAdminService {
       .sort((a, b) => (b.time || 0) - (a.time || 0))[0];
   }
 
-  async createScope(scope: ClientScopeRepresentation) {
-    try {
-      // get new scope id
-      return await this.kcAdminClient.clientScopes.create(scope);
-    } catch (error) {
-      this.logger.error('Error in createScope', error);
-    }
-  }
-
   async newResource(
     id: string,
-    owner: string,
+    ownerId: string,
     collaborators: string[],
     custodian?: string,
   ) {
+    // get owner username
+    const owner = (await this.getUserById(ownerId)).username;
+
     // create resource
     await this.createResource({
       name: `${resourcePrefix}${id}`,
       type: 'project',
       displayName: `${resourcePrefix}${id}`,
+      // TODO: make this URL same as frontend
       uris: [`project/${id}`],
-      // TODO: make into const object
       scopes: projectScopes,
     });
+
     // create owner policy
     await this.createPolicy('user', {
       name: `${ownerPolicyPrefix}${id}`,
@@ -552,6 +562,14 @@ export class KeycloakAdminService {
       this.logger.error('Error in createResource', error);
     }
   }
+  async createScope(scope: ClientScopeRepresentation) {
+    try {
+      // get new scope id
+      return await this.kcAdminClient.clientScopes.create(scope);
+    } catch (error) {
+      this.logger.error('Error in createScope', error);
+    }
+  }
   async createPolicy(policyType: string, policy: PolicyRepresentation) {
     this.logger.debug(`Creating ${policyType} policy...`);
     try {
@@ -583,26 +601,16 @@ export class KeycloakAdminService {
     }
   }
 
-  async getAccessToken(
-    username: string,
-    password: string,
-  ): Promise<{
+  async getAccessToken(login: LoginDto): Promise<{
     access_token: string;
     expires_in?: number;
   }> {
     try {
-      const { issuerBaseURL, realm } = this.config;
-      await this.kcAdminClient.setConfig({
-        baseUrl: issuerBaseURL,
-        realmName: realm,
-      });
-
       await this.kcAdminClient.auth({
         grantType: 'password',
         clientId: this.configService.get<string>('sdk.clientId'),
-        clientSecret: this.configService.get<string>('sdk.clientSecret'),
-        username,
-        password,
+        username: login.username,
+        password: login.password,
       });
 
       const token = await this.kcAdminClient.getAccessToken();
