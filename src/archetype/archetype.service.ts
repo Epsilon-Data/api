@@ -15,10 +15,9 @@ export class ArchetypeService {
     private databaseSource: DatabaseService,
   ) {}
 
-  async getArchetypes(projectId: string, token?: string) {
+  async getArchetypeNames(projectId: string, token?: string) {
     let activeTemplates = [];
 
-    // TODO: I think it is better to write the projectId into atlas instance as that should have 1=1 relationship
     const params = {
       query: `from archetype where instance.projectId = "${projectId}" select __state, __guid, qualifiedName`,
     };
@@ -31,14 +30,19 @@ export class ArchetypeService {
             return {
               guid: item[1],
               name: item[2].split('@', 2)[1],
-              //FIXME: this doesn't exist in the archetype model
-              // progress: item[3],
+              progress: item[3],
             };
           });
       })
       .catch(() => {
         activeTemplates = [];
       });
+
+    return activeTemplates;
+  }
+
+  async getArchetypes(projectId: string, token?: string) {
+    const activeTemplates = await this.getArchetypeNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -113,7 +117,7 @@ export class ArchetypeService {
   }
 
   async getAnalysisArchetype(projectId: string, token?: string) {
-    const activeTemplates = await this.archetypeNames(projectId);
+    const activeTemplates = await this.getArchetypeNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {

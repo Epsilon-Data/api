@@ -14,6 +14,13 @@ import { ArchetypeDto } from './dto';
 export class ArchetypeController {
   constructor(private readonly templateService: ArchetypeService) {}
 
+  @Get(':projectId/names')
+  async getArchetypeNames(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.templateService.getArchetypeNames(projectId);
+  }
+
   @Get(':projectId')
   async getArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.templateService.getArchetypes(projectId);
