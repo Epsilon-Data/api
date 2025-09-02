@@ -116,9 +116,16 @@ export class ProjectService {
   }
 
   async createProject(dto: ProjectDto) {
+    const customId = nanoid(12);
+    const packageName = dto.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
     const request = {
       ownerId: dto.ownerId,
-      customId: nanoid(12),
+      customId: customId,
+      packageId: `${packageName}_${customId.slice(0, 6)}`,
       name: dto.name,
       lead: dto.lead,
       university: dto.university,
