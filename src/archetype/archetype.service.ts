@@ -15,7 +15,7 @@ export class ArchetypeService {
     private databaseSource: DatabaseService,
   ) {}
 
-  async getArchetypeNames(projectId: string, token?: string) {
+  async archetypeNames(projectId: string, token?: string) {
     let activeTemplates = [];
 
     const params = {

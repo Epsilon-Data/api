@@ -17,14 +17,13 @@ export class DatabaseService {
   ) {}
 
   async summary(projectId: string, token?: string) {
-    const dbId = await this.findDbId(projectId);
     const tableParams = {
-      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
     const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
     const schemaParams = {
-      query: `from rdbms_db where instance.__guid = "${dbId}" select __guid, __state`,
+      query: `from rdbms_db where instance.projectId = "${projectId}" select __guid, __state`,
     };
 
     const schemaResult = await this.atlas.get(
@@ -65,14 +64,13 @@ export class DatabaseService {
       totalColCount: columnCount,
     };
 
-    const diagram = await this.convertToDiagramCode(dbId);
+    const diagram = await this.getErdDiagram(projectId);
     return { overall: overall, diagram: diagram };
   }
 
   async tables(projectId: string, token?: string) {
-    const dbId = await this.findDbId(projectId);
     const tableParams = {
-      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
 
     const tablesResult = await this.atlas.get(
@@ -151,10 +149,8 @@ export class DatabaseService {
   }
 
   async columns(projectId: string, token?: string) {
-    const dbId = await this.findDbId(projectId);
-
     const tableParams = {
-      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
     const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
@@ -295,11 +291,15 @@ export class DatabaseService {
   //   await this.queue.addPermissionsJob(permissions, projectId);
   // }
 
-  async convertToDiagramCode(dbId: string, token?: string): Promise<string> {
+  async getErdDiagram(projectId: string, token?: string): Promise<string> {
     const params = {
       ignoreRelationships: true,
     };
-    const result = await this.atlas.get('/entity/guid/' + dbId, params, token);
+    const result = await this.atlas.get(
+      `/entity/uniqueAttribute/type/rdbms_instance?attr:projectId=${projectId}`,
+      params,
+      token,
+    );
     if (result.entity.attributes.erd) {
       const diagramCode = result.entity.attributes.erd.replace(
         /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
