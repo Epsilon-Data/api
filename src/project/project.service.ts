@@ -143,13 +143,19 @@ export class ProjectService {
     return requestList;
   }
 
-  async createProject(username: string, dto: ProjectDto) {
+  async createProject(dto: ProjectDto) {
     const dbData = JSON.stringify(dto.connection.tempDbDetails);
     const memberData = JSON.parse(dto.members);
+    const customId = nanoid(12);
+    const packageName = dto.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
 
     const request = {
       ownerId: dto.ownerId,
-      customId: nanoid(12),
+      customId: customId,
+      packageId: `${packageName}_${customId.slice(0, 6)}`,
       name: dto.name,
       lead: dto.lead,
       university: dto.university,
