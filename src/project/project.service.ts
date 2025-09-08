@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
+import { QueueService } from 'src/queue/queue.service';
 
 import { PermissionsDto } from 'src/auth/dto';
 @Injectable()
 export class ProjectService {
   constructor(
     private prisma: PrismaService,
-    private atlas: AtlasService,
+    private queue: QueueService,
     private fileStorage: FileStorageService,
     private readonly keycloak: KeycloakAdminService,
   ) {}
@@ -20,6 +20,11 @@ export class ProjectService {
     const projects = await this.prisma.project.findMany({
       where: {
         ownerId: userId,
+        connection: {
+          request: {
+            requestorId: userId,
+          },
+        },
       },
       select: {
         projectId: true,
@@ -32,6 +37,26 @@ export class ProjectService {
         faculty: true,
       },
     });
+    return projects;
+  }
+
+  async getUserSharedProjects(userEmail: string) {
+    const projects = await this.prisma.$queryRaw<
+      Array<{
+        projectId: string;
+        customId: string;
+        name: string;
+        lastModified: Date;
+        createdDate: Date;
+        status: string;
+        university: string | null;
+        faculty: string | null;
+      }>
+    >`
+    SELECT "projectId","customId","name","lastModified","createdDate","status","university","faculty"
+    FROM "Project"
+    WHERE "members"::jsonb @> ${JSON.stringify([{ email: userEmail }])}::jsonb
+  `;
     return projects;
   }
 
@@ -60,6 +85,9 @@ export class ProjectService {
 
   async getAllProjects() {
     return await this.prisma.project.findMany({
+      where: {
+        status: 'MAPPED',
+      },
       select: {
         projectId: true,
         customId: true,
@@ -116,6 +144,8 @@ export class ProjectService {
   }
 
   async createProject(dto: ProjectDto) {
+    const dbData = JSON.stringify(dto.connection.tempDbDetails);
+    const memberData = JSON.parse(dto.members);
     const customId = nanoid(12);
     const packageName = dto.name
       .toLowerCase()
@@ -134,13 +164,13 @@ export class ProjectService {
       description: dto.description,
       startDate: dto.startDate,
       endDate: dto.endDate,
-      members: dto.members,
       participantsNum: dto.participantsNum,
+      members: memberData,
       dbKeywords: dto.dbKeywords,
       connection: {
         create: {
           orgAdminEmail: dto.connection.orgAdminEmail,
-          tempDbDetails: dto.connection.tempDbDetails,
+          tempDbDetails: dbData,
           request: {
             create: {
               requestorId: dto.ownerId,
@@ -160,12 +190,11 @@ export class ProjectService {
         },
       },
     });
+
+    const memberEmails = memberData.map((member) => member.email);
+
     // add keycloak resource
-    this.keycloak.newResource(
-      project.projectId,
-      project.ownerId,
-      project.members,
-    );
+    this.keycloak.newResource(project.projectId, project.ownerId, memberEmails);
 
     if (dto.connection.additionalInfo) {
       await this.prisma.comment.create({
@@ -177,9 +206,25 @@ export class ProjectService {
       });
     }
 
+    if (dto.connection.tempDbDetails) {
+      await this.prisma.request.update({
+        where: {
+          requestId: project.connection.requestId,
+        },
+        data: {
+          status: 'APPROVED',
+        },
+      });
+      await this.queue.dataBrokerJob(
+        dto.ownerId,
+        project.projectId,
+        project.connection.requestId,
+        dto.connection.tempDbDetails,
+      );
+    }
+
     return project;
   }
-
   async getProjectDetails(projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: {
@@ -202,7 +247,9 @@ export class ProjectService {
   }
 
   async updateProject(projectId: string, dto: ProjectDto) {
-    return await this.prisma.project.update({
+    const dbData = JSON.stringify(dto.connection.tempDbDetails);
+    // const memberData = JSON.parse(dto.members);
+    await this.prisma.project.update({
       where: { projectId: projectId },
       data: {
         name: dto.name,
@@ -213,12 +260,11 @@ export class ProjectService {
         description: dto.description,
         startDate: dto.startDate,
         endDate: dto.endDate,
-        members: dto.members,
         participantsNum: dto.participantsNum,
         dbKeywords: dto.dbKeywords,
         connection: {
           update: {
-            tempDbDetails: dto.connection.tempDbDetails,
+            tempDbDetails: dbData,
           },
         },
       },

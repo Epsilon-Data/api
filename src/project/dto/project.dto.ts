@@ -13,6 +13,33 @@ import {
   IsUrl,
 } from 'class-validator';
 
+class DatabaseDto {
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  url: string;
+
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
 class ConnectionDto {
   @IsOptional()
   @IsUUID()
@@ -23,8 +50,10 @@ class ConnectionDto {
   orgAdminEmail?: string;
 
   @IsOptional()
-  @IsString()
-  tempDbDetails?: string;
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DatabaseDto)
+  tempDbDetails?: DatabaseDto;
 
   @IsOptional()
   @IsString()
@@ -85,8 +114,9 @@ export class ProjectDto {
   endDate: Date;
 
   @IsDefined()
-  @IsString({ each: true })
-  members: string[];
+  @IsString()
+  @IsNotEmpty()
+  members: string;
 
   @IsDefined()
   @IsNumber()

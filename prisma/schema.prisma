@@ -71,9 +71,9 @@ model Project {
   description     String        @db.Text
   startDate       DateTime      @db.Date
   endDate         DateTime      @db.Date
-  members         String[]
   lastModified    DateTime      @default(now()) @db.Timestamp(6)
   participantsNum Int           @db.SmallInt
+  members         Json          @db.Json
   dbKeywords      String[]
   createdDate     DateTime      @default(now()) @db.Date
   visualizations  Json?         @db.Json
@@ -128,6 +128,7 @@ enum NotificationStatus {
 enum ProjectStatus {
   CRAWLING
   ACTIVE
+  ERROR
   MAPPED
   LINKED
 }

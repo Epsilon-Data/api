@@ -15,13 +15,15 @@ export class ArchetypeController {
   constructor(private readonly templateService: ArchetypeService) {}
 
   @Get(':projectId/names')
-  async archetypeNames(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.templateService.archetypeNames(projectId);
+  async getArchetypeNames(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.templateService.getArchetypeNames(projectId);
   }
 
   @Get(':projectId')
-  async archetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    return await this.templateService.archetypes(projectId);
+  async getArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.templateService.getArchetypes(projectId);
   }
 
   @Delete(':projectId/:archetypeId')

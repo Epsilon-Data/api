@@ -8,6 +8,24 @@ import { DatabaseInfoDto } from 'src/connection_request/dto';
 export class QueueService {
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
+  async dataBrokerJob(
+    ownerId: string,
+    projectId: string,
+    requestId: string,
+    database: DatabaseInfoDto,
+  ) {
+    const postData = {
+      ownerId: ownerId,
+      projectId: projectId,
+      requestId: requestId,
+      database: database,
+    };
+    return await this.atlasQueue.add('process-data-broker', postData, {
+      attempts: 5,
+      backoff: 10000,
+    });
+  }
+
   async addArchetypeJob(archetype: ArchetypeDto, dbId: string) {
     const parsedMapping = JSON.parse(archetype.columnMapping);
     const parsedTemplate = JSON.parse(archetype.archetype);
@@ -40,22 +58,6 @@ export class QueueService {
       projectId: projectId,
     };
     return await this.atlasQueue.add('process-add-permissions', postData, {
-      attempts: 5,
-      backoff: 10000,
-    });
-  }
-
-  async dataBrokerJob(
-    ownerId: string,
-    sourceId: string,
-    database: DatabaseInfoDto | { databaseId: string },
-  ) {
-    const postData = {
-      ownerId: ownerId,
-      sourceId: sourceId,
-      database: database,
-    };
-    return await this.atlasQueue.add('process-data-broker', postData, {
       attempts: 5,
       backoff: 10000,
     });
