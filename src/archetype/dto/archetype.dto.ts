@@ -1,5 +1,6 @@
 import {
   IsDefined,
+  IsJSON,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -14,10 +15,12 @@ export class ArchetypeDto {
 
   @IsOptional()
   @IsString()
+  @IsJSON()
   archetype: string;
 
   @IsOptional()
   @IsString()
+  @IsJSON()
   columnMapping: string;
 
   @IsOptional()

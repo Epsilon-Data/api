@@ -1,14 +1,12 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { DatabaseService } from 'src/database/database.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { ArchetypeDto } from './dto';
 
 @Injectable()
 export class ArchetypeService {
   constructor(
-    private prisma: PrismaService,
     private atlas: AtlasService,
     private readonly queue: QueueService,
     @Inject(forwardRef(() => DatabaseService))
@@ -189,9 +187,9 @@ export class ArchetypeService {
     return await this.queue.deleteTemplateJob(template);
   }
 
-  async createArchetype(projectId: string, template: ArchetypeDto) {
-    const dbId = await this.databaseSource.findDbId(projectId);
-    await this.queue.addArchetypeJob(template, dbId);
+  async createArchetype(username: string, template: ArchetypeDto) {
+    const dbId = await this.databaseSource.findDbId(template.projectId);
+    await this.queue.addArchetypeJob(username, dbId, template);
   }
 
   private atlasTypeToJSONType(dataType: string): string {

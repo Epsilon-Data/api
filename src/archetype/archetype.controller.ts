@@ -6,9 +6,11 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Req,
 } from '@nestjs/common';
 import { ArchetypeService } from './archetype.service';
 import { ArchetypeDto } from './dto';
+import { Request } from 'express';
 
 @Controller('archetype')
 export class ArchetypeController {
@@ -39,7 +41,9 @@ export class ArchetypeController {
   createArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() template: ArchetypeDto,
+    @Req() request: Request,
   ) {
-    return this.templateService.createArchetype(projectId, template);
+    const username = request.auth.payload.preferred_username.toString();
+    return this.templateService.createArchetype(username, template);
   }
 }

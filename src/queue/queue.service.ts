@@ -8,33 +8,15 @@ import { DatabaseInfoDto } from 'src/connection_request/dto';
 export class QueueService {
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
-  async dataBrokerJob(
-    ownerId: string,
-    projectId: string,
-    requestId: string,
-    database: DatabaseInfoDto,
-  ) {
-    const postData = {
-      ownerId: ownerId,
-      projectId: projectId,
-      requestId: requestId,
-      database: database,
-    };
-    return await this.atlasQueue.add('process-data-broker', postData, {
-      jobId: `process-data-broker:${projectId}`,
-      attempts: 5,
-      backoff: 10000,
-    });
-  }
-
-  async addArchetypeJob(archetype: ArchetypeDto, dbId: string) {
+  async addArchetypeJob(owner: string, dbId: string, archetype: ArchetypeDto) {
     const parsedMapping = JSON.parse(archetype.columnMapping);
     const parsedTemplate = JSON.parse(archetype.archetype);
     const postData = {
+      owner: owner,
+      dbId: dbId,
       projectId: archetype.projectId,
       columnMapping: parsedMapping,
       template: parsedTemplate,
-      dbId: dbId,
     };
     return await this.atlasQueue.add('process-add-archetype', postData, {
       attempts: 5,
