@@ -28,7 +28,6 @@ export class ArchetypeService {
             return {
               guid: item[1],
               name: item[2].split('@', 2)[1],
-              progress: item[3],
             };
           });
       })
