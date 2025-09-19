@@ -474,8 +474,7 @@ export class KeycloakAdminService {
     });
 
     // add owner to group
-    const getOwnerId = await this.getAllUsers({ username: owner });
-    await this.addUserToGroup(getOwnerId[0].id, createGroup.id);
+    await this.addUserToGroup(ownerId, createGroup.id);
 
     // create group policy
     await this.createPolicy('group', {
