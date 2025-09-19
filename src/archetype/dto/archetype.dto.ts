@@ -15,6 +15,11 @@ export class ArchetypeDto {
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsOptional()
+  @IsString()
   @IsJSON()
   archetype: string;
 
