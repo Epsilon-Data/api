@@ -176,9 +176,16 @@ export class DockerService {
       name: name,
       Env: envVariables,
       HostConfig: {
-        NetworkMode: 'epsilon_pg_internal',
+        AutoRemove: false,
       },
-      AutoRemove: true,
+      NetworkingConfig: {
+        EndpointsConfig: {
+          epsilon_pg_internal: {},
+          epsilon_cassandra_internal: {
+            Aliases: ['data-broker'],
+          },
+        },
+      },
     });
 
     await container.start();
