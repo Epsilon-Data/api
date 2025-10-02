@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 import * as Docker from 'dockerode';
+import { join } from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -41,11 +44,12 @@ export class DockerService {
     const imageName = 'go-packages-data_broker';
 
     try {
+      const goPackagesPath = join(process.cwd(), '..', 'go-packages');
+
       const imageExists = await this.isImageBuilt(imageName);
       if (!imageExists) {
-        throw new Error(
-          'Data Broker image not found. Please build the image before running the container.',
-        );
+        this.logger.log('Building the Docker container...');
+        await this.buildImage(goPackagesPath, imageName);
       }
 
       this.logger.log('Starting the Docker container...');
@@ -114,6 +118,27 @@ export class DockerService {
         error,
       );
       throw error;
+    }
+  }
+
+  private async buildImage(
+    contextPath: string,
+    imageName: string,
+  ): Promise<void> {
+    const execAsync = promisify(exec);
+    try {
+      this.logger.log(
+        `Building Docker image ${imageName} from ${contextPath}...`,
+      );
+      const { stdout, stderr } = await execAsync(
+        `docker build --platform linux/amd64 -t ${imageName}:latest ${contextPath} --build-arg MODULE=data-broker --build-arg TBLS_VERSION=1.71.0`,
+      );
+      if (stdout) this.logger.debug(stdout);
+      if (stderr) this.logger.warn(stderr);
+      this.logger.log(`Image ${imageName}:latest built successfully.`);
+    } catch (err) {
+      this.logger.error(`Failed to build image ${imageName}`, err);
+      throw err;
     }
   }
 
