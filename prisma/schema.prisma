@@ -30,7 +30,6 @@ model Comment {
 model Connection {
   requestId     String  @id @db.Uuid
   projectId     String  @unique @db.Uuid
-  atlasId       String? @db.Uuid
   orgAdminEmail String? @db.Text
   tempDbDetails Json?   @db.Json
   request       Request @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_request_id")
@@ -73,7 +72,7 @@ model Project {
   endDate         DateTime      @db.Date
   lastModified    DateTime      @default(now()) @db.Timestamp(6)
   participantsNum Int           @db.SmallInt
-  members         Json          @db.Json
+  members         Json?          @db.Json
   dbKeywords      String[]
   createdDate     DateTime      @default(now()) @db.Date
   visualizations  Json?         @db.Json
