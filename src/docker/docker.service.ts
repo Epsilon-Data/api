@@ -1,8 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 import * as Docker from 'dockerode';
-import { join } from 'path';
-import * as tar from 'tar-stream';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -43,12 +41,11 @@ export class DockerService {
     const imageName = 'go-packages-data_broker';
 
     try {
-      const goPackagesPath = join(process.cwd(), '..', 'go-packages');
-
       const imageExists = await this.isImageBuilt(imageName);
       if (!imageExists) {
-        this.logger.log('Building the Docker container...');
-        await this.buildImage(goPackagesPath, imageName);
+        throw new Error(
+          'Data Broker image not found. Please build the image before running the container.',
+        );
       }
 
       this.logger.log('Starting the Docker container...');
@@ -118,25 +115,6 @@ export class DockerService {
       );
       throw error;
     }
-  }
-
-  private buildImage(buildContext: string, imageName: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const tarStream = tar.pack(buildContext);
-      this.docker.buildImage(
-        tarStream,
-        { t: imageName, dockerfile: 'Dockerfile' },
-        (error, stream) => {
-          if (error) {
-            return reject(error);
-          }
-          this.docker.modem.followProgress(stream, (err) => {
-            if (err) return reject(err);
-            resolve();
-          });
-        },
-      );
-    });
   }
 
   private async createAndStartContainer(
