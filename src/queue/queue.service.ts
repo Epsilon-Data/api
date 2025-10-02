@@ -21,6 +21,7 @@ export class QueueService {
       database: database,
     };
     return await this.atlasQueue.add('process-data-broker', postData, {
+      jobId: `process-data-broker:${projectId}`,
       attempts: 5,
       backoff: 10000,
     });

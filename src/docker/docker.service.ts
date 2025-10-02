@@ -36,18 +36,14 @@ export class DockerService {
       `ATLAS_URI=${atlasUrl}`,
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
+      `DATABASE_URL=${database.url.replace('localhost', 'host.docker.internal') + '?sslmode=disable'}`,
+      `PROJECT_ID=${projectId}`,
     ];
 
-    const url =
-      database.url.replace('localhost', 'host.docker.internal') +
-      '?sslmode=disable';
-
-    envArgs.push(`DATABASE_URL=${url}`);
-    envArgs.push(`PROJECT_ID=${projectId}`);
+    const imageName = 'go-packages-data_broker';
 
     try {
       const goPackagesPath = join(process.cwd(), '..', 'go-packages');
-      const imageName = 'go-packages-data_broker';
 
       const imageExists = await this.isImageBuilt(imageName);
       if (!imageExists) {
@@ -62,45 +58,37 @@ export class DockerService {
         projectId,
       );
 
-      const containerOutput = await this.captureContainerOutput(container);
+      try {
+        this.logger.log('Waiting for the container to finish...');
+        await this.monitorContainer(container);
 
-      this.logger.log('Waiting for the container to finish...');
-      await this.monitorContainer(container);
+        const output = await this.readAllLogs(container);
 
-      this.logger.log('Removing the container...');
-      await container.remove();
-      this.logger.log('Container removed successfully.');
+        const done = /(^|\n)DONE(\r?\n|$)/.test(output);
+        const inspect = await container.inspect();
+        const exitCode = inspect.State?.ExitCode ?? 1;
+        const success = done || exitCode === 0;
 
-      const guidRegex =
-        /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\s*$/i;
-
-      const guidMatch = containerOutput.match(guidRegex);
-      if (guidMatch && guidMatch[0]) {
-        await this.prisma.connection.update({
-          where: { requestId: requestId },
-          data: {
-            atlasId: guidMatch[0].trim(),
-          },
-        });
+        if (!success) {
+          await this.prisma.project.update({
+            where: { projectId },
+            data: { status: 'ERROR' },
+          });
+          throw new Error(
+            'Container finished without DONE marker and non-zero exit code',
+          );
+        }
 
         await this.prisma.project.update({
-          where: { projectId: projectId },
-          data: {
-            status: 'ACTIVE',
-          },
+          where: { projectId },
+          data: { status: 'ACTIVE' },
         });
+      } finally {
+        this.logger.log('Removing the container...');
+        await container.remove({ force: true });
+        this.logger.log('Container removed successfully.');
 
-        return guidMatch[0].trim();
-      } else {
-        await this.prisma.project.update({
-          where: { projectId: projectId },
-          data: {
-            status: 'ERROR',
-          },
-        });
-        throw new Error(
-          `Failed to extract GUID from container output: ${containerOutput}`,
-        );
+        return projectId;
       }
     } catch (error) {
       await this.prisma.project.update({
@@ -109,7 +97,7 @@ export class DockerService {
           status: 'ERROR',
         },
       });
-      this.logger.error('Error running Data Broker container', error);
+      this.logger.error('Error running Data Broker container: ', error);
     }
   }
 
@@ -201,29 +189,12 @@ export class DockerService {
     });
   }
 
-  private captureContainerOutput(container: Docker.Container): Promise<string> {
-    return new Promise((resolve, reject) => {
-      container.logs(
-        { follow: true, stdout: true, stderr: true },
-        (err, stream) => {
-          if (err) {
-            return reject(err);
-          }
-
-          let output = '';
-          stream.on('data', (chunk) => {
-            output += chunk.toString();
-          });
-
-          stream.on('end', () => {
-            resolve(output);
-          });
-
-          stream.on('error', (err) => {
-            reject(err);
-          });
-        },
-      );
+  private async readAllLogs(container: Docker.Container): Promise<string> {
+    const logs = await container.logs({
+      stdout: true,
+      stderr: true,
+      follow: false,
     });
+    return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs);
   }
 }
