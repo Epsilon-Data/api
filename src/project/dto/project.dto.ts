@@ -14,27 +14,27 @@ import {
 } from 'class-validator';
 
 class DatabaseDto {
-  @IsDefined()
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   type: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   url: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   username: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   password: string;

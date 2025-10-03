@@ -144,7 +144,6 @@ export class ProjectService {
   }
 
   async createProject(dto: ProjectDto) {
-    const dbData = JSON.stringify(dto.connection.tempDbDetails);
     const memberData = JSON.parse(dto.members);
     const customId = nanoid(12);
     const packageName = dto.name
@@ -170,7 +169,9 @@ export class ProjectService {
       connection: {
         create: {
           orgAdminEmail: dto.connection.orgAdminEmail,
-          tempDbDetails: dbData,
+          tempDbDetails: dto.connection.tempDbDetails
+            ? JSON.stringify(dto.connection.tempDbDetails)
+            : null,
           request: {
             create: {
               requestorId: dto.ownerId,
