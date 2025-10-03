@@ -311,16 +311,8 @@ export class DatabaseService {
   }
 
   async findDbId(projectId: string) {
-    const request = await this.prisma.connection.findUnique({
-      where: {
-        projectId: projectId,
-      },
-      select: {
-        atlasId: true,
-      },
-    });
-
-    return request.atlasId;
+    //TODO: getDbId from Atlas
+    return projectId;
   }
 
   async syncDatasource(userId: string, projectId: string) {
