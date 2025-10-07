@@ -43,7 +43,6 @@ export class AnalysisRequestService {
 
   async createRequest(dto: AnalysisDto) {
     const request = {
-      accessPurpose: dto.accessPurpose,
       requestorName: dto.requestorName,
       requestorEmail: dto.requestorEmail,
       requestorOrgName: dto.requestorOrgName,
@@ -51,12 +50,11 @@ export class AnalysisRequestService {
       projectName: dto.projectName,
       projectStartDate: dto.projectStartDate,
       projectEndDate: dto.projectEndDate,
-      projectBackground: dto.projectBackground,
+      projectDescription: dto.projectDescription,
       projectObjective: dto.projectObjective,
-      projectHypotheses: dto.projectHypotheses,
       projectOutcome: dto.projectOutcome,
       projectMembers: dto.projectMembers,
-      ethicsId: dto.ethicsId,
+      projectEthicsId: dto.projectEthicsId,
       request: {
         create: {
           requestorId: dto.requestorId,
@@ -88,18 +86,14 @@ export class AnalysisRequestService {
     return await this.prisma.analysis.update({
       where: { requestId: requestId },
       data: {
-        accessPurpose: dto.accessPurpose,
-        requestorOrgName: dto.requestorOrgName,
-        requestorPosition: dto.requestorPosition,
         projectName: dto.projectName,
         projectStartDate: dto.projectStartDate,
         projectEndDate: dto.projectEndDate,
-        projectBackground: dto.projectBackground,
+        projectDescription: dto.projectDescription,
         projectObjective: dto.projectObjective,
-        projectHypotheses: dto.projectHypotheses,
         projectOutcome: dto.projectOutcome,
         projectMembers: dto.projectMembers,
-        ethicsId: dto.ethicsId,
+        projectEthicsId: dto.projectEthicsId,
       },
     });
   }
