@@ -41,6 +41,40 @@ export class AnalysisRequestService {
     return requestList;
   }
 
+  async createRequest(dto: AnalysisDto) {
+    const request = {
+      accessPurpose: dto.accessPurpose,
+      requestorName: dto.requestorName,
+      requestorEmail: dto.requestorEmail,
+      requestorOrgName: dto.requestorOrgName,
+      requestorPosition: dto.requestorPosition,
+      projectName: dto.projectName,
+      projectStartDate: dto.projectStartDate,
+      projectEndDate: dto.projectEndDate,
+      projectBackground: dto.projectBackground,
+      projectObjective: dto.projectObjective,
+      projectHypotheses: dto.projectHypotheses,
+      projectOutcome: dto.projectOutcome,
+      projectMembers: dto.projectMembers,
+      ethicsId: dto.ethicsId,
+      request: {
+        create: {
+          requestorId: dto.requestorId,
+        },
+      },
+      project: {
+        connect: {
+          projectId: dto.projectId,
+        },
+      },
+    };
+
+    return await this.prisma.analysis.create({
+      data: request,
+      include: { request: true, project: true },
+    });
+  }
+
   async approve(requestId: string) {
     return await this.prisma.request.update({
       where: { requestId: requestId },
