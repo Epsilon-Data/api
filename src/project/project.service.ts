@@ -86,7 +86,9 @@ export class ProjectService {
   async getAllProjects() {
     return await this.prisma.project.findMany({
       where: {
-        status: 'MAPPED',
+        status: {
+          in: ['MAPPED', 'LINKED', 'ACTIVE'],
+        },
       },
       select: {
         projectId: true,
@@ -243,7 +245,7 @@ export class ProjectService {
         },
       },
     });
-
+    //TODO: get archetype when project status is MAPPED
     return project;
   }
 

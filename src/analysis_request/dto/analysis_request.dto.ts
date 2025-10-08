@@ -32,12 +32,10 @@ export class AnalysisDto {
 
   @IsDefined()
   @IsString()
-  @IsNotEmpty()
   requestorOrgName: string;
 
   @IsDefined()
   @IsString()
-  @IsNotEmpty()
   requestorPosition: string;
 
   @IsDefined()
