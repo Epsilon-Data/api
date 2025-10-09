@@ -18,33 +18,24 @@ export class AnalysisDto {
   @IsNotEmpty()
   projectId: string;
 
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  accessPurpose: string;
-
   @IsOptional()
   @IsUUID()
   requestorId: string;
 
   @IsDefined()
   @IsString()
-  @IsNotEmpty()
   requestorName: string;
 
   @IsDefined()
   @IsString()
-  @IsNotEmpty()
   requestorEmail: string;
 
   @IsDefined()
   @IsString()
-  @IsNotEmpty()
   requestorOrgName: string;
 
   @IsDefined()
   @IsString()
-  @IsNotEmpty()
   requestorPosition: string;
 
   @IsDefined()
@@ -65,7 +56,7 @@ export class AnalysisDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  projectBackground: string;
+  projectDescription: string;
 
   @IsDefined()
   @IsString()
@@ -75,21 +66,17 @@ export class AnalysisDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  projectHypotheses: string;
-
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
   projectOutcome: string;
 
   @IsDefined()
-  @IsString({ each: true })
-  projectMembers: string[];
+  @IsString()
+  @IsNotEmpty()
+  projectMembers: string;
 
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  ethicsId: string;
+  projectEthicsId: string;
 }
 
 function transformDateString(value: any): Date {

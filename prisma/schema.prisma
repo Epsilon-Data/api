@@ -37,24 +37,22 @@ model Connection {
 }
 
 model Analysis {
-  requestId         String   @id @db.Uuid
-  projectId         String   @db.Uuid
-  accessPurpose     String   @db.Text
-  requestorName     String   @db.Text
-  requestorEmail    String   @db.Text
-  requestorOrgName  String   @db.Text
-  requestorPosition String   @db.Text
-  projectName       String   @db.Text
-  projectStartDate  DateTime @db.Date
-  projectEndDate    DateTime @db.Date
-  projectBackground String   @db.Text
-  projectObjective  String   @db.Text
-  projectHypotheses String   @db.Text
-  projectOutcome    String   @db.Text
-  projectMembers    String[]
-  ethicsId          String   @db.Text
-  request           Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_request_id")
-  project           Project  @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_project_id")
+  requestId          String   @id @db.Uuid
+  projectId          String   @db.Uuid
+  requestorName      String   @db.Text
+  requestorEmail     String   @db.Text
+  requestorOrgName   String   @db.Text
+  requestorPosition  String   @db.Text
+  projectName        String   @db.Text
+  projectStartDate   DateTime @db.Date
+  projectEndDate     DateTime @db.Date
+  projectDescription String   @db.Text
+  projectObjective   String   @db.Text
+  projectOutcome     String   @db.Text
+  projectMembers     Json?    @db.Json
+  projectEthicsId    String   @db.Text
+  request            Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_request_id")
+  project            Project  @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_project_id")
 }
 
 model Project {
@@ -72,7 +70,7 @@ model Project {
   endDate         DateTime      @db.Date
   lastModified    DateTime      @default(now()) @db.Timestamp(6)
   participantsNum Int           @db.SmallInt
-  members         Json?          @db.Json
+  members         Json?         @db.Json
   dbKeywords      String[]
   createdDate     DateTime      @default(now()) @db.Date
   visualizations  Json?         @db.Json

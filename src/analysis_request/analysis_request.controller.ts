@@ -9,6 +9,7 @@ import {
   UseGuards,
   Param,
   Req,
+  Post,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis_request.service';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
@@ -37,6 +38,12 @@ export class AnalysisRequestController {
   async getList(@Req() request: Request) {
     const userId = request.auth.payload.sub.toString();
     return await this.analysisRequestService.getList(userId);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create analysis request' })
+  createRequest(@Req() request: Request, @Body() dto: AnalysisDto) {
+    return this.analysisRequestService.createRequest(dto);
   }
 
   @Patch(':requestId')
