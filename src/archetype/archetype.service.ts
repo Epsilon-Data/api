@@ -39,7 +39,7 @@ export class ArchetypeService {
   }
 
   async getArchetypes(projectId: string, token?: string) {
-    const activeTemplates = await this.getArchetypeNames(projectId, token);
+    const activeTemplates = await this.archetypeNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -114,7 +114,7 @@ export class ArchetypeService {
   }
 
   async getAnalysisArchetype(projectId: string, token?: string) {
-    const activeTemplates = await this.getArchetypeNames(projectId, token);
+    const activeTemplates = await this.archetypeNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {

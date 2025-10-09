@@ -1,95 +1,96 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 import * as Docker from 'dockerode';
-import { join } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DockerService {
   private docker: Docker;
-  private baseUrl: string;
+  private atlasUrl: string;
+  private username: string;
   private password: string;
 
+  private isDev: boolean;
+
+  private imageName: string;
   private readonly logger = new Logger(DockerService.name);
 
   constructor(
     config: ConfigService,
     private prisma: PrismaService,
   ) {
-    this.baseUrl = config.get<string>('atlas.uri');
+    this.atlasUrl = config.get<string>('atlas.uri');
     this.password = config.get<string>('atlas.adminPassword');
-    this.docker = new Docker();
+    this.username = config.get<string>('atlas.adminUsername');
+
+    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    this.imageName = config.get<string>('brokerImage');
+
+    this.isDev = config.get<boolean>('isDev');
   }
 
   async runDataBroker(
     ownerId: string,
     projectId: string,
-    requestId: string,
-    database: DatabaseInfoDto,
+    database?: DatabaseInfoDto,
+    requestId?: string,
   ): Promise<string> {
-    const dockerLocal = 'host.docker.internal';
-    const atlasUrl = this.baseUrl.replace('localhost', dockerLocal);
-
+    this.logger.log(`Preparing to run container for request: ${requestId}.`);
     const envArgs = [
-      `ATLAS_URI=${atlasUrl}`,
+      `ATLAS_URI=${this.isDev ? this.atlasUrl.replace('localhost', 'host.docker.internal') : this.atlasUrl}`,
+      `ATLAS_ADMIN_USER=${this.username}`,
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
-      `DATABASE_URL=${database.url.replace('localhost', 'host.docker.internal') + '?sslmode=disable'}`,
+      `DATABASE_URL=${this.isDev ? database.url.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database}`,
       `PROJECT_ID=${projectId}`,
     ];
 
-    const imageName = 'go-packages-data_broker';
-
+    const instanceName = `data-broker-${projectId}`;
     try {
-      const goPackagesPath = join(process.cwd(), '..', 'go-packages');
+      // 1. Check if image exists and throw error if it does not
+      this.logger.debug(`Checking for base image ${this.imageName}...`);
+      this.imageExistsLocally(this.imageName);
 
-      const imageExists = await this.isImageBuilt(imageName);
-      if (!imageExists) {
-        this.logger.log('Building the Docker container...');
-        await this.buildImage(goPackagesPath, imageName);
-      }
+      //  2. Start container
+      this.logger.debug(`Starting the container ${instanceName}...`);
 
-      this.logger.log('Starting the Docker container...');
       const container = await this.createAndStartContainer(
-        imageName,
+        this.imageName,
         envArgs,
-        projectId,
+        instanceName,
       );
 
       try {
-        this.logger.log('Waiting for the container to finish...');
+        //  3. Monitor container
+        this.logger.debug(
+          `Waiting for the container ${instanceName} to finish...`,
+        );
         await this.monitorContainer(container);
 
         const output = await this.readAllLogs(container);
-
         const done = /(^|\n)DONE(\r?\n|$)/.test(output);
         const inspect = await container.inspect();
         const exitCode = inspect.State?.ExitCode ?? 1;
         const success = done || exitCode === 0;
 
         if (!success) {
-          await this.prisma.project.update({
-            where: { projectId },
-            data: { status: 'ERROR' },
-          });
           throw new Error(
-            'Container finished without DONE marker and non-zero exit code',
+            `Container finished without DONE marker and non-zero exit code with output ${output}`,
           );
         }
-
+        //  4. Crawling done, container run successfully
+        // set project status to active (e.g. ready for mapping)
         await this.prisma.project.update({
           where: { projectId },
           data: { status: 'ACTIVE' },
         });
+      } catch (err) {
+        throw err; // rethrow errors because async
       } finally {
-        this.logger.log('Removing the container...');
+        this.logger.debug(`Removing container ${instanceName}...`);
         await container.remove({ force: true });
-        this.logger.log('Container removed successfully.');
-
-        return projectId;
+        this.logger.debug(`Container ${instanceName} removed successfully.`);
       }
     } catch (error) {
       await this.prisma.project.update({
@@ -98,46 +99,27 @@ export class DockerService {
           status: 'ERROR',
         },
       });
-      this.logger.error('Error running Data Broker container: ', error);
+      this.logger.error(`Error running container ${instanceName}: `, error);
+    } finally {
+      // pretty pointless return here
+      // maybe should return information if success of failure
+      return projectId;
     }
   }
 
-  private async isImageBuilt(imageName: string): Promise<boolean> {
+  private async imageExistsLocally(imageName) {
     try {
-      const images = await this.docker.listImages();
-
-      const imageExists = images.some(
-        (image) =>
-          image.RepoTags && image.RepoTags.includes(`${imageName}:latest`),
-      );
-
-      return imageExists;
-    } catch (error) {
-      this.logger.error(
-        `Error checking if image ${imageName} is built:`,
-        error,
-      );
-      throw error;
-    }
-  }
-
-  private async buildImage(
-    contextPath: string,
-    imageName: string,
-  ): Promise<void> {
-    const execAsync = promisify(exec);
-    try {
-      this.logger.log(
-        `Building Docker image ${imageName} from ${contextPath}...`,
-      );
-      const { stdout, stderr } = await execAsync(
-        `docker build --platform linux/amd64 -t ${imageName}:latest ${contextPath} --build-arg MODULE=data-broker --build-arg TBLS_VERSION=1.71.0`,
-      );
-      if (stdout) this.logger.debug(stdout);
-      if (stderr) this.logger.warn(stderr);
-      this.logger.log(`Image ${imageName}:latest built successfully.`);
+      const image = this.docker.getImage(imageName);
+      await image.inspect(); // throws if image not found
+      return true;
     } catch (err) {
-      this.logger.error(`Failed to build image ${imageName}`, err);
+      if (err.statusCode === 404) {
+        this.logger.error(
+          `Image ${this.imageName} does not exist. Please use 'docker pull ${this.imageName}' to pull it from GHCR.`,
+        );
+      }
+      // some other error (e.g. Docker not reachable)
+      this.logger.error(`Error checking if image ${imageName} exists: `, err);
       throw err;
     }
   }
@@ -145,38 +127,24 @@ export class DockerService {
   private async createAndStartContainer(
     imageName: string,
     envVariables: string[],
-    name?: string,
+    name: string,
   ) {
-    const existingContainers = await this.docker.listContainers({
-      all: true,
-      filters: {
-        name: [name],
-      },
-    });
-
-    if (existingContainers.length > 0) {
-      const containerToRemove = this.docker.getContainer(
-        existingContainers[0].Id,
-      );
-      await containerToRemove.stop();
-      await containerToRemove.remove();
-    }
-
     const container = await this.docker.createContainer({
       Image: imageName,
-      name: name,
+      name,
       Env: envVariables,
+      // run runDataBroker function should remove the container
       HostConfig: {
         AutoRemove: false,
       },
-      NetworkingConfig: {
-        EndpointsConfig: {
-          epsilon_pg_internal: {},
-          epsilon_cassandra_internal: {
-            Aliases: ['data-broker'],
-          },
-        },
-      },
+      // only for dev
+      NetworkingConfig: this.isDev
+        ? {
+            EndpointsConfig: {
+              epsilon_pg_test: {},
+            },
+          }
+        : {},
     });
 
     await container.start();

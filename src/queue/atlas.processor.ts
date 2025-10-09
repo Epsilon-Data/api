@@ -17,7 +17,7 @@ export class AtlasProcessor {
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
     const { ownerId, projectId, requestId, database } = job.data;
-    await this.docker.runDataBroker(ownerId, projectId, requestId, database);
+    await this.docker.runDataBroker(ownerId, projectId, database, requestId);
   }
 
   @Process('process-add-archetype')
