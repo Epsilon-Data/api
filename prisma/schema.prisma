@@ -69,7 +69,7 @@ model Project {
   startDate       DateTime      @db.Date
   endDate         DateTime      @db.Date
   lastModified    DateTime      @default(now()) @db.Timestamp(6)
-  participantsNum Int           @db.SmallInt
+  participantsNum Int           @db.Integer
   members         Json?         @db.Json
   dbKeywords      String[]
   createdDate     DateTime      @default(now()) @db.Date
