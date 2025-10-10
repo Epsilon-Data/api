@@ -1,21 +1,19 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { DatabaseService } from 'src/database/database.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { ArchetypeDto } from './dto';
 
 @Injectable()
 export class ArchetypeService {
   constructor(
-    private prisma: PrismaService,
     private atlas: AtlasService,
     private readonly queue: QueueService,
     @Inject(forwardRef(() => DatabaseService))
     private databaseSource: DatabaseService,
   ) {}
 
-  async getArchetypeNames(projectId: string, token?: string) {
+  async archetypeNames(projectId: string, token?: string) {
     let activeTemplates = [];
 
     const params = {
@@ -30,7 +28,6 @@ export class ArchetypeService {
             return {
               guid: item[1],
               name: item[2].split('@', 2)[1],
-              progress: item[3],
             };
           });
       })
@@ -42,7 +39,7 @@ export class ArchetypeService {
   }
 
   async getArchetypes(projectId: string, token?: string) {
-    const activeTemplates = await this.getArchetypeNames(projectId, token);
+    const activeTemplates = await this.archetypeNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -117,7 +114,7 @@ export class ArchetypeService {
   }
 
   async getAnalysisArchetype(projectId: string, token?: string) {
-    const activeTemplates = await this.getArchetypeNames(projectId, token);
+    const activeTemplates = await this.archetypeNames(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -189,9 +186,9 @@ export class ArchetypeService {
     return await this.queue.deleteTemplateJob(template);
   }
 
-  async createArchetype(projectId: string, template: ArchetypeDto) {
-    const dbId = await this.databaseSource.findDbId(projectId);
-    await this.queue.addArchetypeJob(template, dbId);
+  async createArchetype(username: string, template: ArchetypeDto) {
+    const dbId = await this.databaseSource.findDbId(template.projectId);
+    await this.queue.addArchetypeJob(username, dbId, template);
   }
 
   private atlasTypeToJSONType(dataType: string): string {

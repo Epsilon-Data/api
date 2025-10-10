@@ -9,8 +9,10 @@ const trustedWebOrigins = () =>
     .map((origin) => origin.trim());
 
 export default () => ({
+  isDev: process.env.NODE_ENV === 'development' ? true : false,
   apiBaseUrl: env.API_BASE_URL || '/api/v1/hub',
   apiPort: parseInt(env.API_SERVICE_PORT) || 3334,
+  brokerImage: env.BROKER_IMAGE || 'ghcr.io/epsilon-data/data-broker:latest',
   auth: {
     trustedWebOrigins: trustedWebOrigins(),
     issuerBaseURL:
@@ -46,8 +48,10 @@ export default () => ({
       env.EPSILON_SDK_CLIENT_SECRET || '6nHzYqIlwcQDqDc2TuJtilucZxAH3O6N',
   },
   atlas: {
+    // default values for local dev
     uri: env.ATLAS_URI || 'http://localhost:21000',
     adminPassword: env.ATLAS_ADMIN_PASSWORD || 'secret',
+    adminUsername: env.ATLAS_ADMIN_USER || 'admin',
   },
   s3: {
     uri: env.S3_URI || 'http://localhost:9001',

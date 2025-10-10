@@ -17,27 +17,21 @@ export class AtlasProcessor {
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
     const { ownerId, projectId, requestId, database } = job.data;
-    await this.docker.runDataBroker(ownerId, projectId, requestId, database);
+    await this.docker.runDataBroker(ownerId, projectId, database, requestId);
   }
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job, token?: string) {
-    const { dbId, columnMapping, template, projectId } = job.data;
-    const params = {
-      name: 'progress',
-    };
+    const { owner, dbId, projectId, columnMapping, template } = job.data;
 
     const archetypeBody = {
       entity: {
         typeName: 'archetype',
         status: 'ACTIVE',
         attributes: {
-          // TODO: use actual username here
-          owner: 'user',
+          owner: owner,
           qualifiedName: `${dbId}@${template.name}`,
           is_active: true,
-          // FIXME: this doesn't exist in archetype model
-          // progress: 0,
         },
         relationshipAttributes: {
           instance: {
@@ -50,7 +44,6 @@ export class AtlasProcessor {
 
     const result = await this.atlas.post('/entity', archetypeBody, token);
     const archetypeId = Object.values(result.guidAssignments)[0];
-    await this.atlas.put('/entity/guid/' + archetypeId, '20', params, token);
 
     const entities = [];
     let initialGuid = -1;
@@ -91,8 +84,6 @@ export class AtlasProcessor {
     };
 
     entities.push(objectBody);
-
-    await this.atlas.put('/entity/guid/' + archetypeId, '40', params, token);
 
     const catBodyList = catList.map((node: any) => {
       initialGuid -= 1;
@@ -135,8 +126,6 @@ export class AtlasProcessor {
       const name = cat.attributes.qualifiedName.split('@');
       catIdList[name[2]] = cat.guid;
     }
-
-    await this.atlas.put('/entity/guid/' + archetypeId, '60', params, token);
 
     for (const node of subcatList) {
       const relatedEdge = template.edges.filter(
@@ -182,8 +171,6 @@ export class AtlasProcessor {
     }
 
     await this.atlas.post('/entity/bulk', { entities: entities });
-
-    await this.atlas.put('/entity/guid/' + archetypeId, '80', params, token);
 
     await this.prisma.project.update({
       where: { projectId: projectId },
@@ -255,7 +242,6 @@ export class AtlasProcessor {
 
       await this.atlas.post('/entity', result, undefined, token);
     }
-    await this.atlas.put('/entity/guid/' + archetypeId, '100', params, token);
   }
 
   @Process('process-delete-archetype')

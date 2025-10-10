@@ -27,14 +27,15 @@ export class QueueService {
     });
   }
 
-  async addArchetypeJob(archetype: ArchetypeDto, dbId: string) {
+  async addArchetypeJob(owner: string, dbId: string, archetype: ArchetypeDto) {
     const parsedMapping = JSON.parse(archetype.columnMapping);
     const parsedTemplate = JSON.parse(archetype.archetype);
     const postData = {
+      owner: owner,
+      dbId: dbId,
       projectId: archetype.projectId,
       columnMapping: parsedMapping,
       template: parsedTemplate,
-      dbId: dbId,
     };
     return await this.atlasQueue.add('process-add-archetype', postData, {
       attempts: 5,

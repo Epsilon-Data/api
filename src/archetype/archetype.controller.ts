@@ -6,23 +6,31 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Req,
 } from '@nestjs/common';
 import { ArchetypeService } from './archetype.service';
+import { DockerService } from 'src/docker/docker.service';
 import { ArchetypeDto } from './dto';
+import { Request } from 'express';
+// import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 @Controller('archetype')
 export class ArchetypeController {
-  constructor(private readonly templateService: ArchetypeService) {}
+  constructor(
+    private readonly templateService: ArchetypeService,
+    private readonly dockerService: DockerService,
+  ) {}
 
   @Get(':projectId/names')
   async getArchetypeNames(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    return await this.templateService.getArchetypeNames(projectId);
+    return await this.templateService.archetypeNames(projectId);
   }
 
   @Get(':projectId')
   async getArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    // await this.dockerService.runDataBroker('admin', projectId);
     return await this.templateService.getArchetypes(projectId);
   }
 
@@ -39,7 +47,9 @@ export class ArchetypeController {
   createArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() template: ArchetypeDto,
+    @Req() request: Request,
   ) {
-    return this.templateService.createArchetype(projectId, template);
+    const username = request.auth.payload.preferred_username.toString();
+    return this.templateService.createArchetype(username, template);
   }
 }

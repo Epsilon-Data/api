@@ -4,7 +4,33 @@ API gateway for frontend applications (currently servicing as API to Data Hub fr
 
 ## Prerequisites
 
-You must have read access to the keycloak-admin-client. You can check if you have this by looking in the [Epsilon-Data packages](https://github.com/orgs/Epsilon-Data/packages)
+### Generate Github personal access token (classic)
+
+You need have access to private packages hosted in GitHub for Epsilon. See [Epsilon-Data packages](https://github.com/orgs/Epsilon-Data/packages)
+
+1. Create a personal access token in developer settings: https://github.com/settings/tokens
+2. Enable token scopes: `read:packages` and `write:packages` (write is _REQUIRED_ if you want to publish packages)
+
+### Login to NPM
+
+Needed to get access to Epsilon NPM packages.
+
+```bash
+pnpm login --scope=@epsilon-data --registry=https://npm.pkg.github.com
+$ Username: <Your personal GitHub username>
+$ Password: <Create a GitHub Access Token with your account and paste it here>
+$ Email: <Email associated with the same account>
+```
+
+### Login to GitHub container registry
+
+You need to be logged in to get the data-broker image used for crawling.
+
+```bash
+docker login ghcr.io -u YOUR_USERNAME -p YOUR_GITHUB_TOKEN
+```
+
+### Install global dependencies
 
 Install `pnpm` and `typescript` globally
 
@@ -12,17 +38,17 @@ Install `pnpm` and `typescript` globally
 npm install -g typescript pnpm
 ```
 
+## Development
+
 When cloning the repo first time:
 
 ```bash
 pnpm i # installs all dependent packages under node_modules
 ```
 
-## Development
+> NOTE: This also runs the postinstall scripts for prisma generate and pulls the `data-broker` image
 
-1. Modify DATABASE_URL in .env to the pg_platform database url.s
-
-2. Apply prisma migrations:
+Apply prisma migrations:
 
 ```bash
 export DATABASE_URL="postgresql://epsilon_admin:supersecret@localhost:6543/epsilon" && npx prisma migrate dev
@@ -30,7 +56,7 @@ export DATABASE_URL="postgresql://epsilon_admin:supersecret@localhost:6543/epsil
 
 Install all necessary prisma packages when prompted.
 
-3. Run in watch mode:
+Run in watch mode:
 
 ```bash
 pnpm start:dev
