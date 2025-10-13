@@ -24,7 +24,7 @@ export class DockerService {
     this.password = config.get<string>('atlas.adminPassword');
     this.username = config.get<string>('atlas.adminUsername');
 
-    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    this.docker = new Docker();
     this.imageName = config.get<string>('brokerImage');
 
     this.isDev = config.get<boolean>('isDev');
