@@ -13,33 +13,9 @@ export class ArchetypeService {
     private databaseSource: DatabaseService,
   ) {}
 
-  async archetypeNames(projectId: string, token?: string) {
-    let activeTemplates = [];
-
-    const params = {
-      query: `from archetype where instance.projectId = "${projectId}" select __state, __guid, qualifiedName`,
-    };
-    await this.atlas
-      .get('/search/dsl', params, token)
-      .then((res) => {
-        activeTemplates = res.attributes.values
-          .filter((item) => item[0] === 'ACTIVE')
-          .map((item) => {
-            return {
-              guid: item[1],
-              name: item[2].split('@', 2)[1],
-            };
-          });
-      })
-      .catch(() => {
-        activeTemplates = [];
-      });
-
-    return activeTemplates;
-  }
-
+  // TODO: use code and remove this method
   async getArchetypes(projectId: string, token?: string) {
-    const activeTemplates = await this.archetypeNames(projectId, token);
+    const activeTemplates = await this.fetchArchetypes(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -113,8 +89,71 @@ export class ArchetypeService {
     return output;
   }
 
+  async fetchArchetypes(projectId: string, token?: string) {
+    let activeTemplates = [];
+
+    const params = {
+      query: `from archetype where instance.projectId = "${projectId}" select __state, __guid, name, status, qualifiedName`,
+    };
+    await this.atlas
+      .get('/search/dsl', params, token)
+      .then((res) => {
+        activeTemplates = res.attributes.values
+          .filter((item) => item[0] === 'ACTIVE')
+          .map((item) => {
+            return {
+              guid: item[1],
+              name: item[2].split('@', 2)[1],
+            };
+          });
+      })
+      .catch(() => {
+        activeTemplates = [];
+      });
+
+    return activeTemplates;
+  }
+
+  async createArchetype(username: string, archetype: ArchetypeDto) {
+    await this.queue.addArchetypeJob(username, archetype);
+  }
+
+  // MAKE: entity call to Atlas
+  async getArchetypeDetails(
+    projectId: string,
+    archetypeId: string,
+    token?: string,
+  ) {
+    let activeTemplates = [];
+
+    const params = {
+      query: `from archetype where instance.projectId = "${projectId}" select __state, __guid, qualifiedName`,
+    };
+    await this.atlas
+      .get('/search/dsl', params, token)
+      .then((res) => {
+        activeTemplates = res.attributes.values
+          .filter((item) => item[0] === 'ACTIVE')
+          .map((item) => {
+            return {
+              guid: item[1],
+              name: item[2].split('@', 2)[1],
+            };
+          });
+      })
+      .catch(() => {
+        activeTemplates = [];
+      });
+
+    return activeTemplates;
+  }
+
+  async deleteArchetype(projectId: string, archetypeId: string) {
+    return await this.queue.deleteTemplateJob(projectId, archetypeId);
+  }
+
   async getAnalysisArchetype(projectId: string, token?: string) {
-    const activeTemplates = await this.archetypeNames(projectId, token);
+    const activeTemplates = await this.fetchArchetypes(projectId, token);
 
     const output = [];
     for (const template of activeTemplates) {
@@ -180,15 +219,6 @@ export class ArchetypeService {
       output.push(schema);
     }
     return output;
-  }
-
-  async deleteArchetype(template: ArchetypeDto) {
-    return await this.queue.deleteTemplateJob(template);
-  }
-
-  async createArchetype(username: string, template: ArchetypeDto) {
-    const dbId = await this.databaseSource.findDbId(template.projectId);
-    await this.queue.addArchetypeJob(username, dbId, template);
   }
 
   private atlasTypeToJSONType(dataType: string): string {

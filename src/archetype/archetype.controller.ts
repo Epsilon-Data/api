@@ -7,49 +7,60 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ArchetypeService } from './archetype.service';
-import { DockerService } from 'src/docker/docker.service';
 import { ArchetypeDto } from './dto';
 import { Request } from 'express';
-// import { DatabaseInfoDto } from 'src/connection_request/dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Resource } from 'src/common/decorators/resource.decorator';
+import { Scopes } from 'src/common/decorators/scopes.decorator';
+import { ResourceGuard } from 'src/common/guards/resource.guard';
+
+@ApiTags('Archetype')
 @Controller('archetype')
 export class ArchetypeController {
-  constructor(
-    private readonly templateService: ArchetypeService,
-    private readonly dockerService: DockerService,
-  ) {}
+  constructor(private readonly archetypeService: ArchetypeService) {}
 
-  @Get(':projectId/names')
-  async getArchetypeNames(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-  ) {
-    return await this.templateService.archetypeNames(projectId);
+  @Resource('project')
+  @UseGuards(ResourceGuard)
+  @Scopes('view, edit')
+  @Get(':projectId')
+  @ApiOperation({ summary: 'Get list of archetypes for a project' })
+  async getArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.archetypeService.fetchArchetypes(projectId);
   }
 
-  @Get(':projectId')
-  async getArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
-    // await this.dockerService.runDataBroker('admin', projectId);
-    return await this.templateService.getArchetypes(projectId);
+  @Get(':projectId/:archetypeId')
+  @ApiOperation({ summary: 'Get project archetype details' })
+  async getArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
+  ) {
+    return await this.archetypeService.getArchetypeDetails(
+      projectId,
+      archetypeId,
+    );
+  }
+
+  @Post(':projectId')
+  @ApiOperation({ summary: 'Create archetype for a project' })
+  createArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() archetype: ArchetypeDto,
+    @Req() request: Request,
+  ) {
+    const username = request.auth.payload.preferred_username.toString();
+    return this.archetypeService.createArchetype(username, archetype);
   }
 
   @Delete(':projectId/:archetypeId')
+  @ApiOperation({ summary: 'Delete archetype for a project' })
   async deleteArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
   ) {
-    const template = { projectId, archetypeId } as ArchetypeDto;
-    return await this.templateService.deleteArchetype(template);
-  }
-
-  @Post(':projectId')
-  createArchetype(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() template: ArchetypeDto,
-    @Req() request: Request,
-  ) {
-    const username = request.auth.payload.preferred_username.toString();
-    return this.templateService.createArchetype(username, template);
+    return await this.archetypeService.deleteArchetype(projectId, archetypeId);
   }
 }

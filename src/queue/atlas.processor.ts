@@ -1,13 +1,21 @@
 import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
+import { ArchetypeDto } from 'src/archetype/dto';
+
+type ArchetypeJobData = {
+  owner: string;
+  projectId: string;
+  archetype: ArchetypeDto;
+};
 
 @Injectable()
 @Processor('atlas-queue')
 export class AtlasProcessor {
+  private readonly logger = new Logger(AtlasProcessor.name);
   constructor(
     private readonly docker: DockerService,
     private readonly atlas: AtlasService,
@@ -21,8 +29,8 @@ export class AtlasProcessor {
   }
 
   @Process('process-add-archetype')
-  async handleAddArchetypeJob(job: Job, token?: string) {
-    const { owner, dbId, projectId, columnMapping, template } = job.data;
+  async handleAddArchetypeJob(job: Job<ArchetypeJobData>, token?: string) {
+    const { owner, projectId, archetype } = job.data;
 
     const archetypeBody = {
       entity: {
@@ -30,225 +38,233 @@ export class AtlasProcessor {
         status: 'ACTIVE',
         attributes: {
           owner: owner,
-          qualifiedName: `${dbId}@${template.name}`,
-          is_active: true,
+          name: archetype.name,
+          label: archetype.nodes[0].data.label,
+          // TODO: decide what is best to have as the name here
+          qualifiedName: `${projectId}@${archetype.name.replace(' ', '_').toLowerCase()}`,
+          status: 'DRAFT',
         },
         relationshipAttributes: {
           instance: {
-            guid: dbId,
             typeName: 'rdbms_instance',
+            uniqueAttributes: {
+              projectId,
+            },
           },
         },
       },
     };
 
     const result = await this.atlas.post('/entity', archetypeBody, token);
-    const archetypeId = Object.values(result.guidAssignments)[0];
+    this.logger.debug(result);
+    // const archetypeId = Object.values(result.guidAssignments)[0];
 
-    const entities = [];
-    let initialGuid = -1;
+    // const entities = [];
+    // let initialGuid = -1;
 
-    const object = template.nodes.filter((node: any) => node.type === 'object');
-    const catList = template.nodes.filter(
-      (node: any) => node.type === 'category',
-    );
-    const subcatList = template.nodes.filter(
-      (node: any) => node.type === 'subcategory',
-    );
+    // const object = archetype.nodes.filter(
+    //   (node: ArchetypeNodeDto) => node.type === 'object',
+    // );
+    // const catList = archetype.nodes.filter(
+    //   (node: any) => node.type === 'category',
+    // );
+    // const subcatList = template.nodes.filter(
+    //   (node: any) => node.type === 'subcategory',
+    // );
 
-    const objectBody = {
-      guid: initialGuid.toString(),
-      typeName: 'archetype_object',
-      status: 'ACTIVE',
-      attributes: {
-        displayName: object[0].data.label,
-        name: object[0].data.label,
-        owner: 'user',
-        qualifiedName: `${archetypeId}@${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
-        position: {
-          x: object[0].position.x,
-          y: object[0].position.y,
-        },
-        label: object[0].data.label,
-        width: object[0].width,
-        height: object[0].height,
-        selected: false,
-        dragging: false,
-      },
-      relationshipAttributes: {
-        archetype: {
-          guid: archetypeId,
-          typeName: 'archetype',
-        },
-      },
-    };
+    // const objectBody = {
+    //   guid: initialGuid.toString(),
+    //   typeName: 'archetype_object',
+    //   status: 'ACTIVE',
+    //   attributes: {
+    //     displayName: object[0].data.label,
+    //     name: object[0].data.label,
+    //     owner: 'user',
+    //     qualifiedName: `${archetypeId}@${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
+    //     position: {
+    //       x: object[0].position.x,
+    //       y: object[0].position.y,
+    //     },
+    //     label: object[0].data.label,
+    //     width: object[0].width,
+    //     height: object[0].height,
+    //     selected: false,
+    //     dragging: false,
+    //   },
+    //   relationshipAttributes: {
+    //     archetype: {
+    //       guid: archetypeId,
+    //       typeName: 'archetype',
+    //     },
+    //   },
+    // };
 
-    entities.push(objectBody);
+    // entities.push(objectBody);
 
-    const catBodyList = catList.map((node: any) => {
-      initialGuid -= 1;
-      return {
-        guid: initialGuid.toString(),
-        typeName: 'archetype_category',
-        status: 'ACTIVE',
-        attributes: {
-          displayName: node.data.label,
-          name: node.data.label,
-          owner: 'user',
-          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
-          },
-          label: node.data.label,
-          width: node.width,
-          height: node.height,
-          selected: false,
-          dragging: false,
-        },
-        relationshipAttributes: {
-          archetype: {
-            guid: archetypeId,
-            typeName: 'archetype',
-          },
-          object: {
-            guid: '-1',
-            typeName: 'archetype_object',
-          },
-        },
-      };
-    });
+    // const catBodyList = catList.map((node: any) => {
+    //   initialGuid -= 1;
+    //   return {
+    //     guid: initialGuid.toString(),
+    //     typeName: 'archetype_category',
+    //     status: 'ACTIVE',
+    //     attributes: {
+    //       displayName: node.data.label,
+    //       name: node.data.label,
+    //       owner: 'user',
+    //       qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
+    //       position: {
+    //         x: node.position.x,
+    //         y: node.position.y,
+    //       },
+    //       label: node.data.label,
+    //       width: node.width,
+    //       height: node.height,
+    //       selected: false,
+    //       dragging: false,
+    //     },
+    //     relationshipAttributes: {
+    //       archetype: {
+    //         guid: archetypeId,
+    //         typeName: 'archetype',
+    //       },
+    //       object: {
+    //         guid: '-1',
+    //         typeName: 'archetype_object',
+    //       },
+    //     },
+    //   };
+    // });
 
-    entities.push(...catBodyList);
+    // entities.push(...catBodyList);
 
-    const catIdList: { [key: string]: string } = {};
-    for (const cat of catBodyList) {
-      const name = cat.attributes.qualifiedName.split('@');
-      catIdList[name[2]] = cat.guid;
-    }
+    // const catIdList: { [key: string]: string } = {};
+    // for (const cat of catBodyList) {
+    //   const name = cat.attributes.qualifiedName.split('@');
+    //   catIdList[name[2]] = cat.guid;
+    // }
 
-    for (const node of subcatList) {
-      const relatedEdge = template.edges.filter(
-        (edge: any) => edge.source == node.id || edge.target == node.id,
-      );
+    // for (const node of subcatList) {
+    //   const relatedEdge = template.edges.filter(
+    //     (edge: any) => edge.source == node.id || edge.target == node.id,
+    //   );
 
-      const categoryId =
-        relatedEdge[0].source == node.id
-          ? catIdList[relatedEdge[0].target]
-          : catIdList[relatedEdge[0].source];
+    //   const categoryId =
+    //     relatedEdge[0].source == node.id
+    //       ? catIdList[relatedEdge[0].target]
+    //       : catIdList[relatedEdge[0].source];
 
-      const subcatBody = {
-        typeName: 'archetype_subcategory',
-        status: 'ACTIVE',
-        attributes: {
-          displayName: node.data.label,
-          name: node.data.label,
-          owner: 'user',
-          qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
-          },
-          label: node.data.label,
-          width: node.width,
-          height: node.height,
-          selected: false,
-          dragging: false,
-        },
-        relationshipAttributes: {
-          archetype: {
-            guid: archetypeId,
-            typeName: 'archetype',
-          },
-          category: {
-            guid: categoryId,
-            type: 'archetype_category',
-          },
-        },
-      };
+    //   const subcatBody = {
+    //     typeName: 'archetype_subcategory',
+    //     status: 'ACTIVE',
+    //     attributes: {
+    //       displayName: node.data.label,
+    //       name: node.data.label,
+    //       owner: 'user',
+    //       qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
+    //       position: {
+    //         x: node.position.x,
+    //         y: node.position.y,
+    //       },
+    //       label: node.data.label,
+    //       width: node.width,
+    //       height: node.height,
+    //       selected: false,
+    //       dragging: false,
+    //     },
+    //     relationshipAttributes: {
+    //       archetype: {
+    //         guid: archetypeId,
+    //         typeName: 'archetype',
+    //       },
+    //       category: {
+    //         guid: categoryId,
+    //         type: 'archetype_category',
+    //       },
+    //     },
+    //   };
 
-      entities.push(subcatBody);
-    }
+    //   entities.push(subcatBody);
+    // }
 
-    await this.atlas.post('/entity/bulk', { entities: entities });
+    // await this.atlas.post('/entity/bulk', { entities: entities });
 
-    await this.prisma.project.update({
-      where: { projectId: projectId },
-      data: { lastModified: new Date() },
-    });
+    // await this.prisma.project.update({
+    //   where: { projectId: projectId },
+    //   data: { lastModified: new Date() },
+    // });
 
-    const tableParams = {
-      query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
-    };
+    // const tableParams = {
+    //   query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
+    // };
 
-    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
+    // const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
 
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
+    // const activeTables = tableResult.entities.filter(
+    //   (entity: any) => entity.status === 'ACTIVE',
+    // );
 
-    for (const node of columnMapping) {
-      const params = {
-        'attr:qualifiedName': `${archetypeId}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
-      };
+    // for (const node of columnMapping) {
+    //   const params = {
+    //     'attr:qualifiedName': `${archetypeId}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
+    //   };
 
-      const result = await this.atlas.get(
-        `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
-        params,
-        token,
-      );
+    //   const result = await this.atlas.get(
+    //     `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
+    //     params,
+    //     token,
+    //   );
 
-      if (result.entity.relationshipAttributes.columns.length !== 0) {
-        continue;
-      }
+    //   if (result.entity.relationshipAttributes.columns.length !== 0) {
+    //     continue;
+    //   }
 
-      result.entity.relationshipAttributes.columns = [];
+    //   result.entity.relationshipAttributes.columns = [];
 
-      for (const col of node.columns) {
-        const tableGuid = activeTables.find(
-          (table: any) => table.attributes.name === col.table,
-        ).guid;
+    //   for (const col of node.columns) {
+    //     const tableGuid = activeTables.find(
+    //       (table: any) => table.attributes.name === col.table,
+    //     ).guid;
 
-        const colParams = {
-          query: `from rdbms_column where table.__guid = "${tableGuid}"`,
-        };
-        const colResult = await this.atlas.get('/search/dsl', colParams, token);
+    //     const colParams = {
+    //       query: `from rdbms_column where table.__guid = "${tableGuid}"`,
+    //     };
+    //     const colResult = await this.atlas.get('/search/dsl', colParams, token);
 
-        const activeColumns = colResult.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
-        );
+    //     const activeColumns = colResult.entities.filter(
+    //       (entity: any) => entity.status === 'ACTIVE',
+    //     );
 
-        const columnEntity = activeColumns.find(
-          (column: any) => column.attributes.name === col.name,
-        );
+    //     const columnEntity = activeColumns.find(
+    //       (column: any) => column.attributes.name === col.name,
+    //     );
 
-        const relationship = await this.atlas.get(
-          `/types/relationshipdef/name/archetype_${node.nodeType}_rdbms_columns`,
-          undefined,
-          token,
-        );
+    //     const relationship = await this.atlas.get(
+    //       `/types/relationshipdef/name/archetype_${node.nodeType}_rdbms_columns`,
+    //       undefined,
+    //       token,
+    //     );
 
-        const columnInfo = {
-          guid: columnEntity.guid,
-          typeName: 'rdbms_column',
-          entityStatus: 'ACTIVE',
-          relationshipType: `archetype_${node.nodeType}_rdbms_columns`,
-          relationshipGuid: relationship.guid,
-          relationshipStatus: 'ACTIVE',
-        };
+    //     const columnInfo = {
+    //       guid: columnEntity.guid,
+    //       typeName: 'rdbms_column',
+    //       entityStatus: 'ACTIVE',
+    //       relationshipType: `archetype_${node.nodeType}_rdbms_columns`,
+    //       relationshipGuid: relationship.guid,
+    //       relationshipStatus: 'ACTIVE',
+    //     };
 
-        result.entity.relationshipAttributes.columns.push(columnInfo);
-      }
+    //     result.entity.relationshipAttributes.columns.push(columnInfo);
+    //   }
 
-      await this.atlas.post('/entity', result, undefined, token);
-    }
+    //   await this.atlas.post('/entity', result, undefined, token);
+    // }
   }
 
   @Process('process-delete-archetype')
   async handleDeleteTemplateJob(job: Job, token?: string) {
-    const { templateId, projectId } = job.data;
+    const { archetypeId, projectId } = job.data;
 
-    await this.atlas.delete('/entity/guid/' + templateId, undefined, token);
+    await this.atlas.delete('/entity/guid/' + archetypeId, undefined, token);
     await this.prisma.project.update({
       where: {
         projectId: projectId,
