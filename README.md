@@ -30,6 +30,15 @@ You need to be logged in to get the data-broker image used for crawling.
 docker login ghcr.io -u YOUR_USERNAME -p YOUR_GITHUB_TOKEN
 ```
 
+### Add Keycloak hostname
+
+For local development setup, this is needed in order for `token-handler-api` to be able to connect to Keycloak inside docker network and to trust the issuer, you need to add extra host in your machine:
+
+```bash
+# edit  /etc/hosts to add
+127.0.0.1 keycloak
+```
+
 ### Install global dependencies
 
 Install `pnpm` and `typescript` globally
