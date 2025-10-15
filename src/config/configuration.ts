@@ -16,7 +16,7 @@ export default () => ({
   auth: {
     trustedWebOrigins: trustedWebOrigins(),
     issuerBaseURL:
-      env.EPSILON_AUTH_URI || 'http://localhost:8080/realms/epsilon',
+      env.EPSILON_AUTH_URI || 'http://keycloak:8080/realms/epsilon',
     // TODO: check changing for client-id
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
     scopePrefix: env.EPSILON_AUTH_SCOPE_PREFIX || 'api.test',
@@ -27,7 +27,7 @@ export default () => ({
     clientId: env.EPSILON_AUTH_CLIENT_ID || 'epsilon-token-handler',
   },
   admin: {
-    issuerBaseURL: env.EPSILON_AUTH_ISSUER_BASE_URL || 'http://localhost:8080',
+    issuerBaseURL: env.EPSILON_AUTH_ISSUER_BASE_URL || 'http://keycloak:8080',
     realm: env.EPSILON_AUTH_REALM || 'epsilon',
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
     scopePrefix: env.EPSILON_ADMIN_AUTH_SCOPE_PREFIX || 'api.permissions',
@@ -39,7 +39,7 @@ export default () => ({
       env.EPSILON_AUTH_COOKIE_ENCRYPTION_KEY ||
       'e2c8470d07a8dcdcd07267e353e32805d87dd560ce93e2fae5c1869b7118e5a9',
     trustedWebOrigins: [
-      env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://localhost:3000',
+      env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://keycloak:3000',
     ],
   },
   sdk: {
@@ -69,5 +69,5 @@ export default () => ({
     'postgresql://epsilon_admin:supersecret@localhost:6543/epsilon',
   tokenEndpoint:
     env.EPSILON_TOKEN_ENDPOINT ||
-    'http://localhost:8080/realms/epsilon/protocol/openid-connect/token',
+    'http://keycloak:8080/realms/epsilon/protocol/openid-connect/token',
 });
