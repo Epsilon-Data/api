@@ -19,6 +19,12 @@ export enum ArchetypeStatus {
   Published = 'PUBLISHED',
 }
 
+export enum ArchetypeNodeType {
+  Root = 'root',
+  Category = 'category',
+  Column = 'column',
+}
+
 export class ArchetypeNodeDataDto {
   @IsString()
   @IsNotEmpty()
@@ -40,6 +46,9 @@ export class ArchetypeNodePositionDto {
 export class ArchetypeNodeDto {
   @IsString()
   id!: string;
+
+  @IsEnum(ArchetypeNodeType)
+  type: ArchetypeNodeType;
 
   @ValidateNested()
   @Type(() => ArchetypeNodeDataDto)
