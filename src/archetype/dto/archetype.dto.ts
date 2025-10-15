@@ -26,47 +26,62 @@ export enum ArchetypeNodeType {
 }
 
 export class ArchetypeNodeDataDto {
+  @IsDefined()
   @IsString()
   @IsNotEmpty()
   label!: string;
 
+  @IsDefined()
   @IsInt()
   @Min(0)
   level!: number;
 }
 
 export class ArchetypeNodePositionDto {
+  @IsDefined()
   @IsNumber({ allowNaN: false, allowInfinity: false })
   x!: number;
 
+  @IsDefined()
   @IsNumber({ allowNaN: false, allowInfinity: false })
   y!: number;
 }
 
 export class ArchetypeNodeDto {
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   id!: string;
 
+  @IsDefined()
   @IsEnum(ArchetypeNodeType)
-  type: ArchetypeNodeType;
+  type!: ArchetypeNodeType;
 
+  @IsDefined()
   @ValidateNested()
   @Type(() => ArchetypeNodeDataDto)
   data!: ArchetypeNodeDataDto;
 
+  @IsDefined()
   @ValidateNested()
   @Type(() => ArchetypeNodePositionDto)
   position!: ArchetypeNodePositionDto;
 }
 
 export class ArchetypeEdgeDto {
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   id!: string;
 
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   source!: string;
 
+  @IsDefined()
   @IsString()
+  @IsNotEmpty()
   target!: string;
 }
 
