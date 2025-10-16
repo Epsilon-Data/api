@@ -4,6 +4,11 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { QueueService } from 'src/queue/queue.service';
 import { ArchetypeService } from 'src/archetype/archetype.service';
+import {
+  AtlasEntityResponseDto,
+  AtlasSearchDslAttributesResponseDto,
+  AtlasSearchDslResponseDto,
+} from 'src/atlas/dto';
 
 @Injectable()
 export class DatabaseService {
@@ -20,17 +25,22 @@ export class DatabaseService {
     const tableParams = {
       query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
+    const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+      '/search/dsl',
+      tableParams,
+      token,
+    );
 
     const schemaParams = {
       query: `from rdbms_db where instance.projectId = "${projectId}" select __guid, __state`,
     };
 
-    const schemaResult = await this.atlas.get(
-      '/search/dsl',
-      schemaParams,
-      token,
-    );
+    const schemaResult =
+      await this.atlas.get<AtlasSearchDslAttributesResponseDto>(
+        '/search/dsl',
+        schemaParams,
+        token,
+      );
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -44,7 +54,11 @@ export class DatabaseService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params, token);
+      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
+        '/search/dsl',
+        params,
+        token,
+      );
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -73,7 +87,7 @@ export class DatabaseService {
       query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
 
-    const tablesResult = await this.atlas.get(
+    const tablesResult = await this.atlas.get<AtlasSearchDslResponseDto>(
       '/search/dsl',
       tableParams,
       token,
@@ -95,7 +109,7 @@ export class DatabaseService {
       const columnsParams = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const columnsResult = await this.atlas.get(
+      const columnsResult = await this.atlas.get<AtlasSearchDslResponseDto>(
         '/search/dsl',
         columnsParams,
         token,
@@ -113,14 +127,17 @@ export class DatabaseService {
       const schemaParams = {
         query: `from rdbms_table where __guid = "${guid}" select db`,
       };
-      const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+      const schemaResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+        '/search/dsl',
+        schemaParams,
+      );
 
       const columns = await Promise.all(
         activeColumns.map(async (column) => {
           const params = {
             ignoreRelationships: true,
           };
-          const result = await this.atlas.get(
+          const result = await this.atlas.get<AtlasEntityResponseDto>(
             '/entity/guid/' + column.guid,
             params,
             token,
@@ -152,7 +169,11 @@ export class DatabaseService {
     const tableParams = {
       query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
+    const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+      '/search/dsl',
+      tableParams,
+      token,
+    );
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -167,7 +188,11 @@ export class DatabaseService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params, token);
+      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
+        '/search/dsl',
+        params,
+        token,
+      );
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -301,13 +326,18 @@ export class DatabaseService {
     const params = {
       ignoreRelationships: true,
     };
-    const result = await this.atlas.get(
+    const result = await this.atlas.get<AtlasEntityResponseDto>(
       `/entity/uniqueAttribute/type/rdbms_instance?attr:projectId=${projectId}`,
       params,
       token,
     );
+
     if (result.entity.attributes.erd) {
-      const diagramCode = result.entity.attributes.erd.replace(
+      const erdText =
+        typeof result.entity.attributes.erd === 'string'
+          ? result.entity.attributes.erd
+          : JSON.stringify(result.entity.attributes.erd ?? '');
+      const diagramCode = erdText.replace(
         /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
         '""',
       );

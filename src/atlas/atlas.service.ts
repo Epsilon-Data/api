@@ -25,7 +25,7 @@ export class AtlasService {
     return `Bearer ${tokenString}`;
   }
 
-  async get(endpoint: string, params?: any, token?: string): Promise<any> {
+  async get<T>(endpoint: string, params?: any, token?: string): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
       token && !this.basicAuth
@@ -44,12 +44,12 @@ export class AtlasService {
     }
   }
 
-  async post(
+  async post<T>(
     endpoint: string,
     body: any,
     params?: any,
     token?: string,
-  ): Promise<any> {
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
       token && !this.basicAuth
@@ -68,12 +68,12 @@ export class AtlasService {
     }
   }
 
-  async put(
+  async put<T>(
     endpoint: string,
     body: any,
     params?: any,
     token?: string,
-  ): Promise<any> {
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
       token && !this.basicAuth
@@ -94,7 +94,7 @@ export class AtlasService {
     }
   }
 
-  async delete(endpoint: string, params?: any, token?: string): Promise<any> {
+  async delete<T>(endpoint: string, params?: any, token?: string): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
       token && !this.basicAuth
