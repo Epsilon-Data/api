@@ -158,7 +158,7 @@ export class DatabaseService {
       (entity: any) => entity.status === 'ACTIVE',
     );
 
-    const output = {};
+    const output = [];
 
     for (const table of activeTables) {
       const guid = table.guid;
@@ -175,7 +175,13 @@ export class DatabaseService {
         );
 
         for (const col of activeColumns) {
-          output[col.attributes.name] = tableName;
+          const column = {
+            id: col.guid,
+            name: col.attributes.name,
+            table: tableName,
+          };
+
+          output.push(column);
         }
       }
     }
