@@ -44,6 +44,8 @@ export class AtlasProcessor {
           owner: owner,
           name: archetype.name,
           label: archetype.nodes[0].data.label,
+          // TODO: is this needed?
+          projectId: projectId,
           // TODO: decide what is best to have as the name here
           qualifiedName: `${projectId}@${archetype.name.replace(' ', '_').toLowerCase()}`,
           status: 'DRAFT',

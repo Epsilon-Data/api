@@ -9,6 +9,7 @@ import {
   IsNumber,
   ValidateNested,
   IsInt,
+  IsUUID,
 } from 'class-validator';
 
 export enum AtlasQueryType {
@@ -32,8 +33,59 @@ export class AtlasEntityHeaderDto {
   attributes?: Record<string, unknown>;
 }
 
-export class AtlasEntityDto {
+export class AtlasRelationshipMetaDto {
   @IsString()
+  typeName!: string;
+}
+
+export class AtlasRelatedEntityRefDto {
+  @IsUUID()
+  guid!: string;
+
+  @IsString()
+  typeName!: string;
+
+  @IsString()
+  entityStatus!: string;
+
+  @IsString()
+  displayText!: string;
+
+  @IsString()
+  relationshipType!: string;
+
+  @IsUUID()
+  relationshipGuid!: string;
+
+  @IsString()
+  relationshipStatus!: string;
+
+  @ValidateNested()
+  @Type(() => AtlasRelationshipMetaDto)
+  relationshipAttributes!: AtlasRelationshipMetaDto;
+
+  @IsString()
+  qualifiedName!: string;
+}
+
+export class AtlasRelationshipAttributesDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasRelatedEntityRefDto)
+  nodes!: AtlasRelatedEntityRefDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasRelatedEntityRefDto)
+  instance?: AtlasRelatedEntityRefDto;
+
+  // Glossary meanings; sample shows an empty array. Keep generic unless you know the structure.
+  @IsArray()
+  meanings!: unknown[];
+}
+
+export class AtlasEntityDto {
+  @IsUUID()
   guid!: string;
 
   @IsBoolean()
@@ -73,11 +125,12 @@ export class AtlasEntityDto {
   attributes?: Record<string, unknown>;
 
   @IsOptional()
-  @IsObject()
-  relationshipAttributes?: Record<string, unknown>;
+  @ValidateNested()
+  @Type(() => AtlasRelationshipAttributesDto)
+  relationshipAttributes?: AtlasRelationshipAttributesDto;
 }
 
-export class AtlasSearchAttributeResponseDto {
+export class AtlasSearchBasicResponseDto {
   @IsEnum(AtlasQueryType)
   queryType!: AtlasQueryType.BASIC;
 

@@ -47,8 +47,8 @@ export class AtlasService {
   async post<T>(
     endpoint: string,
     body: any,
-    params?: any,
     token?: string,
+    params?: any,
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
