@@ -4,7 +4,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
-import { ArchetypeDto } from 'src/archetype/dto';
+
+import { customAlphabet } from 'nanoid';
+
+import {
+  ArchetypeNodeDto,
+  ArchetypeNodePermissionDto,
+  ArchetypeEdgeDto,
+  ArchetypeDto,
+} from 'src/archetype/dto';
 import {
   AtlasEntityResponseDto,
   AtlasSearchDslResponseDto,
@@ -15,6 +23,24 @@ type ArchetypeJobData = {
   projectId: string;
   archetype: ArchetypeDto;
 };
+
+interface AtlasEntity {
+  typeName: string;
+  guid: string; // negative placeholder in bulk request
+  status: string;
+  attributes?: Record<string, unknown>;
+  relationshipAttributes?: Record<string, unknown>;
+  classifications?: Array<
+    | { typeName: string }
+    | {
+        typeName: 'archetype_node_analysis_permissions';
+        attributes: { access_level: 'NONE' | 'HIGH_LEVEL' | 'DETAILED' };
+      }
+  >;
+}
+
+// TODO: move to somewhere sensible
+const customNanoidAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 @Injectable()
 @Processor('atlas-queue')
@@ -36,234 +62,119 @@ export class AtlasProcessor {
   async handleAddArchetypeJob(job: Job<ArchetypeJobData>, token?: string) {
     const { owner, projectId, archetype } = job.data;
 
-    const archetypeBody = {
-      entity: {
-        typeName: 'archetype',
-        status: 'ACTIVE',
-        attributes: {
-          owner: owner,
-          name: archetype.name,
-          label: archetype.nodes[0].data.label,
-          // TODO: is this needed?
-          projectId: projectId,
-          // TODO: decide what is best to have as the name here
-          qualifiedName: `${projectId}@${archetype.name.replace(' ', '_').toLowerCase()}`,
-          status: 'DRAFT',
-        },
-        relationshipAttributes: {
-          instance: {
-            typeName: 'rdbms_instance',
-            uniqueAttributes: {
-              projectId,
-            },
+    // init negative guid
+    let negativeGuid = -2;
+    // store initial guid id as archetypeId
+    archetype.archetypeId = '-1';
+    // nextGuid function
+    const nextGuid = () => String(negativeGuid--);
+
+    // Accumulators for entities and relationships
+    const entities: AtlasEntity[] = [];
+    const parentLookup: Record<string, string> = {};
+
+    const archetypeCustomId = customAlphabet(customNanoidAlphabet, 10)();
+
+    // Add archetype_template entity
+    entities.push({
+      typeName: 'archetype_template',
+      status: 'ACTIVE',
+      guid: archetype.archetypeId,
+      attributes: {
+        owner: owner,
+        name: archetype.name,
+        // TODO: is this needed?
+        projectId: projectId,
+        // TODO: decide what is best to have as the name here
+        qualifiedName: `${projectId}@${archetypeCustomId}@${archetype.name.replace(/\s+/g, '_').toLowerCase()}`,
+        status: 'DRAFT',
+      },
+      relationshipAttributes: {
+        instance: {
+          typeName: 'rdbms_instance',
+          uniqueAttributes: {
+            projectId,
           },
         },
       },
-    };
+    });
 
-    const result = await this.atlas.post('/entity', archetypeBody, token);
-    this.logger.debug(result);
-    // const archetypeId = Object.values(result.guidAssignments)[0];
+    const [columns, nodes] = archetype.nodes.reduce<
+      [ArchetypeNodeDto[], ArchetypeNodeDto[]]
+    >(
+      (acc, node) => {
+        if (node.type === 'column') acc[0].push(node);
+        else acc[1].push(node);
+        return acc;
+      },
+      [[], []],
+    );
+    const columnEdges = archetype.edges.filter((edge: ArchetypeEdgeDto) =>
+      columns.find((e) => e.id === edge.target),
+    );
+    const archetypeNodes = nodes.map((node: ArchetypeNodeDto) => {
+      const columnGuid = columnEdges.find((e) => e.source === node.id)?.target;
+      const parentId = archetype.edges.find(
+        (e) => e.target === node.id,
+      )?.source;
+      const currentGuid = nextGuid(); // increase neg guid
+      parentLookup[node.id] = currentGuid;
+      return {
+        guid: currentGuid,
+        typeName: 'archetype_node',
+        status: 'ACTIVE',
+        attributes: {
+          label: node.data.label,
+          name: `${archetype.name} ${node.id}`,
+          owner: owner,
+          level: node.data.level,
+          qualifiedName: `${projectId}@${archetypeCustomId}@${node.id}`,
+          position: {
+            x: node.position.x,
+            y: node.position.y,
+          },
+        },
+        classifications: mergeClassifications(
+          columnGuid ? true : false, // isLeaf node
+          node.id,
+          node.type,
+          archetype.permissions,
+        ),
+        relationshipAttributes: {
+          template: {
+            guid: archetype.archetypeId,
+            typeName: 'archetype_template',
+          },
+          ...(parentId
+            ? {
+                parent_node: {
+                  typeName: 'archetype_node',
+                  guid: parentLookup[parentId],
+                },
+              }
+            : {}),
+          ...(columnGuid
+            ? { column: { guid: columnGuid, typeName: 'rdbms_column' } }
+            : {}),
+        },
+      };
+    });
 
-    // const entities = [];
-    // let initialGuid = -1;
+    entities.push(...archetypeNodes);
 
-    // const object = archetype.nodes.filter(
-    //   (node: ArchetypeNodeDto) => node.type === 'object',
-    // );
-    // const catList = archetype.nodes.filter(
-    //   (node: any) => node.type === 'category',
-    // );
-    // const subcatList = template.nodes.filter(
-    //   (node: any) => node.type === 'subcategory',
-    // );
+    await this.atlas.post(
+      '/entity/bulk',
+      {
+        entities: entities,
+      },
+      token,
+    );
+    // this.logger.debug(response);
 
-    // const objectBody = {
-    //   guid: initialGuid.toString(),
-    //   typeName: 'archetype_object',
-    //   status: 'ACTIVE',
-    //   attributes: {
-    //     displayName: object[0].data.label,
-    //     name: object[0].data.label,
-    //     owner: 'user',
-    //     qualifiedName: `${archetypeId}@${object[0].data.label.replace(' ', '_')}@${object[0].id}`,
-    //     position: {
-    //       x: object[0].position.x,
-    //       y: object[0].position.y,
-    //     },
-    //     label: object[0].data.label,
-    //     width: object[0].width,
-    //     height: object[0].height,
-    //     selected: false,
-    //     dragging: false,
-    //   },
-    //   relationshipAttributes: {
-    //     archetype: {
-    //       guid: archetypeId,
-    //       typeName: 'archetype',
-    //     },
-    //   },
-    // };
-
-    // entities.push(objectBody);
-
-    // const catBodyList = catList.map((node: any) => {
-    //   initialGuid -= 1;
-    //   return {
-    //     guid: initialGuid.toString(),
-    //     typeName: 'archetype_category',
-    //     status: 'ACTIVE',
-    //     attributes: {
-    //       displayName: node.data.label,
-    //       name: node.data.label,
-    //       owner: 'user',
-    //       qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-    //       position: {
-    //         x: node.position.x,
-    //         y: node.position.y,
-    //       },
-    //       label: node.data.label,
-    //       width: node.width,
-    //       height: node.height,
-    //       selected: false,
-    //       dragging: false,
-    //     },
-    //     relationshipAttributes: {
-    //       archetype: {
-    //         guid: archetypeId,
-    //         typeName: 'archetype',
-    //       },
-    //       object: {
-    //         guid: '-1',
-    //         typeName: 'archetype_object',
-    //       },
-    //     },
-    //   };
-    // });
-
-    // entities.push(...catBodyList);
-
-    // const catIdList: { [key: string]: string } = {};
-    // for (const cat of catBodyList) {
-    //   const name = cat.attributes.qualifiedName.split('@');
-    //   catIdList[name[2]] = cat.guid;
-    // }
-
-    // for (const node of subcatList) {
-    //   const relatedEdge = template.edges.filter(
-    //     (edge: any) => edge.source == node.id || edge.target == node.id,
-    //   );
-
-    //   const categoryId =
-    //     relatedEdge[0].source == node.id
-    //       ? catIdList[relatedEdge[0].target]
-    //       : catIdList[relatedEdge[0].source];
-
-    //   const subcatBody = {
-    //     typeName: 'archetype_subcategory',
-    //     status: 'ACTIVE',
-    //     attributes: {
-    //       displayName: node.data.label,
-    //       name: node.data.label,
-    //       owner: 'user',
-    //       qualifiedName: `${archetypeId}@${node.data.label.replace(' ', '_')}@${node.id}`,
-    //       position: {
-    //         x: node.position.x,
-    //         y: node.position.y,
-    //       },
-    //       label: node.data.label,
-    //       width: node.width,
-    //       height: node.height,
-    //       selected: false,
-    //       dragging: false,
-    //     },
-    //     relationshipAttributes: {
-    //       archetype: {
-    //         guid: archetypeId,
-    //         typeName: 'archetype',
-    //       },
-    //       category: {
-    //         guid: categoryId,
-    //         type: 'archetype_category',
-    //       },
-    //     },
-    //   };
-
-    //   entities.push(subcatBody);
-    // }
-
-    // await this.atlas.post('/entity/bulk', { entities: entities });
-
-    // await this.prisma.project.update({
-    //   where: { projectId: projectId },
-    //   data: { lastModified: new Date() },
-    // });
-
-    // const tableParams = {
-    //   query: `from rdbms_db where instance.__guid = "${dbId}" select tables`,
-    // };
-
-    // const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
-
-    // const activeTables = tableResult.entities.filter(
-    //   (entity: any) => entity.status === 'ACTIVE',
-    // );
-
-    // for (const node of columnMapping) {
-    //   const params = {
-    //     'attr:qualifiedName': `${archetypeId}@${node.nodeName.replace(' ', '_')}@${node.nodeId}`,
-    //   };
-
-    //   const result = await this.atlas.get(
-    //     `/entity/uniqueAttribute/type/archetype_${node.nodeType}`,
-    //     params,
-    //     token,
-    //   );
-
-    //   if (result.entity.relationshipAttributes.columns.length !== 0) {
-    //     continue;
-    //   }
-
-    //   result.entity.relationshipAttributes.columns = [];
-
-    //   for (const col of node.columns) {
-    //     const tableGuid = activeTables.find(
-    //       (table: any) => table.attributes.name === col.table,
-    //     ).guid;
-
-    //     const colParams = {
-    //       query: `from rdbms_column where table.__guid = "${tableGuid}"`,
-    //     };
-    //     const colResult = await this.atlas.get('/search/dsl', colParams, token);
-
-    //     const activeColumns = colResult.entities.filter(
-    //       (entity: any) => entity.status === 'ACTIVE',
-    //     );
-
-    //     const columnEntity = activeColumns.find(
-    //       (column: any) => column.attributes.name === col.name,
-    //     );
-
-    //     const relationship = await this.atlas.get(
-    //       `/types/relationshipdef/name/archetype_${node.nodeType}_rdbms_columns`,
-    //       undefined,
-    //       token,
-    //     );
-
-    //     const columnInfo = {
-    //       guid: columnEntity.guid,
-    //       typeName: 'rdbms_column',
-    //       entityStatus: 'ACTIVE',
-    //       relationshipType: `archetype_${node.nodeType}_rdbms_columns`,
-    //       relationshipGuid: relationship.guid,
-    //       relationshipStatus: 'ACTIVE',
-    //     };
-
-    //     result.entity.relationshipAttributes.columns.push(columnInfo);
-    //   }
-
-    //   await this.atlas.post('/entity', result, undefined, token);
-    // }
+    return await this.prisma.project.update({
+      where: { projectId: projectId },
+      data: { lastModified: new Date() },
+    });
   }
 
   @Process('process-delete-archetype')
@@ -281,6 +192,7 @@ export class AtlasProcessor {
     });
   }
 
+  // TODO: remove redundant function as using classifiers for permissions now
   @Process('process-add-permissions')
   async handleAddPermissionsJob(job: Job, token?: string) {
     const { projectId, permissions } = job.data;
@@ -504,3 +416,61 @@ export class AtlasProcessor {
     });
   }
 }
+
+function mergeClassifications(
+  isLeaf: boolean,
+  nodeId: string,
+  type: string,
+  permissions: ArchetypeNodePermissionDto[],
+): AtlasEntity['classifications'] {
+  const classifications: AtlasEntity['classifications'] = [];
+  classifications.push({
+    typeName: isLeaf
+      ? 'leaf_node'
+      : type === 'root'
+        ? 'root_node'
+        : 'branch_node',
+  });
+  const permission = permissions.find((p) => p.id === nodeId)?.permission;
+  if (permission) {
+    classifications.push({
+      typeName: 'archetype_node_analysis_permissions',
+      attributes: { access_level: permission },
+    });
+  }
+  return classifications;
+}
+
+// function addParent(
+//   archetypeId: string,
+//   nodeId: string,
+//   edges: ArchetypeEdgeDto[],
+// ) {
+//   const parent = edges.find((e) => e.target === nodeId)?.source;
+//   return parent
+//     ? {
+//         parent_node: {
+//           typeName: 'archetype_node',
+//           uniqueAttributes: {
+//             qualifiedName: `${archetypeId}@${parent}`,
+//           },
+//         },
+//       }
+//     : {};
+// }
+
+// function addColumn(
+//   archetypeId: string,
+//   nodeId: string,
+//   columnEdges: ArchetypeEdgeDto[],
+// ) {
+//   const columnGuid = columnEdges.find((e) => e.source === nodeId)?.target;
+//   return parent
+//     ? {
+//         column: {
+//           typeName: 'column',
+//           guid: columnGuid,
+//         },
+//       }
+//     : {};
+// }

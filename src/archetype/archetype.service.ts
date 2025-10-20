@@ -131,7 +131,7 @@ export class ArchetypeService {
   }
 
   async createArchetype(username: string, archetype: ArchetypeDto) {
-    await this.queue.addArchetypeJob(username, archetype);
+    return await this.queue.addArchetypeJob(username, archetype);
   }
 
   // MAKE: entity call to Atlas

@@ -25,6 +25,23 @@ export enum ArchetypeNodeType {
   Column = 'column',
 }
 
+export enum ArchetypePermission {
+  None = 'NONE',
+  HighLevel = 'HIGH_LEVEL',
+  Detailed = 'DETAILED',
+}
+
+export class ArchetypeNodePermissionDto {
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  id!: string;
+
+  @IsDefined()
+  @IsEnum(ArchetypePermission)
+  permission!: ArchetypePermission;
+}
+
 export class ArchetypeNodeDataDto {
   @IsDefined()
   @IsString()
@@ -99,21 +116,27 @@ export class ArchetypeDto {
   @IsNotEmpty()
   name!: string;
 
-  @IsDefined()
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ArchetypeNodeDto)
-  nodes!: ArchetypeNodeDto[];
+  nodes?: ArchetypeNodeDto[];
 
-  @IsDefined()
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ArchetypeEdgeDto)
-  edges!: ArchetypeEdgeDto[];
+  edges?: ArchetypeEdgeDto[];
 
   @IsOptional()
   @IsEnum(ArchetypeStatus)
   status: ArchetypeStatus = ArchetypeStatus.Draft;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ArchetypeNodePermissionDto)
+  permissions?: ArchetypeNodePermissionDto[];
 
   @IsOptional()
   @Transform(
