@@ -26,17 +26,14 @@ class DatabaseDto {
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   url: string;
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   username: string;
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   password: string;
 }
 
