@@ -10,11 +10,135 @@ import {
   ValidateNested,
   IsInt,
   IsUUID,
+  IsNotEmpty,
+  IsDefined,
 } from 'class-validator';
+import {
+  ArchetypeNodePositionDto,
+  ArchetypePermission,
+} from 'src/archetype/dto';
 
 export enum AtlasQueryType {
   BASIC = 'BASIC',
   DSL = 'DSL',
+}
+
+export enum AtlasArchetypeNodeTypeName {
+  Root = 'root_node',
+  Branch = 'branch_node',
+  Leaf = 'leaf_node',
+}
+export enum AtlasArchetypeTypeName {
+  Template = 'archetype_template',
+  Node = 'archetype_node',
+}
+
+export class AtlasArchetypeNodeAttributesDto {
+  @IsString()
+  owner: string;
+
+  @IsString()
+  replicatedTo: string | null;
+
+  @IsString()
+  userDescription: string | null;
+
+  @IsString()
+  replicatedFrom: string | null;
+
+  @IsString()
+  qualifiedName: string;
+
+  @IsString()
+  displayName: string | null;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  description: string | null;
+
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  level?: number;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ArchetypeNodePositionDto)
+  position?: ArchetypeNodePositionDto;
+
+  @IsOptional()
+  @IsString()
+  label?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
+export class AtlasSimpleClassificationDto {
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  typeName!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  propagate?: boolean = true;
+
+  @IsBoolean()
+  @IsOptional()
+  removePropagationsOnEntityDelete?: boolean = false;
+}
+
+export class AtlasArchetypeAnalysisPermissionClassificationDto extends AtlasSimpleClassificationDto {
+  @IsString()
+  override typeName: 'archetype_node_analysis_permissions';
+
+  @IsDefined()
+  @IsObject()
+  attributes!: {
+    access_level: ArchetypePermission;
+  };
+}
+
+export class AtlasClassificationDto {
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  typeName!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  propagate?: boolean = true;
+
+  @IsBoolean()
+  @IsOptional()
+  removePropagationsOnEntityDelete?: boolean = false;
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, unknown>;
+}
+
+export class AtlasMutatedEntitiesDto {
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasEntityDto)
+  CREATE?: AtlasEntityDto[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasEntityDto)
+  UPDATE?: AtlasEntityDto[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasEntityDto)
+  DELETE?: AtlasEntityDto[];
 }
 
 export class AtlasEntityHeaderDto {
@@ -39,7 +163,7 @@ export class AtlasRelationshipMetaDto {
 }
 
 export class AtlasRelatedEntityRefDto {
-  @IsUUID()
+  @IsString()
   guid!: string;
 
   @IsString()
@@ -77,14 +201,34 @@ export class AtlasRelationshipAttributesDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => AtlasRelatedEntityRefDto)
+  template?: AtlasRelatedEntityRefDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasRelatedEntityRefDto)
   instance?: AtlasRelatedEntityRefDto;
 
-  // Glossary meanings; sample shows an empty array. Keep generic unless you know the structure.
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasRelatedEntityRefDto)
+  parent_node?: AtlasRelatedEntityRefDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasRelatedEntityRefDto)
+  column?: AtlasRelatedEntityRefDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasRelatedEntityRefDto)
+  child_nodes?: AtlasRelatedEntityRefDto[];
+
+  // Glossary meanings
   @IsArray()
   meanings!: unknown[];
 }
 
-export class AtlasEntityDto {
+export class AtlasEntityDto<Attributes = Record<string, unknown>> {
   @IsUUID()
   guid!: string;
 
@@ -122,12 +266,63 @@ export class AtlasEntityDto {
 
   @IsOptional()
   @IsObject()
-  attributes?: Record<string, unknown>;
+  attributes?: Attributes;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => AtlasRelationshipAttributesDto)
   relationshipAttributes?: AtlasRelationshipAttributesDto;
+}
+
+export class AtlasSubmitArchetypeEntityDto {
+  @IsOptional()
+  @IsString()
+  guid?: string;
+
+  @IsString()
+  typeName!: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string = 'ACTIVE';
+
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  relationshipAttributes?: Record<string, unknown>;
+}
+
+export class AtlasArchetypeEntityClassificationDto {
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  typeName!: string;
+
+  @IsString()
+  entityGuid?: string;
+
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, unknown>;
+}
+
+export class AtlasArchetypeEntityDto extends AtlasEntityDto<AtlasArchetypeNodeAttributesDto> {
+  @IsEnum(AtlasArchetypeTypeName)
+  override typeName!: AtlasArchetypeTypeName;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasArchetypeNodeAttributesDto)
+  override attributes?: AtlasArchetypeNodeAttributesDto;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasArchetypeEntityClassificationDto)
+  classifications?: AtlasArchetypeEntityClassificationDto[];
 }
 
 export class AtlasSearchBasicResponseDto {
@@ -189,4 +384,23 @@ export class AtlasEntityResponseDto {
   @ValidateNested()
   @Type(() => AtlasEntityDto)
   entity!: AtlasEntityDto;
+}
+
+export class AtlasArchetypeEntityResponseDto {
+  @IsObject()
+  referredEntities!: Record<string, AtlasArchetypeEntityDto>;
+
+  @ValidateNested()
+  @Type(() => AtlasArchetypeEntityDto)
+  entity!: AtlasArchetypeEntityDto;
+}
+
+export class AtlasPostEntityResponseDto {
+  @ValidateNested()
+  @Type(() => AtlasMutatedEntitiesDto)
+  mutatedEntities: AtlasMutatedEntitiesDto;
+
+  @IsOptional()
+  @IsObject()
+  guidAssignments?: Record<string, string>;
 }

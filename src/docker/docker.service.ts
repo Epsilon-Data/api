@@ -36,7 +36,9 @@ export class DockerService {
     database?: DatabaseInfoDto,
     requestId?: string,
   ): Promise<string> {
-    this.logger.log(`Preparing to run container for request: ${requestId}.`);
+    this.logger.log(
+      `Preparing to run crawler container for request ${requestId}...`,
+    );
     const envArgs = [
       `ATLAS_URI=${this.isDev ? this.atlasUrl.replace('localhost', 'host.docker.internal') : this.atlasUrl}`,
       `ATLAS_ADMIN_USER=${this.username}`,
@@ -80,6 +82,9 @@ export class DockerService {
           );
         }
         //  4. Crawling done, container run successfully
+        this.logger.log(
+          `Container ${instanceName} run successfully for request ${requestId}.`,
+        );
         // set project status to active (e.g. ready for mapping)
         await this.prisma.project.update({
           where: { projectId },
@@ -88,6 +93,7 @@ export class DockerService {
       } catch (err) {
         throw err; // rethrow errors because async
       } finally {
+        //  5. Run cleanup for the container instance
         this.logger.debug(`Removing container ${instanceName}...`);
         await container.remove({ force: true });
         this.logger.debug(`Container ${instanceName} removed successfully.`);

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ArchetypeDto } from 'src/archetype/dto';
@@ -6,6 +6,7 @@ import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 @Injectable()
 export class QueueService {
+  private readonly logger = new Logger(QueueService.name);
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
   async dataBrokerJob(
@@ -14,6 +15,9 @@ export class QueueService {
     requestId: string,
     database: DatabaseInfoDto,
   ) {
+    this.logger.log(
+      `New 'process-data-broker' submitted to queue with requestId: ${requestId}`,
+    );
     return await this.atlasQueue.add(
       'process-data-broker',
       {
@@ -23,7 +27,7 @@ export class QueueService {
         database,
       },
       {
-        jobId: `process-data-broker:${projectId}`,
+        jobId: `process-data-broker:${requestId}`,
         attempts: 5,
         backoff: 10000,
       },
@@ -31,6 +35,9 @@ export class QueueService {
   }
 
   async addArchetypeJob(owner: string, archetype: ArchetypeDto) {
+    this.logger.log(
+      `New 'process-add-archetype' submitted to queue for projectId: ${archetype.projectId}`,
+    );
     return await this.atlasQueue.add(
       'process-add-archetype',
       {
@@ -46,6 +53,9 @@ export class QueueService {
   }
 
   async deleteTemplateJob(projectId: string, archetypeId: string) {
+    this.logger.log(
+      `New 'process-delete-archetype' submitted to queue with archetypeId: ${archetypeId}`,
+    );
     return await this.atlasQueue.add(
       'process-delete-archetype',
       {

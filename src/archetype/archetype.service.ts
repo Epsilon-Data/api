@@ -2,9 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 // import { DatabaseService } from 'src/database/database.service';
 import { QueueService } from 'src/queue/queue.service';
-import { ArchetypeDto, ArchetypeStatus } from './dto';
 import {
-  AtlasEntityResponseDto,
+  ArchetypeDto,
+  ArchetypeEdgeDto,
+  ArchetypeNodeDto,
+  ArchetypeNodeType,
+  ArchetypePermission,
+  ArchetypeStatus,
+} from './dto';
+import {
+  AtlasArchetypeEntityResponseDto,
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
 
@@ -17,82 +24,6 @@ export class ArchetypeService {
     // @Inject(forwardRef(() => DatabaseService))
     // private databaseSource: DatabaseService,
   ) {}
-
-  // TODO: use code and remove this method
-  async getArchetypes(projectId: string, token?: string) {
-    const activeTemplates = await this.fetchArchetypes(projectId, token);
-
-    const output = [];
-    for (const template of activeTemplates) {
-      const templateGuid = template.id;
-      const templateName = template.name;
-
-      const templateInfo = {
-        id: templateGuid,
-        name: templateName,
-        nodes: [],
-        edges: [],
-      };
-
-      // const templateEntity = await this.atlas.get(
-      //   `/entity/guid/${templateGuid}`,
-      //   undefined,
-      //   token,
-      // );
-
-      // for (const key in templateEntity.referredEntities) {
-      //   const entity = templateEntity.referredEntities[key];
-
-      //   if (entity.typeName.includes('archetype_')) {
-      //     const splitted = entity.attributes.qualifiedName.split('@');
-      //     const node = {
-      //       id: splitted[2],
-      //       position: {
-      //         x: Number(entity.attributes.position.x),
-      //         y: Number(entity.attributes.position.y),
-      //       },
-      //       data: {
-      //         label: entity.attributes.displayName,
-      //       },
-      //       type: entity.typeName.replace('archetype_', ''),
-      //       width: entity.attributes.width,
-      //       height: entity.attributes.height,
-      //       selected: false,
-      //       positionAbsolute: {
-      //         x: Number(entity.attributes.position.x),
-      //         y: Number(entity.attributes.position.y),
-      //       },
-      //       dragging: false,
-      //     };
-      //     templateInfo.nodes.push(node);
-
-      //     if (entity.typeName != 'archetype_object') {
-      //       const edge = {
-      //         source: splitted[2],
-      //         target: '',
-      //         sourceHandle: null,
-      //         targetHandle: null,
-      //         id: '',
-      //       };
-
-      //       const name =
-      //         entity.typeName == 'archetype_category'
-      //           ? entity.relationshipAttributes.object.qualifiedName
-      //           : entity.relationshipAttributes.category.qualifiedName;
-
-      //       edge.target = name.split('@')[2];
-      //       edge.id = `edge_${edge.source}_${edge.target}`;
-
-      //       templateInfo.edges.push(edge);
-      //     }
-      //   }
-      // }
-
-      output.push(templateInfo);
-    }
-
-    return output;
-  }
 
   async fetchArchetypes(projectId: string, token?: string) {
     // NOTE: can also remove headers to reduce payload
@@ -134,84 +65,105 @@ export class ArchetypeService {
     return await this.queue.addArchetypeJob(username, archetype);
   }
 
-  // MAKE: entity call to Atlas
   async getArchetypeDetails(
     projectId: string,
     archetypeId: string,
     token?: string,
   ) {
-    const entityRes = await this.atlas.get<AtlasEntityResponseDto>(
+    // TODO: handle errors
+    const entityRes = await this.atlas.get<AtlasArchetypeEntityResponseDto>(
       `/entity/guid/${archetypeId}`,
       undefined,
       token,
     );
 
-    // TODO: handle errors
-
     const templateInfo: ArchetypeDto = {
       projectId: projectId,
       archetypeId: archetypeId,
-      name: entityRes.entity?.displayText,
+      name: entityRes.entity?.attributes?.name,
       status: entityRes.entity?.attributes?.status as ArchetypeStatus,
       nodes: [],
       edges: [],
+      permissions: [],
+      lastModified: new Date(entityRes.entity?.updateTime),
     };
 
-    // for (const key in entityRes.referredEntities) {
-    //   const entity = entityRes.referredEntities[key];
+    // add all archetype_nodes
+    for (const key in entityRes.referredEntities) {
+      const entity = entityRes.referredEntities[key];
+      const nodeId = entity.attributes?.qualifiedName.split('@')[2];
+      // add node itself
+      const node: ArchetypeNodeDto = {
+        id: nodeId, // NOTE: Maybe use GUID
+        data: {
+          label: entity.attributes?.label,
+          level: entity.attributes?.level,
+        },
+        position: entity.attributes?.position,
+        type: (entity.attributes?.level === 0
+          ? 'root'
+          : 'category') as ArchetypeNodeType,
+      };
+      templateInfo.nodes.push(node);
 
-    //   if (entity.typeName.includes('archetype_')) {
-    //     const splitted = entity.attributes.qualifiedName.split('@');
-    //     const node = {
-    //       id: splitted[2],
-    //       position: {
-    //         x: Number(entity.attributes.position.x),
-    //         y: Number(entity.attributes.position.y),
-    //       },
-    //       data: {
-    //         label: entity.attributes.displayName,
-    //       },
-    //       type: entity.typeName.replace('archetype_', ''),
-    //       width: entity.attributes.width,
-    //       height: entity.attributes.height,
-    //       selected: false,
-    //       positionAbsolute: {
-    //         x: Number(entity.attributes.position.x),
-    //         y: Number(entity.attributes.position.y),
-    //       },
-    //       dragging: false,
-    //     };
-    //     templateInfo.nodes.push(node);
+      // add edge if has parent exists
+      if (entity.relationshipAttributes?.parent_node) {
+        const parentNodeId =
+          entity.relationshipAttributes?.parent_node?.qualifiedName.split(
+            '@',
+          )[2]; // NOTE: Maybe use GUID
+        const edge: ArchetypeEdgeDto = {
+          id: `edge_${parentNodeId}_${nodeId}`, // NOTE: maybe use relationship GUID here
+          source: parentNodeId,
+          target: nodeId,
+        };
+        templateInfo.edges.push(edge);
+      }
+      // add column node and edges
+      if (entity.relationshipAttributes?.column) {
+        const columnNodeId = entity.relationshipAttributes?.column?.guid;
+        const columName =
+          entity.relationshipAttributes?.column?.qualifiedName.split('@')[2];
+        const node: ArchetypeNodeDto = {
+          id: columnNodeId,
+          data: {
+            label: columName,
+            level: entity.attributes?.level + 1,
+          },
+          position: entity.attributes?.position, // TODO: figure out where to put column, relative to node
+          type: ArchetypeNodeType.Column,
+        };
+        templateInfo.nodes.push(node);
+        const edge: ArchetypeEdgeDto = {
+          source: nodeId,
+          target: columnNodeId,
+          id: `edge_${nodeId}_${columnNodeId}`, // NOTE: maybe use relationship GUID here
+        };
+        templateInfo.edges.push(edge);
+      }
 
-    //     if (entity.typeName != 'archetype_object') {
-    //       const edge = {
-    //         source: splitted[2],
-    //         target: '',
-    //         sourceHandle: null,
-    //         targetHandle: null,
-    //         id: '',
-    //       };
-
-    //       const name =
-    //         entity.typeName == 'archetype_category'
-    //           ? entity.relationshipAttributes.object.qualifiedName
-    //           : entity.relationshipAttributes.category.qualifiedName;
-
-    //       edge.target = name.split('@')[2];
-    //       edge.id = `edge_${edge.source}_${edge.target}`;
-
-    //       templateInfo.edges.push(edge);
-    //     }
-    //   }
-    // }
+      const analysisPermission = (() => {
+        const permission = entity.classifications?.find(
+          (c) => c.typeName === 'archetype_node_analysis_permissions',
+        );
+        return {
+          id: nodeId,
+          permission: (permission?.attributes?.access_level ??
+            'NONE') as ArchetypePermission,
+        };
+      })();
+      templateInfo.permissions.push(analysisPermission);
+    }
 
     return templateInfo;
   }
 
+  // TODO: still need to refactor
   async deleteArchetype(projectId: string, archetypeId: string) {
     return await this.queue.deleteTemplateJob(projectId, archetypeId);
   }
 
+  // TODO: still need to refactor
   async getAnalysisArchetype(projectId: string, token?: string) {
     const activeTemplates = await this.fetchArchetypes(projectId, token);
 

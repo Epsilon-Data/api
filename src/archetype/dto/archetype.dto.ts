@@ -26,9 +26,9 @@ export enum ArchetypeNodeType {
 }
 
 export enum ArchetypePermission {
-  None = 'NONE',
-  HighLevel = 'HIGH_LEVEL',
-  Detailed = 'DETAILED',
+  NONE = 'NONE',
+  HIGH_LEVEL = 'HIGH_LEVEL',
+  DETAILED = 'DETAILED',
 }
 
 export class ArchetypeNodePermissionDto {
@@ -139,10 +139,24 @@ export class ArchetypeDto {
   permissions?: ArchetypeNodePermissionDto[];
 
   @IsOptional()
-  @Transform(
-    ({ value }) => (typeof value === 'string' ? new Date(value) : value),
-    { toClassOnly: true },
-  )
   @IsDate()
+  @Transform(({ value }) => transformToDateString(value), { toClassOnly: true })
   lastModified?: Date;
+}
+
+function transformToDateString(value: any): Date {
+  if (value == null || value === '') return undefined;
+
+  if (typeof value === 'string') {
+    const timestamp = Number(value);
+    // handle numeric string =
+    if (!isNaN(timestamp)) return new Date(timestamp);
+    return new Date(value);
+  }
+  // handle epoch as number
+  if (typeof value === 'number') {
+    return new Date(value);
+  }
+  // already a Date or invalid input
+  return value;
 }
