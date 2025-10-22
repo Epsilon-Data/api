@@ -209,7 +209,7 @@ export class ProjectService {
       });
     }
 
-    if (dto.connection.tempDbDetails) {
+    if (dto.connection.tempDbDetails.url) {
       await this.prisma.request.update({
         where: {
           requestId: project.connection.requestId,
@@ -224,6 +224,15 @@ export class ProjectService {
         project.connection.requestId,
         dto.connection.tempDbDetails,
       );
+    } else {
+      await this.prisma.request.update({
+        where: {
+          requestId: project.connection.requestId,
+        },
+        data: {
+          status: 'PENDING',
+        },
+      });
     }
 
     return project;
