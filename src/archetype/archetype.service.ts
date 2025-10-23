@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
-// import { DatabaseService } from 'src/database/database.service';
 import { QueueService } from 'src/queue/queue.service';
 import {
   ArchetypeDto,
@@ -12,6 +11,8 @@ import {
 } from './dto';
 import {
   AtlasArchetypeEntityResponseDto,
+  AtlasEntityResponseDto,
+  AtlasSearchBasicHeadlessResponseDto,
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
 
@@ -21,8 +22,6 @@ export class ArchetypeService {
   constructor(
     private atlas: AtlasService,
     private readonly queue: QueueService,
-    // @Inject(forwardRef(() => DatabaseService))
-    // private databaseSource: DatabaseService,
   ) {}
 
   async fetchArchetypes(projectId: string, token?: string) {
@@ -63,6 +62,10 @@ export class ArchetypeService {
 
   async createArchetype(username: string, archetype: ArchetypeDto) {
     return await this.queue.addArchetypeJob(username, archetype);
+  }
+
+  async updateArchetype(username: string, archetype: ArchetypeDto) {
+    return await this.queue.updateArchetypeJob(username, archetype);
   }
 
   async getArchetypeDetails(
@@ -158,79 +161,108 @@ export class ArchetypeService {
     return templateInfo;
   }
 
-  // TODO: still need to refactor
   async deleteArchetype(projectId: string, archetypeId: string) {
-    return await this.queue.deleteTemplateJob(projectId, archetypeId);
+    return await this.queue.deleteArchetypeJob(projectId, archetypeId);
   }
 
-  // TODO: still need to refactor
   async getAnalysisArchetype(projectId: string, token?: string) {
-    const activeTemplates = await this.fetchArchetypes(projectId, token);
+    // get ID of PUBLISHED archetype
+    const body = {
+      typeName: 'archetype_template',
+      excludeDeletedEntities: true,
+      includeSubClassifications: false,
+      excludeHeaderAttributes: true,
+      includeSubTypes: false,
+      entityFilters: {
+        condition: 'AND',
+        criterion: [
+          {
+            attributeName: 'projectId',
+            operator: 'eq',
+            attributeValue: `${projectId}`,
+          },
+          {
+            attributeName: 'status',
+            operator: 'eq',
+            attributeValue: 'PUBLISHED',
+          },
+        ],
+      },
+      attributes: ['name', '__guid'],
+    };
 
-    const output = [];
-    for (const template of activeTemplates) {
-      // const templateGuid = template.guid;
-
+    const res = await this.atlas.post<AtlasSearchBasicHeadlessResponseDto>(
+      '/search/basic',
+      body,
+      token,
+    );
+    if (res.approximateCount) {
       const properties: Record<string, object> = {};
       const schema = {
         $schema: 'https://json-schema.org/draft/2020-12/schema#',
-        title: template.name,
+        title: res.attributes?.values[0][0],
         type: 'object',
         properties,
       };
 
-      // const templateEntity = await this.atlas.get(
-      //   `/entity/guid/${templateGuid}`,
-      //   undefined,
-      //   token,
-      // );
+      const templateGuid = res.attributes?.values[0][1];
+      const templateEntity =
+        await this.atlas.get<AtlasArchetypeEntityResponseDto>(
+          `/entity/guid/${templateGuid}`,
+          undefined,
+          token,
+        );
 
-      // for (const key in templateEntity.referredEntities) {
-      //   const entity = templateEntity.referredEntities[key];
+      // TODO: handle errors
+      for (const key in templateEntity.referredEntities) {
+        const node = templateEntity.referredEntities[key];
+        // TODO: check if this is the best thing to use
+        const objectName = node.attributes?.label
+          .replace(/\s+/g, '_')
+          .toLowerCase();
+        const description = node.attributes?.label;
+        // check for node has children
+        if (node.relationshipAttributes?.child_nodes?.length) {
+          const type = 'object';
+          const properties: Record<string, object> = {};
+          schema.properties[objectName] = { type, properties };
+        }
+        // check if node has a column
+        if (node.relationshipAttributes?.column) {
+          const column = node.relationshipAttributes?.column;
+          const properties: Record<string, object> = {};
+          // TODO: handle errors
+          const { entity } = await this.atlas.get<AtlasEntityResponseDto>(
+            `/entity/guid/${column.guid}`,
+            undefined,
+            token,
+          );
+          const jsonType = this.atlasTypeToJSONType(
+            entity.attributes?.data_type as string,
+          );
+          properties[objectName] = {
+            type: jsonType,
+            description,
+          };
 
-      //   if (entity.typeName.includes('archetype_')) {
-      //     if (entity.typeName != 'archetype_object') {
-      //       const objectName = entity.attributes.qualifiedName;
-      //       if (entity.relationshipAttributes.subcategories?.length) {
-      //         const type = 'object';
-      //         const properties: Record<string, object> = {};
-      //         schema.properties[objectName] = { type, properties };
-      //       }
-      //       if (entity.relationshipAttributes.columns?.length) {
-      //         const properties: Record<string, object> = {};
-      //         for (const column of entity.relationshipAttributes.columns) {
-      //           const { entity } = await this.atlas.get(
-      //             `/entity/guid/${column.guid}`,
-      //             undefined,
-      //             token,
-      //           );
-      //           const jsonType = this.atlasTypeToJSONType(
-      //             entity.attributes.data_type,
-      //           );
-      //           properties[objectName] = {
-      //             type: jsonType,
-      //           };
-      //         }
-      //         if (entity.relationshipAttributes.category) {
-      //           schema.properties[
-      //             entity.relationshipAttributes.category.qualifiedName
-      //           ]['properties'] = {
-      //             ...schema.properties[
-      //               entity.relationshipAttributes.category.qualifiedName
-      //             ]['properties'],
-      //             ...properties,
-      //           };
-      //         } else {
-      //           schema.properties = { ...schema.properties, ...properties };
-      //         }
-      //       }
-      //     }
-      //   }
-      // }
-
-      output.push(schema);
+          // add nodes to parent
+          if (node.relationshipAttributes?.parent_node) {
+            const parentRef =
+              node.relationshipAttributes?.parent_node.displayText
+                .replace(/\s+/g, '_')
+                .toLowerCase();
+            schema.properties[parentRef]['properties'] = {
+              ...schema.properties[parentRef]['properties'],
+              ...properties,
+            };
+          } else {
+            schema.properties = { ...schema.properties, ...properties };
+          }
+        }
+      }
+      return schema;
     }
-    return output;
+    return {};
   }
 
   private atlasTypeToJSONType(dataType: string): string {

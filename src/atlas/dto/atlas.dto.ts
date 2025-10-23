@@ -1,3 +1,4 @@
+// TODO: cleanup DTOs
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -184,15 +185,15 @@ export class AtlasRelatedEntityRefDto {
   @IsString()
   relationshipStatus!: string;
 
-  @ValidateNested()
-  @Type(() => AtlasRelationshipMetaDto)
-  relationshipAttributes!: AtlasRelationshipMetaDto;
+  @IsOptional()
+  @IsObject()
+  relationshipAttributes!: Record<string, unknown>;
 
   @IsString()
   qualifiedName!: string;
 }
 
-export class AtlasRelationshipAttributesDto {
+export class AtlasArchetypeRelationshipMetaDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AtlasRelatedEntityRefDto)
@@ -228,7 +229,10 @@ export class AtlasRelationshipAttributesDto {
   meanings!: unknown[];
 }
 
-export class AtlasEntityDto<Attributes = Record<string, unknown>> {
+export class AtlasEntityDto<
+  Attributes = Record<string, unknown>,
+  RelationshipAttributes = Record<string, unknown>,
+> {
   @IsUUID()
   guid!: string;
 
@@ -269,9 +273,8 @@ export class AtlasEntityDto<Attributes = Record<string, unknown>> {
   attributes?: Attributes;
 
   @IsOptional()
-  @ValidateNested()
-  @Type(() => AtlasRelationshipAttributesDto)
-  relationshipAttributes?: AtlasRelationshipAttributesDto;
+  @IsObject()
+  relationshipAttributes?: RelationshipAttributes;
 }
 
 export class AtlasSubmitArchetypeEntityDto {
@@ -309,7 +312,10 @@ export class AtlasArchetypeEntityClassificationDto {
   attributes?: Record<string, unknown>;
 }
 
-export class AtlasArchetypeEntityDto extends AtlasEntityDto<AtlasArchetypeNodeAttributesDto> {
+export class AtlasArchetypeEntityDto extends AtlasEntityDto<
+  AtlasArchetypeNodeAttributesDto,
+  AtlasArchetypeRelationshipMetaDto
+> {
   @IsEnum(AtlasArchetypeTypeName)
   override typeName!: AtlasArchetypeTypeName;
 
@@ -317,6 +323,11 @@ export class AtlasArchetypeEntityDto extends AtlasEntityDto<AtlasArchetypeNodeAt
   @ValidateNested()
   @Type(() => AtlasArchetypeNodeAttributesDto)
   override attributes?: AtlasArchetypeNodeAttributesDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AtlasArchetypeRelationshipMetaDto)
+  override relationshipAttributes?: AtlasArchetypeRelationshipMetaDto;
 
   @IsOptional()
   @IsArray()
@@ -359,7 +370,7 @@ export class AtlasSearchDslResponseDto {
   approximateCount!: number;
 }
 
-export class AtlasSearchDslAttributesBlockDto {
+export class AtlasSearchAttributesBlockDto {
   @IsArray()
   @IsString({ each: true })
   name!: string[];
@@ -368,10 +379,25 @@ export class AtlasSearchDslAttributesBlockDto {
   values!: string[][];
 }
 
+export class AtlasSearchBasicHeadlessResponseDto {
+  @IsEnum(AtlasQueryType)
+  queryType!: AtlasQueryType.BASIC;
+
+  @IsObject()
+  searchParameters!: Record<string, unknown>;
+
+  @ValidateNested()
+  @Type(() => AtlasSearchAttributesBlockDto)
+  attributes!: AtlasSearchAttributesBlockDto;
+
+  @IsNumber()
+  approximateCount!: number;
+}
+
 export class AtlasSearchDslAttributesResponseDto {
   @ValidateNested()
-  @Type(() => AtlasSearchDslAttributesBlockDto)
-  attributes!: AtlasSearchDslAttributesBlockDto;
+  @Type(() => AtlasSearchAttributesBlockDto)
+  attributes!: AtlasSearchAttributesBlockDto;
 
   @IsNumber()
   approximateCount!: number;

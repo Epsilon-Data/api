@@ -16,7 +16,7 @@ export class QueueService {
     database: DatabaseInfoDto,
   ) {
     this.logger.log(
-      `New 'process-data-broker' submitted to queue with requestId: ${requestId}`,
+      `Submitting 'process-data-broker' job to queue with requestId ${requestId}`,
     );
     return await this.atlasQueue.add(
       'process-data-broker',
@@ -36,7 +36,7 @@ export class QueueService {
 
   async addArchetypeJob(owner: string, archetype: ArchetypeDto) {
     this.logger.log(
-      `New 'process-add-archetype' submitted to queue for projectId: ${archetype.projectId}`,
+      `Submitting 'process-add-archetype' job to queue for projectId ${archetype.projectId}`,
     );
     return await this.atlasQueue.add(
       'process-add-archetype',
@@ -52,9 +52,28 @@ export class QueueService {
     );
   }
 
-  async deleteTemplateJob(projectId: string, archetypeId: string) {
+  async updateArchetypeJob(owner: string, archetype: ArchetypeDto) {
     this.logger.log(
-      `New 'process-delete-archetype' submitted to queue with archetypeId: ${archetypeId}`,
+      `Submitting 'process-update-archetype' job to queue for archetypeId ${archetype.archetypeId}`,
+    );
+    return await this.atlasQueue.add(
+      'process-update-archetype',
+      {
+        owner,
+        projectId: archetype.projectId,
+        archetype,
+      },
+      {
+        // TODO: add jobid?
+        attempts: 5,
+        backoff: 10000,
+      },
+    );
+  }
+
+  async deleteArchetypeJob(projectId: string, archetypeId: string) {
+    this.logger.log(
+      `Submitting 'process-delete-archetype' job to queue with archetypeId ${archetypeId}...`,
     );
     return await this.atlasQueue.add(
       'process-delete-archetype',
@@ -69,6 +88,7 @@ export class QueueService {
     );
   }
 
+  // TODO: remove redundant method
   async addPermissionsJob(permissions: string, projectId: string) {
     return await this.atlasQueue.add(
       'process-add-permissions',

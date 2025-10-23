@@ -23,6 +23,8 @@ import {
   AtlasSubmitArchetypeEntityDto,
 } from 'src/atlas/dto';
 
+import { customAlphabet } from 'nanoid';
+
 type ArchetypeJobData = {
   owner: string;
   projectId: string;
@@ -33,6 +35,8 @@ type ArchetypeJobData = {
 @Processor('atlas-queue')
 export class AtlasProcessor {
   private readonly logger = new Logger(AtlasProcessor.name);
+  private readonly customNanoidAlphabet =
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   constructor(
     private readonly docker: DockerService,
     private readonly atlas: AtlasService,
@@ -54,34 +58,27 @@ export class AtlasProcessor {
     );
   }
 
-  @Process('process-add-archetype')
-  async handleAddArchetypeJob(job: Job): Promise<string> {
+  @Process('process-update-archetype')
+  async handleUpdateArchetypeJob(job: Job): Promise<string> {
     const { owner, projectId, archetype }: ArchetypeJobData = job.data;
     this.logger.log(
-      `Handling 'process-add-archetype' job for projectId: ${projectId}...`,
+      `Handling 'process-update-archetype' job for projectId: ${projectId}...`,
     );
 
-    // init negative guid
-    let negativeGuid = -2;
-
-    // nextGuid function
-    const nextGuid = () => String(negativeGuid--);
-
-    // Accumulators for entities and relationships
     const entities: AtlasSubmitArchetypeEntityDto[] = [];
-    const parentLookup: Record<string, string> = {};
 
     // Add archetype_template entity
     const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
       typeName: AtlasArchetypeTypeName.Template,
+      guid: archetype.archetypeId,
       attributes: {
         owner: owner,
         name: archetype.name,
         // TODO: is this needed?
         projectId: projectId,
         // TODO: decide what is best to have as the name here
-        qualifiedName: `${projectId}@${archetype.name.replace(/\s+/g, '_').toLowerCase()}`,
-        status: 'DRAFT',
+        qualifiedName: `${projectId}@${customAlphabet(this.customNanoidAlphabet, 6)()}`,
+        status: archetype.status,
       },
       relationshipAttributes: {
         instance: {
@@ -92,9 +89,59 @@ export class AtlasProcessor {
         },
       },
     };
-    // this.logger.debug(
-    //   `Submitting new template:\n ${JSON.stringify(archetypeTemplateBody, null, 2)}`,
-    // );
+    entities.push(
+      archetypeTemplateBody,
+      ...this.archetypeTemplateToAtlasEntitities(
+        owner,
+        projectId,
+        archetype,
+        true,
+      ),
+    );
+
+    // // TODO: Proper error handling
+    await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
+      entities: entities,
+    });
+
+    await this.prisma.project.update({
+      where: { projectId: projectId },
+      data: { lastModified: new Date() },
+    });
+    this.logger.log(
+      `Handling 'process-update-archetype' job for arechetypeId ${archetype.archetypeId} DONE!`,
+    );
+    return archetype.archetypeId;
+  }
+
+  @Process('process-add-archetype')
+  async handleAddArchetypeJob(job: Job): Promise<string> {
+    const { owner, projectId, archetype }: ArchetypeJobData = job.data;
+    this.logger.log(
+      `Handling 'process-add-archetype' job for projectId: ${projectId}...`,
+    );
+
+    // Add archetype_template entity
+    const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
+      typeName: AtlasArchetypeTypeName.Template,
+      attributes: {
+        owner: owner,
+        name: archetype.name,
+        // TODO: is this needed?
+        projectId: projectId,
+        // TODO: decide what is best to have as the name here
+        qualifiedName: `${projectId}@${customAlphabet(this.customNanoidAlphabet, 6)()}`,
+        status: archetype.status,
+      },
+      relationshipAttributes: {
+        instance: {
+          typeName: 'rdbms_instance',
+          uniqueAttributes: {
+            projectId,
+          },
+        },
+      },
+    };
 
     // TODO: Proper error handling
     const templateResponse = await this.atlas.post<AtlasPostEntityResponseDto>(
@@ -103,80 +150,11 @@ export class AtlasProcessor {
       undefined,
     );
 
-    // this.logger.debug(
-    //   `POST template response:\n ${JSON.stringify(templateResponse, null, 2)}`,
-    // );
-
     // store real archetypeId ref (Atlas GUID)
     archetype.archetypeId = Object.values(templateResponse?.guidAssignments)[0];
 
-    const [columns, nodes] = archetype.nodes.reduce<
-      [ArchetypeNodeDto[], ArchetypeNodeDto[]]
-    >(
-      (acc, node) => {
-        if (node.type === 'column') acc[0].push(node);
-        else acc[1].push(node);
-        return acc;
-      },
-      [[], []],
-    );
-    const columnEdges = archetype.edges.filter((edge: ArchetypeEdgeDto) =>
-      columns.find((e) => e.id === edge.target),
-    );
-    const archetypeNodes = nodes.map((node: ArchetypeNodeDto) => {
-      const columnGuid = columnEdges.find((e) => e.source === node.id)?.target;
-      const parentId = archetype.edges.find(
-        (e) => e.target === node.id,
-      )?.source;
-      const currentGuid = nextGuid(); // increase neg guid
-      parentLookup[node.id] = currentGuid;
-      return {
-        guid: currentGuid,
-        typeName: AtlasArchetypeTypeName.Node,
-        status: 'ACTIVE',
-        attributes: {
-          label: node.data.label,
-          name: `${archetype.name} ${node.id}`,
-          owner: owner,
-          level: node.data.level,
-          qualifiedName: `${projectId}@${archetype.archetypeId}@${node.id}`,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
-          },
-        },
-        classifications: mergeClassifications(
-          columnGuid ? true : false, // isLeaf node
-          node.id,
-          node.type,
-          archetype.permissions,
-        ),
-        relationshipAttributes: {
-          template: {
-            guid: archetype.archetypeId,
-            typeName: 'archetype_template',
-          },
-          ...(parentId
-            ? {
-                parent_node: {
-                  typeName: 'archetype_node',
-                  guid: parentLookup[parentId],
-                },
-              }
-            : {}),
-          ...(columnGuid
-            ? { column: { guid: columnGuid, typeName: 'rdbms_column' } }
-            : {}),
-        },
-      };
-    });
-
-    entities.push(...archetypeNodes);
-
-    // this.logger.debug(
-    //   `Submitting entities:\n ${JSON.stringify(entities, null, 2)}`,
-    // );
-
+    const entities: AtlasSubmitArchetypeEntityDto[] =
+      this.archetypeTemplateToAtlasEntitities(owner, projectId, archetype);
     // TODO: Proper error handling
     await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
       entities: entities,
@@ -187,15 +165,17 @@ export class AtlasProcessor {
       data: { lastModified: new Date() },
     });
     this.logger.log(
-      `Handling 'process-add-archetype' job for projectId ${projectId} done!`,
+      `Handling 'process-add-archetype' job for projectId ${projectId} DONE!\nCreated archetype: ${archetype.archetypeId}`,
     );
     return archetype.archetypeId;
   }
 
   @Process('process-delete-archetype')
-  async handleDeleteTemplateJob(job: Job) {
+  async handleDeleteArchetypeJob(job: Job) {
     const { archetypeId, projectId } = job.data;
-
+    this.logger.log(
+      `Handling 'process-delete-archetype' job archetype ${archetypeId}...`,
+    );
     await this.atlas.delete('/entity/guid/' + archetypeId);
     await this.prisma.project.update({
       where: {
@@ -205,9 +185,13 @@ export class AtlasProcessor {
         lastModified: new Date(),
       },
     });
+    this.logger.log(
+      `Handling 'process-delete-archetype' job archetype ${archetypeId} DONE!`,
+    );
   }
 
   // TODO: remove redundant function as using classifiers for permissions now
+  // Remove after settling an update function
   @Process('process-add-permissions')
   async handleAddPermissionsJob(job: Job) {
     const { projectId, permissions } = job.data;
@@ -426,65 +410,153 @@ export class AtlasProcessor {
       },
     });
   }
-}
 
-function mergeClassifications(
-  isLeaf: boolean,
-  nodeId: string,
-  type: string,
-  permissions: ArchetypeNodePermissionDto[],
-): AtlasArchetypeEntityDto['classifications'] {
-  const classifications: AtlasArchetypeEntityDto['classifications'] = [];
-  classifications.push({
-    typeName: (isLeaf
-      ? 'leaf_node'
-      : type === 'root'
-        ? 'root_node'
-        : 'branch_node') as AtlasArchetypeNodeTypeName,
-    propagate: false,
-  } as AtlasSimpleClassificationDto);
-  const permission = permissions.find((p) => p.id === nodeId)?.permission;
-  if (permission) {
-    classifications.push({
-      typeName: 'archetype_node_analysis_permissions',
-      propagate: true,
-      removePropagationsOnEntityDelete: true,
-      attributes: { access_level: permission },
-    } as AtlasArchetypeAnalysisPermissionClassificationDto);
+  private archetypeTemplateToAtlasEntitities(
+    owner: string,
+    projectId: string,
+    archetype: ArchetypeDto,
+    isUpdate: boolean = false,
+  ): AtlasSubmitArchetypeEntityDto[] {
+    // init negative guid
+    let negativeGuid = -2;
+
+    // nextGuid function
+    const nextGuid = () => String(negativeGuid--);
+
+    // Lookup for parent entities
+    const parentLookup: Record<string, string> = {};
+
+    const [columns, nodes] = archetype.nodes.reduce<
+      [ArchetypeNodeDto[], ArchetypeNodeDto[]]
+    >(
+      (acc, node) => {
+        if (node.type === 'column') acc[0].push(node);
+        else acc[1].push(node);
+        return acc;
+      },
+      [[], []],
+    );
+    const columnEdges = archetype.edges.filter((edge: ArchetypeEdgeDto) =>
+      columns.find((e) => e.id === edge.target),
+    );
+    return nodes.map((node: ArchetypeNodeDto) => {
+      const columnGuid = columnEdges.find((e) => e.source === node.id)?.target;
+      const parentId = archetype.edges.find(
+        (e) => e.target === node.id,
+      )?.source;
+      const currentGuid = nextGuid(); // increase neg guid
+
+      // Lookup for parent-child relationship
+      parentLookup[node.id] = isUpdate
+        ? `${projectId}@${archetype.archetypeId}@${node.id}`
+        : currentGuid;
+      return {
+        ...(isUpdate ? {} : { guid: currentGuid }),
+        typeName: AtlasArchetypeTypeName.Node,
+        status: 'ACTIVE',
+        attributes: {
+          label: node.data.label,
+          // NOTE: needed for analysis SDK JSONSchema
+          name: node.data.label,
+          owner: owner,
+          level: node.data.level,
+          qualifiedName: `${projectId}@${archetype.archetypeId}@${node.id}`,
+          position: {
+            x: node.position.x,
+            y: node.position.y,
+          },
+        },
+        classifications: this.mergeClassifications(
+          columnGuid ? true : false, // isLeaf node
+          node.id,
+          node.type,
+          archetype.permissions,
+        ),
+        relationshipAttributes: {
+          template: {
+            guid: archetype.archetypeId,
+            typeName: 'archetype_template',
+          },
+          ...(parentId
+            ? {
+                parent_node: {
+                  typeName: 'archetype_node',
+                  ...(isUpdate
+                    ? {
+                        uniqueAttributes: {
+                          qualifiedName: parentLookup[parentId],
+                        },
+                      }
+                    : { guid: parentLookup[parentId] }),
+                },
+              }
+            : {}),
+          ...(columnGuid
+            ? { column: { guid: columnGuid, typeName: 'rdbms_column' } }
+            : {}),
+        },
+      };
+    });
   }
-  return classifications;
+
+  private mergeClassifications(
+    isLeaf: boolean,
+    nodeId: string,
+    type: string,
+    permissions: ArchetypeNodePermissionDto[],
+  ): AtlasArchetypeEntityDto['classifications'] {
+    const classifications: AtlasArchetypeEntityDto['classifications'] = [];
+    classifications.push({
+      typeName: (isLeaf
+        ? 'leaf_node'
+        : type === 'root'
+          ? 'root_node'
+          : 'branch_node') as AtlasArchetypeNodeTypeName,
+      propagate: false,
+    } as AtlasSimpleClassificationDto);
+    const permission = permissions.find((p) => p.id === nodeId)?.permission;
+    if (permission) {
+      classifications.push({
+        typeName: 'archetype_node_analysis_permissions',
+        propagate: true,
+        removePropagationsOnEntityDelete: true,
+        attributes: { access_level: permission },
+      } as AtlasArchetypeAnalysisPermissionClassificationDto);
+    }
+    return classifications;
+  }
+
+  private addParent(
+    archetypeId: string,
+    nodeId: string,
+    edges: ArchetypeEdgeDto[],
+  ) {
+    const parent = edges.find((e) => e.target === nodeId)?.source;
+    return parent
+      ? {
+          parent_node: {
+            typeName: 'archetype_node',
+            uniqueAttributes: {
+              qualifiedName: `${archetypeId}@${parent}`,
+            },
+          },
+        }
+      : {};
+  }
+
+  private addColumn(
+    archetypeId: string,
+    nodeId: string,
+    columnEdges: ArchetypeEdgeDto[],
+  ) {
+    const columnGuid = columnEdges.find((e) => e.source === nodeId)?.target;
+    return parent
+      ? {
+          column: {
+            typeName: 'column',
+            guid: columnGuid,
+          },
+        }
+      : {};
+  }
 }
-
-// function addParent(
-//   archetypeId: string,
-//   nodeId: string,
-//   edges: ArchetypeEdgeDto[],
-// ) {
-//   const parent = edges.find((e) => e.target === nodeId)?.source;
-//   return parent
-//     ? {
-//         parent_node: {
-//           typeName: 'archetype_node',
-//           uniqueAttributes: {
-//             qualifiedName: `${archetypeId}@${parent}`,
-//           },
-//         },
-//       }
-//     : {};
-// }
-
-// function addColumn(
-//   archetypeId: string,
-//   nodeId: string,
-//   columnEdges: ArchetypeEdgeDto[],
-// ) {
-//   const columnGuid = columnEdges.find((e) => e.source === nodeId)?.target;
-//   return parent
-//     ? {
-//         column: {
-//           typeName: 'column',
-//           guid: columnGuid,
-//         },
-//       }
-//     : {};
-// }

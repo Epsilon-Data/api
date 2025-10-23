@@ -1,24 +1,18 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { FileStorageService } from 'src/file_storage/file_storage.service';
-import { QueueService } from 'src/queue/queue.service';
-import { ArchetypeService } from 'src/archetype/archetype.service';
 import {
   AtlasEntityResponseDto,
   AtlasSearchDslAttributesResponseDto,
   AtlasSearchDslResponseDto,
 } from 'src/atlas/dto';
 
+// TODO: needs refactoring and simplifying
 @Injectable()
 export class DatabaseService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
-    private fileStorage: FileStorageService,
-    private readonly queue: QueueService,
-    @Inject(forwardRef(() => ArchetypeService))
-    private archetype: ArchetypeService,
   ) {}
 
   async summary(projectId: string, token?: string) {

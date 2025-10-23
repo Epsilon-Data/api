@@ -1,3 +1,4 @@
+// TODO: cleanup DTOs
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -15,8 +16,8 @@ import {
 } from 'class-validator';
 
 export enum ArchetypeStatus {
-  Draft = 'DRAFT',
-  Published = 'PUBLISHED',
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
 }
 
 export enum ArchetypeNodeType {
@@ -130,7 +131,7 @@ export class ArchetypeDto {
 
   @IsOptional()
   @IsEnum(ArchetypeStatus)
-  status: ArchetypeStatus = ArchetypeStatus.Draft;
+  status: ArchetypeStatus = ArchetypeStatus.DRAFT;
 
   @IsOptional()
   @IsArray()
