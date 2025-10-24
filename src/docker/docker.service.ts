@@ -35,7 +35,7 @@ export class DockerService {
     projectId: string,
     database?: DatabaseInfoDto,
     requestId?: string,
-  ): Promise<string> {
+  ) {
     this.logger.log(
       `Preparing to run crawler container for request ${requestId}...`,
     );
@@ -106,10 +106,6 @@ export class DockerService {
         },
       });
       this.logger.error(`Error running container ${instanceName}: `, error);
-    } finally {
-      // pretty pointless return here
-      // maybe should return information if success of failure
-      return projectId;
     }
   }
 

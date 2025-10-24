@@ -112,9 +112,4 @@ export class AtlasService {
       throw error;
     }
   }
-
-  getCurrentDate() {
-    // YYYY-MM-DD
-    return new Date().toISOString().slice(0, 10);
-  }
 }

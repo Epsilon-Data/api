@@ -30,7 +30,7 @@ type ArchetypeJobData = {
   projectId: string;
   archetype: ArchetypeDto;
 };
-
+// TODO: we need properly handle failed request for all these processors
 @Injectable()
 @Processor('atlas-queue')
 export class AtlasProcessor {
@@ -49,7 +49,6 @@ export class AtlasProcessor {
     this.logger.log(
       `Handling 'process-data-broker' job for requestId: ${requestId}...`,
     );
-
     return await this.docker.runDataBroker(
       ownerId,
       projectId,
@@ -59,115 +58,126 @@ export class AtlasProcessor {
   }
 
   @Process('process-update-archetype')
-  async handleUpdateArchetypeJob(job: Job): Promise<string> {
+  async handleUpdateArchetypeJob(job: Job) {
     const { owner, projectId, archetype }: ArchetypeJobData = job.data;
     this.logger.log(
       `Handling 'process-update-archetype' job for projectId: ${projectId}...`,
     );
+    try {
+      const entities: AtlasSubmitArchetypeEntityDto[] = [];
 
-    const entities: AtlasSubmitArchetypeEntityDto[] = [];
-
-    // Add archetype_template entity
-    const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
-      typeName: AtlasArchetypeTypeName.Template,
-      guid: archetype.archetypeId,
-      attributes: {
-        owner: owner,
-        name: archetype.name,
-        // TODO: is this needed?
-        projectId: projectId,
-        // TODO: decide what is best to have as the name here
-        qualifiedName: `${projectId}@${customAlphabet(this.customNanoidAlphabet, 6)()}`,
-        status: archetype.status,
-      },
-      relationshipAttributes: {
-        instance: {
-          typeName: 'rdbms_instance',
-          uniqueAttributes: {
-            projectId,
+      // Add archetype_template entity
+      const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
+        typeName: AtlasArchetypeTypeName.Template,
+        guid: archetype.archetypeId,
+        attributes: {
+          owner: owner,
+          name: archetype.name,
+          // TODO: is this needed?
+          projectId: projectId,
+          // TODO: decide what is best to have as the name here
+          qualifiedName: `${projectId}@${customAlphabet(this.customNanoidAlphabet, 6)()}`,
+          status: archetype.status,
+        },
+        relationshipAttributes: {
+          instance: {
+            typeName: 'rdbms_instance',
+            uniqueAttributes: {
+              projectId,
+            },
           },
         },
-      },
-    };
-    entities.push(
-      archetypeTemplateBody,
-      ...this.archetypeTemplateToAtlasEntitities(
-        owner,
-        projectId,
-        archetype,
-        true,
-      ),
-    );
-
-    // // TODO: Proper error handling
-    await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
-      entities: entities,
-    });
-
-    await this.prisma.project.update({
-      where: { projectId: projectId },
-      data: { lastModified: new Date() },
-    });
-    this.logger.log(
-      `Handling 'process-update-archetype' job for arechetypeId ${archetype.archetypeId} DONE!`,
-    );
-    return archetype.archetypeId;
+      };
+      entities.push(
+        archetypeTemplateBody,
+        ...this.archetypeTemplateToAtlasEntitities(
+          owner,
+          projectId,
+          archetype,
+          true,
+        ),
+      );
+      await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
+        entities: entities,
+      });
+      await this.prisma.project.update({
+        where: { projectId: projectId },
+        data: { lastModified: new Date() },
+      });
+      this.logger.log(
+        `Handling 'process-update-archetype' job for archetypeId ${archetype.archetypeId} DONE!`,
+      );
+      return archetype.archetypeId;
+    } catch (error) {
+      this.logger.error(
+        `Error updating archetype ${archetype.archetypeId}: `,
+        error,
+      );
+    }
   }
 
   @Process('process-add-archetype')
-  async handleAddArchetypeJob(job: Job): Promise<string> {
+  async handleAddArchetypeJob(job: Job) {
     const { owner, projectId, archetype }: ArchetypeJobData = job.data;
     this.logger.log(
       `Handling 'process-add-archetype' job for projectId: ${projectId}...`,
     );
-
-    // Add archetype_template entity
-    const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
-      typeName: AtlasArchetypeTypeName.Template,
-      attributes: {
-        owner: owner,
-        name: archetype.name,
-        // TODO: is this needed?
-        projectId: projectId,
-        // TODO: decide what is best to have as the name here
-        qualifiedName: `${projectId}@${customAlphabet(this.customNanoidAlphabet, 6)()}`,
-        status: archetype.status,
-      },
-      relationshipAttributes: {
-        instance: {
-          typeName: 'rdbms_instance',
-          uniqueAttributes: {
-            projectId,
+    try {
+      //  1. create archetype_template entity
+      const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
+        typeName: AtlasArchetypeTypeName.Template,
+        attributes: {
+          owner: owner,
+          name: archetype.name,
+          // TODO: is this needed?
+          projectId: projectId,
+          // TODO: decide what is best to have as the name here
+          qualifiedName: `${projectId}@${customAlphabet(this.customNanoidAlphabet, 6)()}`,
+          status: archetype.status,
+        },
+        relationshipAttributes: {
+          instance: {
+            typeName: 'rdbms_instance',
+            uniqueAttributes: {
+              projectId,
+            },
           },
         },
-      },
-    };
-
-    // TODO: Proper error handling
-    const templateResponse = await this.atlas.post<AtlasPostEntityResponseDto>(
-      '/entity',
-      { entity: archetypeTemplateBody },
-      undefined,
-    );
-
-    // store real archetypeId ref (Atlas GUID)
-    archetype.archetypeId = Object.values(templateResponse?.guidAssignments)[0];
-
-    const entities: AtlasSubmitArchetypeEntityDto[] =
-      this.archetypeTemplateToAtlasEntitities(owner, projectId, archetype);
-    // TODO: Proper error handling
-    await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
-      entities: entities,
-    });
-
-    await this.prisma.project.update({
-      where: { projectId: projectId },
-      data: { lastModified: new Date() },
-    });
-    this.logger.log(
-      `Handling 'process-add-archetype' job for projectId ${projectId} DONE!\nCreated archetype: ${archetype.archetypeId}`,
-    );
-    return archetype.archetypeId;
+      };
+      const templateResponse =
+        await this.atlas.post<AtlasPostEntityResponseDto>(
+          '/entity',
+          { entity: archetypeTemplateBody },
+          undefined,
+        );
+      // 2. store real archetypeId ref (Atlas GUID)
+      archetype.archetypeId = Object.values(
+        templateResponse?.guidAssignments,
+      )[0];
+      // this.logger.debug(
+      //   `Template CREATE response:\n${JSON.stringify(templateResponse)}`,
+      // );
+      // 3. create archetype_node entities
+      const entities: AtlasSubmitArchetypeEntityDto[] =
+        this.archetypeTemplateToAtlasEntitities(owner, projectId, archetype);
+      await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
+        entities: entities,
+      });
+      // 4. update project
+      await this.prisma.project.update({
+        where: { projectId: projectId },
+        data: { lastModified: new Date() },
+      });
+      this.logger.log(
+        `Handling 'process-add-archetype' job for projectId ${projectId} SUCCEEDED!\nCreated archetype: ${archetype.archetypeId}`,
+      );
+      return archetype.archetypeId;
+    } catch (error) {
+      this.logger.error(
+        `Error creating archetype for project ${archetype.projectId}: `,
+        error,
+      );
+    }
   }
 
   @Process('process-delete-archetype')
@@ -176,22 +186,27 @@ export class AtlasProcessor {
     this.logger.log(
       `Handling 'process-delete-archetype' job archetype ${archetypeId}...`,
     );
-    await this.atlas.delete('/entity/guid/' + archetypeId);
-    await this.prisma.project.update({
-      where: {
-        projectId: projectId,
-      },
-      data: {
-        lastModified: new Date(),
-      },
-    });
-    this.logger.log(
-      `Handling 'process-delete-archetype' job archetype ${archetypeId} DONE!`,
-    );
+    try {
+      await this.atlas.delete('/entity/guid/' + archetypeId);
+      await this.prisma.project.update({
+        where: {
+          projectId: projectId,
+        },
+        data: {
+          lastModified: new Date(),
+        },
+      });
+      this.logger.log(
+        `Handling 'process-delete-archetype' job archetype ${archetypeId} DONE!`,
+      );
+      return projectId;
+    } catch (error) {
+      this.logger.error(`Error deleting archetype ${archetypeId}: `, error);
+    }
   }
 
   // TODO: remove redundant function as using classifiers for permissions now
-  // Remove after settling an update function
+  // Remove after settling an update
   @Process('process-add-permissions')
   async handleAddPermissionsJob(job: Job) {
     const { projectId, permissions } = job.data;
@@ -470,7 +485,7 @@ export class AtlasProcessor {
           columnGuid ? true : false, // isLeaf node
           node.id,
           node.type,
-          archetype.permissions,
+          archetype.permissions || [],
         ),
         relationshipAttributes: {
           template: {
@@ -514,7 +529,7 @@ export class AtlasProcessor {
           : 'branch_node') as AtlasArchetypeNodeTypeName,
       propagate: false,
     } as AtlasSimpleClassificationDto);
-    const permission = permissions.find((p) => p.id === nodeId)?.permission;
+    const permission = permissions?.find((p) => p.id === nodeId)?.permission;
     if (permission) {
       classifications.push({
         typeName: 'archetype_node_analysis_permissions',
