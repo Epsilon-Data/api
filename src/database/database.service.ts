@@ -7,7 +7,6 @@ import {
   AtlasSearchDslResponseDto,
 } from 'src/atlas/dto';
 
-// TODO: needs refactoring and simplifying
 @Injectable()
 export class DatabaseService {
   constructor(
@@ -160,51 +159,43 @@ export class DatabaseService {
   }
 
   async columns(projectId: string, token?: string) {
-    const tableParams = {
-      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
-    };
+    // 1. get all tables related to project
     const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
       '/search/dsl',
-      tableParams,
+      {
+        query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
+      },
       token,
     );
 
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
+    const tables = tableResult.entities ?? [];
+    if (!tables.length) return [];
 
     const output = [];
 
-    for (const table of activeTables) {
+    // 2. iterate tables
+    for (const table of tables) {
       const guid = table.guid;
-      const tableName = table.attributes.name;
+      const tableName =
+        table.attributes.name ?? table.displayText ?? table.guid;
 
-      const params = {
-        query: `from rdbms_table where __guid = "${guid}" select columns`,
-      };
+      // 3. get columns for each table
       const result = await this.atlas.get<AtlasSearchDslResponseDto>(
         '/search/dsl',
-        params,
+        { query: `from rdbms_table where __guid = "${guid}" select columns` },
         token,
       );
-
+      // 4. iterate build column objects
       if (result.entities) {
-        const activeColumns = result.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
-        );
-
-        for (const col of activeColumns) {
-          const column = {
+        for (const col of result.entities) {
+          output.push({
             id: col.guid,
-            name: col.attributes.name,
+            name: col.attributes?.name ?? col.displayText ?? col.guid,
             table: tableName,
-          };
-
-          output.push(column);
+          });
         }
       }
     }
-
     return output;
   }
 
