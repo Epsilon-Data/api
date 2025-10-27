@@ -17,6 +17,7 @@ import {
 
 export enum ArchetypeStatus {
   DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
   PUBLISHED = 'PUBLISHED',
 }
 
