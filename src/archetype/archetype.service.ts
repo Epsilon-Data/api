@@ -42,8 +42,8 @@ export class ArchetypeService {
         'name',
         'qualifiedName',
         'status',
-        '__createdBy ',
-        '__timestamp ',
+        '__createdBy',
+        '__timestamp',
         '__modificationTimestamp',
       ],
     };
@@ -58,7 +58,7 @@ export class ArchetypeService {
       id: entity.guid,
       name: entity.displayText,
       status: entity.attributes?.status,
-      createdBy: entity.attributes?.__createdBy,
+      createdBy: entity.attributes?.owner,
       created: entity.attributes?.__timestamp,
       lastModified: entity.attributes?.__modificationTimestamp,
     }));
