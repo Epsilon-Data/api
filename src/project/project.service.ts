@@ -145,7 +145,7 @@ export class ProjectService {
     return requestList;
   }
 
-  async createProject(dto: ProjectDto) {
+  async createProject(owner: string, dto: ProjectDto) {
     const memberData = JSON.parse(dto.members);
     const customId = nanoid(12);
     const packageName = dto.name
@@ -219,7 +219,7 @@ export class ProjectService {
         },
       });
       await this.queue.dataBrokerJob(
-        dto.ownerId,
+        owner,
         project.projectId,
         project.connection.requestId,
         dto.connection.tempDbDetails,

@@ -52,7 +52,6 @@ export class AnalysisController {
   async getDatasetArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    //TODO: convert to JSON Schema
     return this.archetypeService.getAnalysisArchetype(projectId);
   }
 }
