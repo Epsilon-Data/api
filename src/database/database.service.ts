@@ -7,7 +7,6 @@ import {
   AtlasSearchDslResponseDto,
 } from 'src/atlas/dto';
 
-// TODO: needs refactoring and simplifying
 @Injectable()
 export class DatabaseService {
   constructor(
@@ -160,161 +159,45 @@ export class DatabaseService {
   }
 
   async columns(projectId: string, token?: string) {
-    const tableParams = {
-      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
-    };
+    // 1. get all tables related to project
     const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
       '/search/dsl',
-      tableParams,
+      {
+        query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
+      },
       token,
     );
 
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
+    const tables = tableResult.entities ?? [];
+    if (!tables.length) return [];
 
     const output = [];
 
-    for (const table of activeTables) {
+    // 2. iterate tables
+    for (const table of tables) {
       const guid = table.guid;
-      const tableName = table.attributes.name;
+      const tableName =
+        table.attributes.name ?? table.displayText ?? table.guid;
 
-      const params = {
-        query: `from rdbms_table where __guid = "${guid}" select columns`,
-      };
+      // 3. get columns for each table
       const result = await this.atlas.get<AtlasSearchDslResponseDto>(
         '/search/dsl',
-        params,
+        { query: `from rdbms_table where __guid = "${guid}" select columns` },
         token,
       );
-
+      // 4. iterate build column objects
       if (result.entities) {
-        const activeColumns = result.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
-        );
-
-        for (const col of activeColumns) {
-          const column = {
+        for (const col of result.entities) {
+          output.push({
             id: col.guid,
-            name: col.attributes.name,
+            name: col.attributes?.name ?? col.displayText ?? col.guid,
             table: tableName,
-          };
-
-          output.push(column);
+          });
         }
       }
     }
-
     return output;
   }
-
-  // async permissions(projectId: string) {
-  //   const activeTemplates = await this.template.templateNames(projectId);
-
-  //   const output = [];
-  //   for (const template of activeTemplates) {
-  //     const templateGuid = template.guid;
-
-  //     const templateInfo = {
-  //       templateId: templateGuid,
-  //       active: true,
-  //       settings: [
-  //         {
-  //           role: 'research',
-  //           access: [],
-  //         },
-  //         {
-  //           role: 'govOrg',
-  //           access: [],
-  //         },
-  //         {
-  //           role: 'others',
-  //           access: [],
-  //         },
-  //       ],
-  //     };
-
-  //     const templateEntity = await this.atlas.get(
-  //       `/entity/guid/${templateGuid}`,
-  //     );
-
-  //     templateInfo.active = templateEntity.entity.attributes.is_active;
-
-  //     for (const key in templateEntity.referredEntities) {
-  //       const entity = templateEntity.referredEntities[key];
-
-  //       if (
-  //         entity.typeName.includes('archetype_') &&
-  //         entity.status === 'ACTIVE'
-  //       ) {
-  //         if (
-  //           entity.relationshipAttributes.permissions === undefined ||
-  //           entity.relationshipAttributes.permissions.length === 0
-  //         ) {
-  //           continue;
-  //         }
-
-  //         const splitted = entity.attributes.qualifiedName.split('@');
-  //         const node = {
-  //           nodeId: splitted[2],
-  //           nodeName: entity.attributes.name,
-  //           nodeType: entity.typeName.replace('archetype_', ''),
-  //           permissions: [],
-  //         };
-
-  //         for (const permission of entity.relationshipAttributes.permissions) {
-  //           if (permission.relationshipStatus !== 'ACTIVE') {
-  //             continue;
-  //           }
-
-  //           node.permissions.push(permission.displayText);
-
-  //           const permissionType = permission.qualifiedName.split('@')[1];
-
-  //           const settings = templateInfo.settings.find(
-  //             (setting: any) => setting.role === permissionType,
-  //           );
-
-  //           const isExist = settings.access.some(
-  //             (node) =>
-  //               node.nodeId == splitted[2] &&
-  //               node.nodeName == entity.attributes.name,
-  //           );
-
-  //           if (!isExist) {
-  //             settings.access.push(node);
-  //           } else {
-  //             const index = settings.access.findIndex(
-  //               (node) =>
-  //                 node.nodeId == splitted[2] &&
-  //                 node.nodeName == entity.attributes.displayName,
-  //             );
-
-  //             if (
-  //               !settings.access[index].permissions.includes(
-  //                 permission.displayText,
-  //               )
-  //             ) {
-  //               settings.access[index].permissions.push(permission.displayText);
-  //             }
-  //           }
-
-  //           templateInfo.settings = templateInfo.settings.map((s: any) =>
-  //             s.role === permissionType ? settings : s,
-  //           );
-  //         }
-  //       }
-  //     }
-
-  //     output.push(templateInfo);
-  //   }
-
-  //   return output;
-  // }
-
-  // async addPermissions(projectId: string, permissions: any) {
-  //   await this.queue.addPermissionsJob(permissions, projectId);
-  // }
 
   async getErdDiagram(projectId: string, token?: string): Promise<string> {
     const params = {

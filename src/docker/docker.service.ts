@@ -131,6 +131,27 @@ export class DockerService {
     envVariables: string[],
     name: string,
   ) {
+    const existingContainers = await this.docker.listContainers({
+      all: true,
+      filters: {
+        name: [name],
+      },
+    });
+
+    // remove container if stopped
+    if (existingContainers.length > 0) {
+      if (this.isContainerRunning(existingContainers[0].Id)) {
+        this.logger.debug(`Running image ${imageName} exists, monitoring...`);
+        return this.docker.getContainer(existingContainers[0].Id);
+      } else {
+        const existingContainer = this.docker.getContainer(
+          existingContainers[0].Id,
+        );
+        // should ne stopped, but just in case
+        await existingContainer.stop();
+        await existingContainer.remove();
+      }
+    }
     const container = await this.docker.createContainer({
       Image: imageName,
       name,
@@ -148,7 +169,6 @@ export class DockerService {
           }
         : {},
     });
-
     await container.start();
     return container;
   }
@@ -169,5 +189,19 @@ export class DockerService {
       follow: false,
     });
     return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs);
+  }
+
+  private async isContainerRunning(containerId: string): Promise<boolean> {
+    try {
+      const container = this.docker.getContainer(containerId);
+      const data = await container.inspect();
+      return data.State.Running === true;
+    } catch (err) {
+      if (err.statusCode === 404) {
+        console.log(`Container ${containerId} not found`);
+        return false;
+      }
+      throw err; // rethrow for other errors
+    }
   }
 }
