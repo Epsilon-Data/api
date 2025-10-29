@@ -42,7 +42,7 @@ export class ArchetypeController {
   @ApiOperation({ summary: 'Get project archetype details' })
   async getArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
+    @Param('archetypeId') archetypeId: string,
   ) {
     return await this.archetypeService.getArchetypeDetails(
       projectId,
@@ -74,7 +74,7 @@ export class ArchetypeController {
   @ApiOperation({ summary: 'Update archetype details for a project' })
   updateArchetypeDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
+    @Param('archetypeId') archetypeId: string,
     @Body() attributes: unknown,
   ) {
     return this.archetypeService.updateArchetypeDetails(
@@ -91,7 +91,7 @@ export class ArchetypeController {
   @ApiOperation({ summary: 'Delete archetype for a project' })
   async deleteArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
+    @Param('archetypeId') archetypeId: string,
   ) {
     return await this.archetypeService.deleteArchetype(projectId, archetypeId);
   }

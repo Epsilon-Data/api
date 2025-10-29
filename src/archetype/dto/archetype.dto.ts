@@ -110,7 +110,7 @@ export class ArchetypeDto {
   projectId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   archetypeId?: string;
 
   @IsDefined()
