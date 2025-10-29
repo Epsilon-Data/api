@@ -86,7 +86,6 @@ export class ArchetypeController {
 
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
-  @Get(':projectId')
   @Delete(':projectId/:archetypeId')
   @ApiOperation({ summary: 'Delete archetype for a project' })
   async deleteArchetype(
