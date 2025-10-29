@@ -6,6 +6,7 @@ import {
   Logger,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Req,
@@ -53,28 +54,34 @@ export class ArchetypeController {
   @Scopes('view, edit')
   @Post(':projectId')
   @ApiOperation({ summary: 'Create archetype for a project' })
-  createArchetype(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() archetype: ArchetypeDto,
-    @Req() request: Request,
-  ) {
+  createArchetype(@Body() archetype: ArchetypeDto, @Req() request: Request) {
     const username = request.auth.payload.preferred_username.toString();
     return this.archetypeService.createArchetype(username, archetype);
   }
 
-  // TODO: needs further investigation of how best to update an archetype in atlas
+  // TODO: classifications needs to be updated in a separate classification call
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Put(':projectId/:archetypeId')
   @ApiOperation({ summary: 'Update archetype for a project' })
-  updateArchetype(
+  updateArchetype(@Body() archetype: ArchetypeDto) {
+    return this.archetypeService.updateArchetype(archetype);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view, edit')
+  @Patch(':projectId/:archetypeId')
+  @ApiOperation({ summary: 'Update archetype details for a project' })
+  updateArchetypeDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
-    @Body() archetype: ArchetypeDto,
-    @Req() request: Request,
+    @Body() attributes: unknown,
   ) {
-    const username = request.auth.payload.preferred_username.toString();
-    return this.archetypeService.updateArchetype(username, archetype);
+    return this.archetypeService.updateArchetypeDetails(
+      projectId,
+      archetypeId,
+      attributes,
+    );
   }
 
   @UseGuards(ResourceGuard)

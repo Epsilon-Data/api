@@ -52,14 +52,13 @@ export class QueueService {
     );
   }
 
-  async updateArchetypeJob(owner: string, archetype: ArchetypeDto) {
+  async updateArchetypeJob(archetype: ArchetypeDto) {
     this.logger.log(
       `Submitting 'process-update-archetype' job to queue for archetypeId ${archetype.archetypeId}`,
     );
     return await this.atlasQueue.add(
       'process-update-archetype',
       {
-        owner,
         projectId: archetype.projectId,
         archetype,
       },
