@@ -162,9 +162,7 @@ export class AtlasProcessor {
         );
       // 2. store real archetype template ref (Atlas GUID)
       const templateGuid = Object.values(templateResponse?.guidAssignments)[0];
-      // this.logger.debug(
-      //   `Template CREATE response:\n${JSON.stringify(templateResponse)}`,
-      // );
+
       // 3. create archetype_node entities
       const { columns, nodes } = this.separateColumnsNodes(archetype);
       const entities: AtlasSubmitArchetypeEntityDto[] =
@@ -177,8 +175,6 @@ export class AtlasProcessor {
           owner,
           templateGuid,
         );
-
-      this.logger.debug(JSON.stringify(entities));
       await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
         entities: entities,
       });
@@ -568,7 +564,6 @@ export class AtlasProcessor {
       propagate: false,
     } as AtlasSimpleClassificationDto);
     const permission = permissions?.find((p) => p.id === nodeId)?.permission;
-    this.logger.debug(`Node: ${nodeId}, Permission: ${permission}`);
     if (permission) {
       classifications.push({
         typeName: 'archetype_node_analysis_permissions',
