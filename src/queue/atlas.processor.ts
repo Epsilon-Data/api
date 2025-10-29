@@ -36,7 +36,7 @@ type ArchetypeJobData = {
 export class AtlasProcessor {
   private readonly logger = new Logger(AtlasProcessor.name);
   private readonly customNanoidAlphabet =
-    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-';
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
   constructor(
     private readonly docker: DockerService,
     private readonly atlas: AtlasService,
