@@ -24,7 +24,7 @@ export class DockerService {
     this.password = config.get<string>('atlas.adminPassword');
     this.username = config.get<string>('atlas.adminUsername');
 
-    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    this.docker = new Docker();
     this.imageName = config.get<string>('brokerImage');
 
     this.isDev = config.get<boolean>('isDev');
@@ -35,8 +35,10 @@ export class DockerService {
     projectId: string,
     database?: DatabaseInfoDto,
     requestId?: string,
-  ): Promise<string> {
-    this.logger.log(`Preparing to run container for request: ${requestId}.`);
+  ) {
+    this.logger.log(
+      `Preparing to run crawler container for request ${requestId}...`,
+    );
     const envArgs = [
       `ATLAS_URI=${this.isDev ? this.atlasUrl.replace('localhost', 'host.docker.internal') : this.atlasUrl}`,
       `ATLAS_ADMIN_USER=${this.username}`,
@@ -80,6 +82,9 @@ export class DockerService {
           );
         }
         //  4. Crawling done, container run successfully
+        this.logger.log(
+          `Container ${instanceName} run successfully for request ${requestId}.`,
+        );
         // set project status to active (e.g. ready for mapping)
         await this.prisma.project.update({
           where: { projectId },
@@ -88,6 +93,7 @@ export class DockerService {
       } catch (err) {
         throw err; // rethrow errors because async
       } finally {
+        //  5. Run cleanup for the container instance
         this.logger.debug(`Removing container ${instanceName}...`);
         await container.remove({ force: true });
         this.logger.debug(`Container ${instanceName} removed successfully.`);
@@ -100,10 +106,6 @@ export class DockerService {
         },
       });
       this.logger.error(`Error running container ${instanceName}: `, error);
-    } finally {
-      // pretty pointless return here
-      // maybe should return information if success of failure
-      return projectId;
     }
   }
 
@@ -129,6 +131,27 @@ export class DockerService {
     envVariables: string[],
     name: string,
   ) {
+    const existingContainers = await this.docker.listContainers({
+      all: true,
+      filters: {
+        name: [name],
+      },
+    });
+
+    // remove container if stopped
+    if (existingContainers.length > 0) {
+      if (this.isContainerRunning(existingContainers[0].Id)) {
+        this.logger.debug(`Running image ${imageName} exists, monitoring...`);
+        return this.docker.getContainer(existingContainers[0].Id);
+      } else {
+        const existingContainer = this.docker.getContainer(
+          existingContainers[0].Id,
+        );
+        // should ne stopped, but just in case
+        await existingContainer.stop();
+        await existingContainer.remove();
+      }
+    }
     const container = await this.docker.createContainer({
       Image: imageName,
       name,
@@ -146,7 +169,6 @@ export class DockerService {
           }
         : {},
     });
-
     await container.start();
     return container;
   }
@@ -167,5 +189,19 @@ export class DockerService {
       follow: false,
     });
     return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs);
+  }
+
+  private async isContainerRunning(containerId: string): Promise<boolean> {
+    try {
+      const container = this.docker.getContainer(containerId);
+      const data = await container.inspect();
+      return data.State.Running === true;
+    } catch (err) {
+      if (err.statusCode === 404) {
+        console.log(`Container ${containerId} not found`);
+        return false;
+      }
+      throw err; // rethrow for other errors
+    }
   }
 }

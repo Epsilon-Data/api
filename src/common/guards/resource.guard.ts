@@ -13,13 +13,13 @@ import {
   ConditionalScopeFn,
   META_CONDITIONAL_SCOPES,
 } from '../decorators/scopes.decorator';
-import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
-type RouteParamMetadata = {
-  index: number;
-  data: any;
-  pipes: any[];
-  type: string;
-};
+// import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
+// type RouteParamMetadata = {
+//   index: number;
+//   data: any;
+//   pipes: any[];
+//   type: string;
+// };
 
 @Injectable()
 export class ResourceGuard implements CanActivate {
@@ -61,18 +61,9 @@ export class ResourceGuard implements CanActivate {
       this.reflector.get<string>(META_RESOURCE, context.getHandler()) ||
       this.reflector.get<string>(META_RESOURCE, context.getClass());
 
-    // get parameterName
-    const parameterName = (
-      Object.values(
-        this.reflector.get<RouteParamMetadata>(
-          ROUTE_ARGS_METADATA,
-          context.getHandler(),
-        ) || {},
-      ).find((p: RouteParamMetadata) => p.type === 'param') || {}
-    ).data;
-
-    const resource = request.params[parameterName]
-      ? `${metaResource} ${request.params[parameterName]}`
+    // get parameter if exists
+    const resource = Object.values(request.params)
+      ? `${metaResource}:${Object.values(request.params)[0]}`
       : metaResource;
 
     // get explicit scopes

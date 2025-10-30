@@ -1,36 +1,39 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { FileStorageService } from 'src/file_storage/file_storage.service';
-import { QueueService } from 'src/queue/queue.service';
-import { ArchetypeService } from 'src/archetype/archetype.service';
+import {
+  AtlasEntityResponseDto,
+  AtlasSearchDslAttributesResponseDto,
+  AtlasSearchDslResponseDto,
+} from 'src/atlas/dto';
 
 @Injectable()
 export class DatabaseService {
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
-    private fileStorage: FileStorageService,
-    private readonly queue: QueueService,
-    @Inject(forwardRef(() => ArchetypeService))
-    private archetype: ArchetypeService,
   ) {}
 
   async summary(projectId: string, token?: string) {
     const tableParams = {
       query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
+    const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+      '/search/dsl',
+      tableParams,
+      token,
+    );
 
     const schemaParams = {
       query: `from rdbms_db where instance.projectId = "${projectId}" select __guid, __state`,
     };
 
-    const schemaResult = await this.atlas.get(
-      '/search/dsl',
-      schemaParams,
-      token,
-    );
+    const schemaResult =
+      await this.atlas.get<AtlasSearchDslAttributesResponseDto>(
+        '/search/dsl',
+        schemaParams,
+        token,
+      );
 
     const activeTables = tableResult.entities.filter(
       (entity: any) => entity.status === 'ACTIVE',
@@ -44,7 +47,11 @@ export class DatabaseService {
       const params = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const result = await this.atlas.get('/search/dsl', params, token);
+      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
+        '/search/dsl',
+        params,
+        token,
+      );
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
@@ -73,7 +80,7 @@ export class DatabaseService {
       query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
     };
 
-    const tablesResult = await this.atlas.get(
+    const tablesResult = await this.atlas.get<AtlasSearchDslResponseDto>(
       '/search/dsl',
       tableParams,
       token,
@@ -95,7 +102,7 @@ export class DatabaseService {
       const columnsParams = {
         query: `from rdbms_table where __guid = "${guid}" select columns`,
       };
-      const columnsResult = await this.atlas.get(
+      const columnsResult = await this.atlas.get<AtlasSearchDslResponseDto>(
         '/search/dsl',
         columnsParams,
         token,
@@ -113,14 +120,17 @@ export class DatabaseService {
       const schemaParams = {
         query: `from rdbms_table where __guid = "${guid}" select db`,
       };
-      const schemaResult = await this.atlas.get('/search/dsl', schemaParams);
+      const schemaResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+        '/search/dsl',
+        schemaParams,
+      );
 
       const columns = await Promise.all(
         activeColumns.map(async (column) => {
           const params = {
             ignoreRelationships: true,
           };
-          const result = await this.atlas.get(
+          const result = await this.atlas.get<AtlasEntityResponseDto>(
             '/entity/guid/' + column.guid,
             params,
             token,
@@ -149,159 +159,62 @@ export class DatabaseService {
   }
 
   async columns(projectId: string, token?: string) {
-    const tableParams = {
-      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
-    };
-    const tableResult = await this.atlas.get('/search/dsl', tableParams, token);
-
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
+    // 1. get all tables related to project
+    const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+      '/search/dsl',
+      {
+        query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
+      },
+      token,
     );
 
-    const output = {};
+    const tables = tableResult.entities ?? [];
+    if (!tables.length) return [];
 
-    for (const table of activeTables) {
+    const output = [];
+
+    // 2. iterate tables
+    for (const table of tables) {
       const guid = table.guid;
-      const tableName = table.attributes.name;
+      const tableName =
+        table.attributes.name ?? table.displayText ?? table.guid;
 
-      const params = {
-        query: `from rdbms_table where __guid = "${guid}" select columns`,
-      };
-      const result = await this.atlas.get('/search/dsl', params, token);
-
+      // 3. get columns for each table
+      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
+        '/search/dsl',
+        { query: `from rdbms_table where __guid = "${guid}" select columns` },
+        token,
+      );
+      // 4. iterate build column objects
       if (result.entities) {
-        const activeColumns = result.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
-        );
-
-        for (const col of activeColumns) {
-          output[col.attributes.name] = tableName;
+        for (const col of result.entities) {
+          output.push({
+            id: col.guid,
+            name: col.attributes?.name ?? col.displayText ?? col.guid,
+            table: tableName,
+          });
         }
       }
     }
-
     return output;
   }
-
-  // async permissions(projectId: string) {
-  //   const activeTemplates = await this.template.templateNames(projectId);
-
-  //   const output = [];
-  //   for (const template of activeTemplates) {
-  //     const templateGuid = template.guid;
-
-  //     const templateInfo = {
-  //       templateId: templateGuid,
-  //       active: true,
-  //       settings: [
-  //         {
-  //           role: 'research',
-  //           access: [],
-  //         },
-  //         {
-  //           role: 'govOrg',
-  //           access: [],
-  //         },
-  //         {
-  //           role: 'others',
-  //           access: [],
-  //         },
-  //       ],
-  //     };
-
-  //     const templateEntity = await this.atlas.get(
-  //       `/entity/guid/${templateGuid}`,
-  //     );
-
-  //     templateInfo.active = templateEntity.entity.attributes.is_active;
-
-  //     for (const key in templateEntity.referredEntities) {
-  //       const entity = templateEntity.referredEntities[key];
-
-  //       if (
-  //         entity.typeName.includes('archetype_') &&
-  //         entity.status === 'ACTIVE'
-  //       ) {
-  //         if (
-  //           entity.relationshipAttributes.permissions === undefined ||
-  //           entity.relationshipAttributes.permissions.length === 0
-  //         ) {
-  //           continue;
-  //         }
-
-  //         const splitted = entity.attributes.qualifiedName.split('@');
-  //         const node = {
-  //           nodeId: splitted[2],
-  //           nodeName: entity.attributes.name,
-  //           nodeType: entity.typeName.replace('archetype_', ''),
-  //           permissions: [],
-  //         };
-
-  //         for (const permission of entity.relationshipAttributes.permissions) {
-  //           if (permission.relationshipStatus !== 'ACTIVE') {
-  //             continue;
-  //           }
-
-  //           node.permissions.push(permission.displayText);
-
-  //           const permissionType = permission.qualifiedName.split('@')[1];
-
-  //           const settings = templateInfo.settings.find(
-  //             (setting: any) => setting.role === permissionType,
-  //           );
-
-  //           const isExist = settings.access.some(
-  //             (node) =>
-  //               node.nodeId == splitted[2] &&
-  //               node.nodeName == entity.attributes.name,
-  //           );
-
-  //           if (!isExist) {
-  //             settings.access.push(node);
-  //           } else {
-  //             const index = settings.access.findIndex(
-  //               (node) =>
-  //                 node.nodeId == splitted[2] &&
-  //                 node.nodeName == entity.attributes.displayName,
-  //             );
-
-  //             if (
-  //               !settings.access[index].permissions.includes(
-  //                 permission.displayText,
-  //               )
-  //             ) {
-  //               settings.access[index].permissions.push(permission.displayText);
-  //             }
-  //           }
-
-  //           templateInfo.settings = templateInfo.settings.map((s: any) =>
-  //             s.role === permissionType ? settings : s,
-  //           );
-  //         }
-  //       }
-  //     }
-
-  //     output.push(templateInfo);
-  //   }
-
-  //   return output;
-  // }
-
-  // async addPermissions(projectId: string, permissions: any) {
-  //   await this.queue.addPermissionsJob(permissions, projectId);
-  // }
 
   async getErdDiagram(projectId: string, token?: string): Promise<string> {
     const params = {
       ignoreRelationships: true,
     };
-    const result = await this.atlas.get(
+    const result = await this.atlas.get<AtlasEntityResponseDto>(
       `/entity/uniqueAttribute/type/rdbms_instance?attr:projectId=${projectId}`,
       params,
       token,
     );
+
     if (result.entity.attributes.erd) {
-      const diagramCode = result.entity.attributes.erd.replace(
+      const erdText =
+        typeof result.entity.attributes.erd === 'string'
+          ? result.entity.attributes.erd
+          : JSON.stringify(result.entity.attributes.erd ?? '');
+      const diagramCode = erdText.replace(
         /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
         '""',
       );

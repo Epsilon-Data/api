@@ -85,7 +85,9 @@ export class ProjectController {
   @Post()
   @ApiOperation({ summary: 'Create project' })
   createProject(@Req() request: Request, @Body() dto: ProjectDto) {
-    return this.projectService.createProject(dto);
+    // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
+    const owner = request.auth.payload.preferred_username.toString();
+    return this.projectService.createProject(owner, dto);
   }
 
   @Get(':projectId')
