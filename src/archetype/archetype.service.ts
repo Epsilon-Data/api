@@ -234,79 +234,94 @@ export class ArchetypeService {
       },
       attributes: ['name', '__guid'],
     };
+    try {
+      const res = await this.atlas.post<AtlasSearchBasicHeadlessResponseDto>(
+        '/search/basic',
+        body,
+        token,
+      );
+      if (res.approximateCount) {
+        const properties: Record<string, object> = {};
+        const schema = {
+          $schema: 'https://json-schema.org/draft/2020-12/schema#',
+          title: res.attributes?.values[0][0],
+          type: 'object',
+          properties,
+        };
 
-    const res = await this.atlas.post<AtlasSearchBasicHeadlessResponseDto>(
-      '/search/basic',
-      body,
-      token,
-    );
-    if (res.approximateCount) {
-      const properties: Record<string, object> = {};
-      const schema = {
-        $schema: 'https://json-schema.org/draft/2020-12/schema#',
-        title: res.attributes?.values[0][0],
-        type: 'object',
-        properties,
-      };
-
-      const templateGuid = res.attributes?.values[0][1];
-      const templateEntity =
-        await this.atlas.get<AtlasArchetypeEntityResponseDto>(
-          `/entity/guid/${templateGuid}`,
-          undefined,
-          token,
-        );
-
-      // TODO: handle errors
-      for (const key in templateEntity.referredEntities) {
-        const node = templateEntity.referredEntities[key];
-        // TODO: check if this is the best thing to use
-        const objectName = node.attributes?.label
-          .replace(/\s+/g, '_')
-          .toLowerCase();
-        const description = node.attributes?.label;
-        // check for node has children
-        if (node.relationshipAttributes?.child_nodes?.length) {
-          const type = 'object';
-          const properties: Record<string, object> = {};
-          schema.properties[objectName] = { type, properties };
-        }
-        // check if node has a column
-        if (node.relationshipAttributes?.column) {
-          const column = node.relationshipAttributes?.column;
-          const properties: Record<string, object> = {};
-          // TODO: handle errors
-          const { entity } = await this.atlas.get<AtlasEntityResponseDto>(
-            `/entity/guid/${column.guid}`,
+        const templateGuid = res.attributes?.values[0][1];
+        const templateEntity =
+          await this.atlas.get<AtlasArchetypeEntityResponseDto>(
+            `/entity/guid/${templateGuid}`,
             undefined,
             token,
           );
-          const jsonType = this.atlasTypeToJSONType(
-            entity.attributes?.data_type as string,
-          );
-          properties[objectName] = {
-            type: jsonType,
-            description,
-          };
 
-          // add nodes to parent
-          if (node.relationshipAttributes?.parent_node) {
-            const parentRef =
-              node.relationshipAttributes?.parent_node.displayText
-                .replace(/\s+/g, '_')
-                .toLowerCase();
-            schema.properties[parentRef]['properties'] = {
-              ...schema.properties[parentRef]['properties'],
-              ...properties,
+        // TODO: handle errors
+        for (const key in templateEntity.referredEntities) {
+          const node = templateEntity.referredEntities[key];
+          // TODO: check if this is the best thing to use
+          const objectName = node.attributes?.label
+            .replace(/\s+/g, '_')
+            .toLowerCase();
+          const description = node.attributes?.label;
+          // check for node has children
+          if (
+            node.relationshipAttributes?.child_nodes?.length &&
+            !schema.properties[objectName]
+          ) {
+            schema.properties[objectName] = this.initJsonObject();
+          }
+          // check if node has a column
+          if (node.relationshipAttributes?.column) {
+            const column = node.relationshipAttributes?.column;
+            const properties: Record<string, object> = {};
+            // TODO: handle errors
+            // TODO: this can be done parallel or with one bulk request
+            const { entity } = await this.atlas.get<AtlasEntityResponseDto>(
+              `/entity/guid/${column.guid}`,
+              undefined,
+              token,
+            );
+            const jsonType = this.atlasTypeToJSONType(
+              entity.attributes?.data_type as string,
+            );
+            properties[objectName] = {
+              type: jsonType,
+              description,
             };
-          } else {
-            schema.properties = { ...schema.properties, ...properties };
+
+            // add nodes to parent
+            if (node.relationshipAttributes?.parent_node) {
+              const parentRef =
+                node.relationshipAttributes?.parent_node.displayText
+                  .replace(/\s+/g, '_')
+                  .toLowerCase();
+              if (!schema.properties[parentRef]) {
+                schema.properties[parentRef] = this.initJsonObject();
+              }
+              schema.properties[parentRef]['properties'] = {
+                ...schema.properties[parentRef]['properties'],
+                ...properties,
+              };
+            } else {
+              schema.properties = { ...schema.properties, ...properties };
+            }
           }
         }
+        return schema;
       }
-      return schema;
+    } catch (error) {
+      this.logger.error(`Error getting Analysis Archetype structure`, error);
+      throw error;
     }
     return {};
+  }
+
+  private initJsonObject() {
+    const type = 'object';
+    const properties: Record<string, object> = {};
+    return { type, properties };
   }
 
   private atlasTypeToJSONType(dataType: string): string {
