@@ -70,4 +70,9 @@ export default () => ({
   tokenEndpoint:
     env.EPSILON_TOKEN_ENDPOINT ||
     'http://localhost:8080/realms/epsilon/protocol/openid-connect/token',
+  coordinator: {
+    clientId: env.COORDINATOR_CLIENT_ID || 'coordinator-oauth', // keycloak client id
+    clientSecret: env.COORDINATOR_CLIENT_SECRET || 'supersecretcoordinator', // from Keycloak client "coordinator-client" credentials tab
+    redirectUri: env.REDIRECT_URI || 'http://localhost:3005/api/auth/callback', // OAuth2 redirect URI for coordinator (Job Scheduler
+  },
 });

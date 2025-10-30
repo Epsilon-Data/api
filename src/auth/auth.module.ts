@@ -43,7 +43,9 @@ export class AuthModule implements NestModule {
       )
       .exclude({ path: 'health', method: RequestMethod.GET })
       .exclude({ path: 'docs', method: RequestMethod.GET })
-      .exclude({ path: 'analysis/(.*)', method: RequestMethod.ALL })
+      .exclude({ path: 'analysis/auth', method: RequestMethod.POST }) // SDK Auth
+      .exclude({ path: 'analysis/auth/github', method: RequestMethod.GET }) // Coordination of OAuth
+      .exclude({ path: 'analysis/auth/github/callback', method: RequestMethod.GET })
       .forRoutes('*');
   }
 
