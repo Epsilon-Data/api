@@ -19,6 +19,7 @@ import {
   AtlasArchetypeTypeName,
   AtlasEntityResponseDto,
   AtlasPostEntityResponseDto,
+  AtlasRelatedEntityRefDto,
   AtlasSearchDslResponseDto,
   AtlasSimpleClassificationDto,
   AtlasSubmitArchetypeEntityDto,
@@ -102,7 +103,7 @@ export class AtlasProcessor {
           { entity: archetypeTemplateBody },
           undefined,
         );
-      this.logger.debug(templateResponse);
+
       // 2. store real archetype template ref (Atlas GUID)
       const templateGuid = Object.values(templateResponse?.guidAssignments)[0];
 
@@ -110,17 +111,16 @@ export class AtlasProcessor {
       if (archetype.nodes?.length) {
         // 3. create archetype_node entities
         const { columns, nodes } = this.separateColumnsNodes(archetype);
-        const entities: AtlasSubmitArchetypeEntityDto[] =
-          this.archetypeTemplateToAtlasEntities(
-            projectId,
-            archetype,
-            nodes,
-            columns,
-            {}, // no existing nodes should be present
-            false,
-            owner,
-            templateGuid,
-          );
+        const { entities } = this.archetypeTemplateToAtlasEntities(
+          projectId,
+          archetype,
+          nodes,
+          columns,
+          {}, // no existing nodes should be present
+          false,
+          owner,
+          templateGuid,
+        );
         await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
           entities: entities,
         });
@@ -151,7 +151,7 @@ export class AtlasProcessor {
       `Handling 'process-update-archetype' for archetype ${archetype.archetypeId}...`,
     );
     try {
-      const entities: AtlasSubmitArchetypeEntityDto[] = [];
+      const updateEntities: AtlasSubmitArchetypeEntityDto[] = [];
 
       const { columns, nodes } = archetype.nodes?.length
         ? this.separateColumnsNodes(archetype)
@@ -173,6 +173,8 @@ export class AtlasProcessor {
           .filter((node) => node.entityStatus !== 'DELETED')
           .map((node) => [node.qualifiedName, node.guid]),
       );
+      this.logger.debug(`existingNodes`, existingNodes);
+
       // Add archetype_template entity
       const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
         typeName: AtlasArchetypeTypeName.Template,
@@ -203,28 +205,46 @@ export class AtlasProcessor {
             : {}),
         },
       };
+      const { entities, guidAssignments } = nodes.length
+        ? this.archetypeTemplateToAtlasEntities(
+            projectId,
+            archetype,
+            nodes,
+            columns,
+            existingNodes,
+            true,
+          )
+        : { entities: [], guidAssignments: [] };
 
-      entities.push(
+      // TODO: ADD nodes that are assigned
+      if (guidAssignments.length) {
+        const newNodeRefs = guidAssignments.map((guid) => ({
+          guid,
+          typeName: AtlasArchetypeTypeName.Node,
+        }));
+        archetypeTemplateBody.relationshipAttributes ??= {};
+        archetypeTemplateBody.relationshipAttributes.nodes ??= [];
+        archetypeTemplateBody.relationshipAttributes.nodes = [
+          ...(archetypeTemplateBody.relationshipAttributes
+            .nodes as AtlasRelatedEntityRefDto[]),
+          ...newNodeRefs,
+        ];
+      }
+
+      updateEntities.push(
         archetypeTemplateBody,
-        ...(nodes.length
-          ? this.archetypeTemplateToAtlasEntities(
-              projectId,
-              archetype,
-              nodes,
-              columns,
-              existingNodes,
-              true,
-            )
-          : []),
+        ...(nodes.length ? entities : []),
       );
-      await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
-        entities: entities,
-      });
+      this.logger.debug(`Entities`, JSON.stringify(entities));
 
-      await this.prisma.project.update({
-        where: { projectId: projectId },
-        data: { lastModified: new Date() },
-      });
+      // await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
+      //   entities: entities,
+      // });
+
+      // await this.prisma.project.update({
+      //   where: { projectId: projectId },
+      //   data: { lastModified: new Date() },
+      // });
       this.logger.log(
         `Handling 'process-update-archetype' for archetype ${archetype.archetypeId} DONE!`,
         `Updated archetype ${archetype.archetypeId} with status ${archetype.status}`,
@@ -500,7 +520,7 @@ export class AtlasProcessor {
     isUpdate: boolean = false,
     owner?: string,
     templateGuid?: string,
-  ): AtlasSubmitArchetypeEntityDto[] {
+  ): { entities: AtlasSubmitArchetypeEntityDto[]; guidAssignments: string[] } {
     // init negative guid
     let negativeGuid = -2;
 
@@ -516,87 +536,99 @@ export class AtlasProcessor {
     const columnEdges = archetype.edges.filter((edge: ArchetypeEdgeDto) =>
       columns.find((e) => e.id === edge.target),
     );
+    const guidAssignments: string[] = [];
 
-    return nodes.map((node: ArchetypeNodeDto) => {
-      // get column if exists
-      const columnGuid = columnEdges.find((e) => e.source === node.id)?.target;
+    return {
+      entities: nodes.map((node: ArchetypeNodeDto) => {
+        // get column if exists
+        const columnGuid = columnEdges.find(
+          (e) => e.source === node.id,
+        )?.target;
 
-      // find parent node
-      const parentId = archetype.edges.find(
-        (e) => e.target === node.id,
-      )?.source;
+        // find parent node
+        const parentId = archetype.edges.find(
+          (e) => e.target === node.id,
+        )?.source;
 
-      const currentGuid = nextGuid(); // decrease neg guid
+        const parentIdQualifiedName = `${projectId}@${archetype.archetypeId}@${parentId}`;
 
-      const qualifiedName = `${projectId}@${archetype.archetypeId}@${node.id}`;
+        const currentGuid = nextGuid(); // decrease neg guid
 
-      // update lookup for parent-child relationship
-      // use qualifiedName if already existing node or negative guid if not
-      parentLookup[node.id] =
-        isUpdate && existingNodes[qualifiedName] ? qualifiedName : currentGuid;
+        const qualifiedName = `${projectId}@${archetype.archetypeId}@${node.id}`;
 
-      return {
-        // add GUID if new entity
-        ...(isUpdate && existingNodes[qualifiedName]
-          ? {}
-          : { guid: currentGuid }),
-        typeName: AtlasArchetypeTypeName.Node,
-        status: 'ACTIVE',
-        attributes: {
-          label: node.data.label,
-          // NOTE: needed for analysis SDK JSONSchema
-          name: node.data.label,
-          owner: owner,
-          level: node.data.level,
-          qualifiedName,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
+        // update lookup for parent-child relationship
+        // use qualifiedName if already existing node or negative guid if not
+        parentLookup[node.id] =
+          isUpdate && existingNodes[qualifiedName]
+            ? qualifiedName
+            : currentGuid;
+
+        if (isUpdate && existingNodes[qualifiedName])
+          guidAssignments.push(currentGuid);
+        return {
+          // add GUID if new entity
+          ...(isUpdate && existingNodes[qualifiedName]
+            ? {}
+            : { guid: currentGuid }),
+          typeName: AtlasArchetypeTypeName.Node,
+          status: 'ACTIVE',
+          attributes: {
+            label: node.data.label,
+            // NOTE: needed for analysis SDK JSONSchema
+            name: node.data.label,
+            owner: owner,
+            level: node.data.level,
+            qualifiedName,
+            position: {
+              x: node.position.x,
+              y: node.position.y,
+            },
           },
-        },
-        ...(isUpdate // classifications don't update with POST???
-          ? {}
-          : {
-              classifications: this.mergeClassifications(
-                columnGuid ? true : false, // isLeaf node
-                node.id,
-                node.type,
-                archetype.permissions || [],
-              ),
-            }),
-        relationshipAttributes: {
-          template: {
-            typeName: AtlasArchetypeTypeName.Template,
-            ...(templateGuid
+          ...(isUpdate // classifications don't update with POST???
+            ? {}
+            : {
+                classifications: this.mergeClassifications(
+                  columnGuid ? true : false, // isLeaf node
+                  node.id,
+                  node.type,
+                  archetype.permissions || [],
+                ),
+              }),
+          relationshipAttributes: {
+            template: {
+              typeName: AtlasArchetypeTypeName.Template,
+              ...(templateGuid
+                ? {
+                    guid: templateGuid,
+                  }
+                : {
+                    uniqueAttributes: {
+                      qualifiedName: `${projectId}@${archetype.archetypeId}`,
+                    },
+                  }),
+            },
+            ...(parentId
               ? {
-                  guid: templateGuid,
-                }
-              : {
-                  uniqueAttributes: {
-                    qualifiedName: `${projectId}@${archetype.archetypeId}`,
+                  parent_node: {
+                    typeName: AtlasArchetypeTypeName.Node,
+                    ...(isUpdate && existingNodes[parentIdQualifiedName]
+                      ? {
+                          uniqueAttributes: {
+                            qualifiedName: parentLookup[parentId],
+                          },
+                        }
+                      : { guid: parentLookup[parentId] }),
                   },
-                }),
+                }
+              : {}),
+            ...(columnGuid
+              ? { column: { guid: columnGuid, typeName: 'rdbms_column' } }
+              : {}),
           },
-          ...(parentId
-            ? {
-                parent_node: {
-                  typeName: AtlasArchetypeTypeName.Node,
-                  ...(isUpdate && existingNodes[qualifiedName]
-                    ? {
-                        uniqueAttributes: {
-                          qualifiedName: parentLookup[parentId],
-                        },
-                      }
-                    : { guid: parentLookup[parentId] }),
-                },
-              }
-            : {}),
-          ...(columnGuid
-            ? { column: { guid: columnGuid, typeName: 'rdbms_column' } }
-            : {}),
-        },
-      };
-    });
+        };
+      }),
+      guidAssignments,
+    };
   }
 
   private mergeClassifications(
