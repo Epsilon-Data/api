@@ -146,6 +146,7 @@ export class ArchetypeService {
     // add all archetype_nodes
     for (const key in entityRes.referredEntities) {
       const entity = entityRes.referredEntities[key];
+      if (entity.status === 'DELETED') continue;
       const nodeId = entity.attributes?.qualifiedName.split('@')[2];
       // add node itself
       const node: ArchetypeNodeDto = {
@@ -163,6 +164,10 @@ export class ArchetypeService {
 
       // add edge if has parent exists
       if (entity.relationshipAttributes?.parent_node) {
+        if (
+          entity.relationshipAttributes?.parent_node?.entityStatus === 'DELETED'
+        )
+          continue;
         const parentNodeId =
           entity.relationshipAttributes?.parent_node?.qualifiedName.split(
             '@',
@@ -176,6 +181,8 @@ export class ArchetypeService {
       }
       // add column node and edges
       if (entity.relationshipAttributes?.column) {
+        if (entity.relationshipAttributes?.column?.entityStatus === 'DELETED')
+          continue;
         const columnNodeId = entity.relationshipAttributes?.column?.guid;
         const columName =
           entity.relationshipAttributes?.column?.qualifiedName.split('@')[2];
@@ -204,7 +211,9 @@ export class ArchetypeService {
       if (entity.attributes?.level !== 0) {
         const analysisPermission = (() => {
           const permission = entity.classifications?.find(
-            (c) => c.typeName === 'archetype_node_analysis_permissions',
+            (c) =>
+              c.typeName === 'archetype_node_analysis_permissions' &&
+              c.entityStatus === 'ACTIVE',
           );
           return permission
             ? {
