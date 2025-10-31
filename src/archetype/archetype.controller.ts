@@ -6,6 +6,7 @@ import {
   Logger,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Req,
@@ -41,7 +42,7 @@ export class ArchetypeController {
   @ApiOperation({ summary: 'Get project archetype details' })
   async getArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
+    @Param('archetypeId') archetypeId: string,
   ) {
     return await this.archetypeService.getArchetypeDetails(
       projectId,
@@ -53,38 +54,43 @@ export class ArchetypeController {
   @Scopes('view, edit')
   @Post(':projectId')
   @ApiOperation({ summary: 'Create archetype for a project' })
-  createArchetype(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() archetype: ArchetypeDto,
-    @Req() request: Request,
-  ) {
+  createArchetype(@Body() archetype: ArchetypeDto, @Req() request: Request) {
     const username = request.auth.payload.preferred_username.toString();
     return this.archetypeService.createArchetype(username, archetype);
   }
 
-  // TODO: needs further investigation of how best to update an archetype in atlas
+  // TODO: classifications needs to be updated in a separate classification call
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Put(':projectId/:archetypeId')
   @ApiOperation({ summary: 'Update archetype for a project' })
-  updateArchetype(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
-    @Body() archetype: ArchetypeDto,
-    @Req() request: Request,
-  ) {
-    const username = request.auth.payload.preferred_username.toString();
-    return this.archetypeService.updateArchetype(username, archetype);
+  updateArchetype(@Body() archetype: ArchetypeDto) {
+    return this.archetypeService.updateArchetype(archetype);
   }
 
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
-  @Get(':projectId')
+  @Patch(':projectId/:archetypeId')
+  @ApiOperation({ summary: 'Update archetype details for a project' })
+  updateArchetypeDetails(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('archetypeId') archetypeId: string,
+    @Body() attributes: unknown,
+  ) {
+    return this.archetypeService.updateArchetypeDetails(
+      projectId,
+      archetypeId,
+      attributes,
+    );
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view, edit')
   @Delete(':projectId/:archetypeId')
   @ApiOperation({ summary: 'Delete archetype for a project' })
   async deleteArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Param('archetypeId', ParseUUIDPipe) archetypeId: string,
+    @Param('archetypeId') archetypeId: string,
   ) {
     return await this.archetypeService.deleteArchetype(projectId, archetypeId);
   }

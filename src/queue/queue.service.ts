@@ -16,7 +16,7 @@ export class QueueService {
     database: DatabaseInfoDto,
   ) {
     this.logger.log(
-      `Submitting 'process-data-broker' job to queue with requestId ${requestId}`,
+      `Submitting 'process-data-broker' to queue with requestId ${requestId}`,
     );
     return await this.atlasQueue.add(
       'process-data-broker',
@@ -36,7 +36,7 @@ export class QueueService {
 
   async addArchetypeJob(owner: string, archetype: ArchetypeDto) {
     this.logger.log(
-      `Submitting 'process-add-archetype' job to queue for projectId ${archetype.projectId}`,
+      `Submitting 'process-add-archetype' to queue for projectId ${archetype.projectId}`,
     );
     return await this.atlasQueue.add(
       'process-add-archetype',
@@ -52,14 +52,13 @@ export class QueueService {
     );
   }
 
-  async updateArchetypeJob(owner: string, archetype: ArchetypeDto) {
+  async updateArchetypeJob(archetype: ArchetypeDto) {
     this.logger.log(
-      `Submitting 'process-update-archetype' job to queue for archetypeId ${archetype.archetypeId}`,
+      `Submitting 'process-update-archetype' to queue for archetypeId ${archetype.archetypeId}`,
     );
     return await this.atlasQueue.add(
       'process-update-archetype',
       {
-        owner,
         projectId: archetype.projectId,
         archetype,
       },
@@ -73,7 +72,7 @@ export class QueueService {
 
   async deleteArchetypeJob(projectId: string, archetypeId: string) {
     this.logger.log(
-      `Submitting 'process-delete-archetype' job to queue with archetypeId ${archetypeId}...`,
+      `Submitting 'process-delete-archetype' to queue with archetypeId ${archetypeId}...`,
     );
     return await this.atlasQueue.add(
       'process-delete-archetype',
