@@ -12,15 +12,20 @@ import {
 import { ConnectionRequestService } from './connection_request.service';
 import { Request } from 'express';
 import { DatabaseInfoDto } from './dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 
 // import { Scopes } from 'src/auth/scopes.decorator';
 // import { Resource } from 'src/auth/resource.decorator';
 // import { ResourceGuard } from 'src/auth/resource.guard';
 // import { ScopesGuard } from 'src/common/guards/scopes.guard';
 
-// @Resource('Project')
 @ApiTags('Connection Request')
+// @Resource('project')
 @Controller('connection-request')
 export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
@@ -38,6 +43,12 @@ export class ConnectionRequestController {
   @Post('test')
   @ApiOperation({
     summary: 'Test connection credentials',
+  })
+  @ApiOkResponse({
+    description: 'Connection test successful',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Wrong credentials',
   })
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {

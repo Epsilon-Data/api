@@ -78,11 +78,13 @@ export class ArchetypeService {
   }
 
   async updateArchetype(
+    username: string,
     projectId: string,
     archetypeId: string,
     archetype: ArchetypeDto,
   ) {
     return await this.queue.updateArchetypeJob(
+      username,
       projectId,
       archetypeId,
       archetype,

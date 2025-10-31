@@ -107,8 +107,11 @@ export class ArchetypeController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('archetypeId') archetypeId: string,
     @Body() archetype: ArchetypeDto,
+    @Req() request: Request,
   ) {
+    const username = request.auth.payload.preferred_username.toString();
     return this.archetypeService.updateArchetype(
+      username,
       projectId,
       archetypeId,
       archetype,
