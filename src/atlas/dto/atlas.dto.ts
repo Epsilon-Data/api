@@ -140,6 +140,11 @@ export class AtlasMutatedEntitiesDto {
   @ValidateNested({ each: true })
   @Type(() => AtlasEntityDto)
   DELETE?: AtlasEntityDto[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasEntityDto)
+  PARTIAL_UPDATE?: AtlasEntityDto[];
 }
 
 export class AtlasEntityHeaderDto {
@@ -429,4 +434,10 @@ export class AtlasPostEntityResponseDto {
   @IsOptional()
   @IsObject()
   guidAssignments?: Record<string, string>;
+}
+
+export class AtlasPutEntityResponseDto extends AtlasPostEntityResponseDto {
+  @IsDefined()
+  @IsArray()
+  partialUpdatedEntities?: unknown[];
 }
