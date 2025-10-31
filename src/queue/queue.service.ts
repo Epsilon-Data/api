@@ -67,7 +67,7 @@ export class QueueService {
         archetype,
       },
       {
-        // TODO: add jobid?
+        // NOTE: add jobid?
         attempts: 5,
         backoff: 10000,
       },

@@ -111,7 +111,7 @@ export class AtlasProcessor {
         // 3. create archetype_node entities
         const { columns, nodes } = this.separateColumnsNodes(archetype);
         const entities: AtlasSubmitArchetypeEntityDto[] =
-          this.archetypeTemplateToAtlasEntitities(
+          this.archetypeTemplateToAtlasEntities(
             projectId,
             archetype,
             nodes,
@@ -207,7 +207,7 @@ export class AtlasProcessor {
       entities.push(
         archetypeTemplateBody,
         ...(nodes.length
-          ? this.archetypeTemplateToAtlasEntitities(
+          ? this.archetypeTemplateToAtlasEntities(
               projectId,
               archetype,
               nodes,
@@ -491,7 +491,7 @@ export class AtlasProcessor {
     });
   }
 
-  private archetypeTemplateToAtlasEntitities(
+  private archetypeTemplateToAtlasEntities(
     projectId: string,
     archetype: ArchetypeDto,
     nodes: ArchetypeNodeDto[],

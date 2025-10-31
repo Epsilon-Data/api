@@ -95,7 +95,6 @@ export class ArchetypeService {
     attributes: unknown,
     token?: string,
   ) {
-    // TODO: handle errors and return updated entity?
     try {
       await this.atlas.put<AtlasPutEntityResponseDto>(
         `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
