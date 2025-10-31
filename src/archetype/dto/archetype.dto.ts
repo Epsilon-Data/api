@@ -1,4 +1,3 @@
-// TODO: cleanup DTOs
 import {
   ApiExtraModels,
   ApiProperty,
