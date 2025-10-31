@@ -69,12 +69,24 @@ export class ArchetypeService {
     }));
   }
 
-  async createArchetype(username: string, archetype: ArchetypeDto) {
-    return await this.queue.addArchetypeJob(username, archetype);
+  async createArchetype(
+    username: string,
+    projectId: string,
+    archetype: ArchetypeDto,
+  ) {
+    return await this.queue.addArchetypeJob(username, projectId, archetype);
   }
 
-  async updateArchetype(archetype: ArchetypeDto) {
-    return await this.queue.updateArchetypeJob(archetype);
+  async updateArchetype(
+    projectId: string,
+    archetypeId: string,
+    archetype: ArchetypeDto,
+  ) {
+    return await this.queue.updateArchetypeJob(
+      projectId,
+      archetypeId,
+      archetype,
+    );
   }
 
   async updateArchetypeDetails(
@@ -83,20 +95,26 @@ export class ArchetypeService {
     attributes: unknown,
     token?: string,
   ) {
-    // TODO: handle errors
-    return await this.atlas.put<AtlasPutEntityResponseDto>(
-      `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
-      {
-        entity: {
-          typeName: AtlasArchetypeTypeName.Template,
-          attributes, // updated attributes
+    // TODO: handle errors and return updated entity?
+    try {
+      await this.atlas.put<AtlasPutEntityResponseDto>(
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          entity: {
+            typeName: AtlasArchetypeTypeName.Template,
+            attributes, // updated attributes
+          },
         },
-      },
-      {
-        'attr:qualifiedName': `${projectId}@${archetypeId}`,
-      },
-      token,
-    );
+        {
+          'attr:qualifiedName': `${projectId}@${archetypeId}`,
+        },
+        token,
+      );
+      return;
+    } catch (error) {
+      this.logger.error(`Error updating archetype details`, error);
+      throw error;
+    }
   }
 
   async getArchetypeDetails(

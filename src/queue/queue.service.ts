@@ -34,7 +34,11 @@ export class QueueService {
     );
   }
 
-  async addArchetypeJob(owner: string, archetype: ArchetypeDto) {
+  async addArchetypeJob(
+    owner: string,
+    projectId: string,
+    archetype: ArchetypeDto,
+  ) {
     this.logger.log(
       `Submitting 'process-add-archetype' to queue for projectId ${archetype.projectId}`,
     );
@@ -42,7 +46,7 @@ export class QueueService {
       'process-add-archetype',
       {
         owner,
-        projectId: archetype.projectId,
+        projectId: projectId,
         archetype,
       },
       {
@@ -52,14 +56,14 @@ export class QueueService {
     );
   }
 
-  async updateArchetypeJob(archetype: ArchetypeDto) {
+  async updateArchetypeJob(projectId, archetypeId, archetype: ArchetypeDto) {
     this.logger.log(
-      `Submitting 'process-update-archetype' to queue for archetypeId ${archetype.archetypeId}`,
+      `Submitting 'process-update-archetype' to queue for archetypeId ${archetypeId}`,
     );
     return await this.atlasQueue.add(
       'process-update-archetype',
       {
-        projectId: archetype.projectId,
+        projectId,
         archetype,
       },
       {
