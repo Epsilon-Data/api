@@ -132,7 +132,6 @@ export class AtlasProcessor {
         `Handling 'process-add-archetype' for projectId ${projectId} DONE!`,
         `Created archetype ${archetype.archetypeId} with status ${archetype.status}`,
       );
-
       return archetype.archetypeId;
     } catch (error) {
       this.logger.error(
@@ -572,7 +571,7 @@ export class AtlasProcessor {
       (c) =>
         c.typeName === 'archetype_node_analysis_permissions' &&
         c.entityGuid === guid &&
-        c.entityStatus !== 'DELETED',
+        c.entityStatus === 'ACTIVE',
     );
   }
 }

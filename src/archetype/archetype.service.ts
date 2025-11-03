@@ -167,7 +167,7 @@ export class ArchetypeService {
       // add edge if has parent exists
       if (entity.relationshipAttributes?.parent_node) {
         if (
-          entity.relationshipAttributes?.parent_node?.entityStatus === 'DELETED'
+          entity.relationshipAttributes?.parent_node?.entityStatus !== 'ACTIVE'
         )
           continue;
         const parentNodeId =
@@ -183,11 +183,12 @@ export class ArchetypeService {
       }
       // add column node and edges
       if (entity.relationshipAttributes?.column) {
-        if (entity.relationshipAttributes?.column?.entityStatus === 'DELETED')
+        if (entity.relationshipAttributes?.column?.entityStatus !== 'ACTIVE')
           continue;
         const columnNodeId = entity.relationshipAttributes?.column?.guid;
-        const columName =
-          entity.relationshipAttributes?.column?.qualifiedName.split('@')[2];
+        const columName = entity.relationshipAttributes?.column?.qualifiedName
+          .split('@')
+          .at(-1);
         const node: ArchetypeNodeDto = {
           id: columnNodeId,
           data: {
