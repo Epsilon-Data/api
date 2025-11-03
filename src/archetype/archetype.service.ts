@@ -148,8 +148,8 @@ export class ArchetypeService {
     // add all archetype_nodes
     for (const key in entityRes.referredEntities) {
       const entity = entityRes.referredEntities[key];
-      if (entity.status === 'DELETED') continue;
-      const nodeId = entity.attributes?.qualifiedName.split('@')[2];
+      if (entity.status !== 'ACTIVE') continue;
+      const nodeId = entity.attributes?.qualifiedName?.split('@')[2];
       // add node itself
       const node: ArchetypeNodeDto = {
         id: nodeId, // NOTE: Maybe use GUID
@@ -215,7 +215,8 @@ export class ArchetypeService {
           const permission = entity.classifications?.find(
             (c) =>
               c.typeName === 'archetype_node_analysis_permissions' &&
-              c.entityStatus === 'ACTIVE',
+              c.entityStatus === 'ACTIVE' &&
+              entity.guid === c.entityGuid, // don't include propagated permissions
           );
           return permission
             ? {

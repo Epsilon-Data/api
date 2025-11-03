@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('App')
-@Controller('app')
+@Controller('/')
 export class AppController {
   constructor() {}
 

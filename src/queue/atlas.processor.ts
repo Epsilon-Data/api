@@ -155,7 +155,18 @@ export class AtlasProcessor {
         ? this.separateColumnsNodes(archetype)
         : { columns: [], nodes: [] };
 
-      // check relationships aka nodes
+      // get all the node ids
+      const nodeIds = new Set(nodes.map((n) => n.id));
+      // lookup for existing entities
+      const existingNodes: Record<
+        string,
+        {
+          guid: string;
+          classifications: AtlasArchetypeEntityDto['classifications'];
+        }
+      > = {};
+
+      // check for relationships (e.g. archetype_nodes) using archetype_template qualifiedName
       const entityRes = await this.atlas.get<AtlasArchetypeEntityResponseDto>(
         `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
         {
@@ -165,53 +176,67 @@ export class AtlasProcessor {
         },
       );
 
-      // get all the node ids
-      const nodeIds = new Set(nodes.map((n) => n.id));
-
-      // lookup for already existing nodes
-      const existingNodes: Record<string, string> = Object.fromEntries(
-        (entityRes.entity.relationshipAttributes?.nodes ?? [])
-          .filter(
-            (node) =>
-              node.entityStatus !== 'DELETED' &&
-              nodeIds.has(node.qualifiedName.split('@')[2]),
+      // check if there is any existing linked entities
+      if (Object.keys(entityRes?.referredEntities).length) {
+        for (const key in entityRes?.referredEntities) {
+          const entity = entityRes?.referredEntities[key];
+          const qualifiedName = entity.attributes?.qualifiedName;
+          if (
+            entity.typeName !== AtlasArchetypeTypeName.Node || //
+            entity.status !== 'ACTIVE' ||
+            !nodeIds.has(qualifiedName.split('@').at(-1))
           )
-          .map((node) => [node.qualifiedName, node.guid]),
-      );
+            continue; // skip anything not a Node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
 
+          existingNodes[qualifiedName] = {
+            guid: entity.guid,
+            classifications: entity.classifications ?? [],
+          };
+        }
+      }
       // update existing nodes classifications with permissions
-      // TODO: test if also need to update the node_type (e.g. leaf, root, branch)
       // TODO: improve so not flooding the API with requests
       // TODO: improve error handling
-      if (archetype.permissions) {
-        Object.entries(existingNodes).forEach(([qualifiedName, guid]) => {
-          const nodeId = qualifiedName.split('@')[2];
-          const permissions = this.getPermissionClassification(
-            nodeId,
-            archetype.permissions,
-          );
-          if (!permissions.length) return;
+      if (archetype.permissions?.length) {
+        Object.entries(existingNodes).forEach(
+          ([qualifiedName, { guid, classifications }]) => {
+            const nodeId = qualifiedName.split('@').at(-1);
+            const permissions = this.getPermissionClassification(
+              nodeId,
+              archetype.permissions,
+            );
+            if (!permissions.length) return;
 
-          this.atlas
-            .put<AtlasArchetypeEntityResponseDto>(
-              `/entity/guid/${guid}/classifications`,
-              permissions,
-            )
-            .catch((err) =>
+            try {
+              // check if classification already exists for the entity
+              if (this.hasAnalysisPermClassification(guid, classifications)) {
+                this.atlas.put<AtlasArchetypeEntityResponseDto>(
+                  `/entity/guid/${guid}/classifications`,
+                  permissions,
+                );
+              } else {
+                // create classification for existing entity
+                this.atlas.post<AtlasArchetypeEntityResponseDto>(
+                  `/entity/guid/${guid}/classifications`,
+                  permissions,
+                );
+              }
+            } catch (err) {
               this.logger.error(
                 `Failed to set classifications for ${guid}: ${err?.message}`,
-              ),
-            );
-        });
+              );
+            }
+          },
+        );
       }
 
-      // Add archetype_template entity
+      // create archetype_template entity body
       const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
         typeName: AtlasArchetypeTypeName.Template,
         attributes: {
           name: archetype.name,
           projectId: projectId,
-          // using nanoid created in the beginning
+          // using the nanoid i.e. archetypeId as reference
           qualifiedName: `${projectId}@${archetype.archetypeId}`,
           status: archetype.status,
         },
@@ -222,7 +247,7 @@ export class AtlasProcessor {
               projectId,
             },
           },
-          // NOTE: this deletes nodes that have been removed
+          // NOTE: this deletes archetype_nodes that have been removed with the archetype update
           ...(Object.keys(existingNodes).length
             ? {
                 nodes: Object.entries(existingNodes).map(([qualifiedName]) => ({
@@ -247,7 +272,7 @@ export class AtlasProcessor {
           )
         : { entities: [], guidAssignments: [] };
 
-      // add new nodes that are assigned (neg guids)
+      // add any new nodes to archetype_template (neg GUIDs)
       if (guidAssignments.length) {
         const newNodeRefs = guidAssignments.map((guid) => ({
           guid,
@@ -325,7 +350,13 @@ export class AtlasProcessor {
     archetype: ArchetypeDto,
     nodes: ArchetypeNodeDto[],
     columns: ArchetypeNodeDto[],
-    existingNodes: Record<string, string> = {},
+    existingNodes: Record<
+      string,
+      {
+        guid: string;
+        classifications: AtlasArchetypeEntityDto['classifications'];
+      }
+    > = {},
     isUpdate: boolean = false,
     owner?: string,
     templateGuid?: string,
@@ -531,5 +562,17 @@ export class AtlasProcessor {
       [[], []],
     );
     return { columns, nodes };
+  }
+  private hasAnalysisPermClassification(
+    guid: string,
+    classifications: AtlasArchetypeEntityDto['classifications'] | undefined,
+  ): boolean {
+    if (!guid || !classifications?.length) return false;
+    return classifications.some(
+      (c) =>
+        c.typeName === 'archetype_node_analysis_permissions' &&
+        c.entityGuid === guid &&
+        c.entityStatus !== 'DELETED',
+    );
   }
 }
