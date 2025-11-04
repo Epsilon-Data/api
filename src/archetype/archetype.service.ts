@@ -69,12 +69,26 @@ export class ArchetypeService {
     }));
   }
 
-  async createArchetype(username: string, archetype: ArchetypeDto) {
-    return await this.queue.addArchetypeJob(username, archetype);
+  async createArchetype(
+    username: string,
+    projectId: string,
+    archetype: ArchetypeDto,
+  ) {
+    return await this.queue.addArchetypeJob(username, projectId, archetype);
   }
 
-  async updateArchetype(archetype: ArchetypeDto) {
-    return await this.queue.updateArchetypeJob(archetype);
+  async updateArchetype(
+    username: string,
+    projectId: string,
+    archetypeId: string,
+    archetype: ArchetypeDto,
+  ) {
+    return await this.queue.updateArchetypeJob(
+      username,
+      projectId,
+      archetypeId,
+      archetype,
+    );
   }
 
   async updateArchetypeDetails(
@@ -83,20 +97,25 @@ export class ArchetypeService {
     attributes: unknown,
     token?: string,
   ) {
-    // TODO: handle errors
-    return await this.atlas.put<AtlasPutEntityResponseDto>(
-      `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
-      {
-        entity: {
-          typeName: AtlasArchetypeTypeName.Template,
-          attributes, // updated attributes
+    try {
+      await this.atlas.put<AtlasPutEntityResponseDto>(
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          entity: {
+            typeName: AtlasArchetypeTypeName.Template,
+            attributes, // updated attributes
+          },
         },
-      },
-      {
-        'attr:qualifiedName': `${projectId}@${archetypeId}`,
-      },
-      token,
-    );
+        {
+          'attr:qualifiedName': `${projectId}@${archetypeId}`,
+        },
+        token,
+      );
+      return;
+    } catch (error) {
+      this.logger.error(`Error updating archetype details`, error);
+      throw error;
+    }
   }
 
   async getArchetypeDetails(
@@ -129,7 +148,8 @@ export class ArchetypeService {
     // add all archetype_nodes
     for (const key in entityRes.referredEntities) {
       const entity = entityRes.referredEntities[key];
-      const nodeId = entity.attributes?.qualifiedName.split('@')[2];
+      if (entity.status !== 'ACTIVE') continue;
+      const nodeId = entity.attributes?.qualifiedName?.split('@')[2];
       // add node itself
       const node: ArchetypeNodeDto = {
         id: nodeId, // NOTE: Maybe use GUID
@@ -146,6 +166,10 @@ export class ArchetypeService {
 
       // add edge if has parent exists
       if (entity.relationshipAttributes?.parent_node) {
+        if (
+          entity.relationshipAttributes?.parent_node?.entityStatus !== 'ACTIVE'
+        )
+          continue;
         const parentNodeId =
           entity.relationshipAttributes?.parent_node?.qualifiedName.split(
             '@',
@@ -159,9 +183,12 @@ export class ArchetypeService {
       }
       // add column node and edges
       if (entity.relationshipAttributes?.column) {
+        if (entity.relationshipAttributes?.column?.entityStatus !== 'ACTIVE')
+          continue;
         const columnNodeId = entity.relationshipAttributes?.column?.guid;
-        const columName =
-          entity.relationshipAttributes?.column?.qualifiedName.split('@')[2];
+        const columName = entity.relationshipAttributes?.column?.qualifiedName
+          .split('@')
+          .at(-1);
         const node: ArchetypeNodeDto = {
           id: columnNodeId,
           data: {
@@ -187,7 +214,10 @@ export class ArchetypeService {
       if (entity.attributes?.level !== 0) {
         const analysisPermission = (() => {
           const permission = entity.classifications?.find(
-            (c) => c.typeName === 'archetype_node_analysis_permissions',
+            (c) =>
+              c.typeName === 'archetype_node_analysis_permissions' &&
+              c.entityStatus === 'ACTIVE' &&
+              entity.guid === c.entityGuid, // don't include propagated permissions
           );
           return permission
             ? {

@@ -310,6 +310,9 @@ export class AtlasArchetypeEntityClassificationDto {
   typeName!: string;
 
   @IsString()
+  entityStatus?: string;
+
+  @IsString()
   entityGuid?: string;
 
   @IsOptional()

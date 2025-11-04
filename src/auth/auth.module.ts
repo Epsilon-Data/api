@@ -41,10 +41,13 @@ export class AuthModule implements NestModule {
           audience: this.configService.get<string>('auth.audience'),
         }),
       )
-      .exclude({ path: 'health', method: RequestMethod.GET })
-      .exclude({ path: 'docs', method: RequestMethod.GET })
-      .exclude({ path: 'analysis/(.*)', method: RequestMethod.ALL })
-      .forRoutes('*');
+      .exclude(
+        { path: 'health', method: RequestMethod.GET },
+        { path: 'docs', method: RequestMethod.GET },
+        { path: 'docs/*path', method: RequestMethod.GET },
+        { path: 'analysis/*path', method: RequestMethod.ALL },
+      )
+      .forRoutes('*path');
   }
 
   static forRoot({
