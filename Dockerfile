@@ -1,6 +1,6 @@
-# Start with a node 24 image
+# Start with a node 22 image
 # Installs *all* pnpm packages and runs build script
-FROM node:24.11.0-alpine AS workspace
+FROM node:22.21.1-alpine AS workspace
 
 # Install docker CLI (client only, no daemon) for postinstall script
 RUN apk add --no-cache docker-cli
