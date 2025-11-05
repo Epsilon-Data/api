@@ -160,14 +160,12 @@ export class DockerService {
       HostConfig: {
         AutoRemove: false,
       },
-      // only for dev
-      NetworkingConfig: this.isDev
-        ? {
-            EndpointsConfig: {
-              epsilon_pg_test: {},
-            },
-          }
-        : {},
+      // only for dev + testing
+      NetworkingConfig: {
+        EndpointsConfig: {
+          epsilon_pg_test: {},
+        },
+      },
     });
     await container.start();
     return container;

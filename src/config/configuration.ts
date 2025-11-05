@@ -60,7 +60,7 @@ export default () => ({
   },
   redis: {
     host: env.REDIS_HOST || 'localhost',
-    port: env.REDIS_PORT || 6379,
+    port: parseInt(env.REDIS_PORT) || 6379,
   },
   notificationServiceUrl:
     env.NOTIFICATION_SERVICE_URL || 'http://localhost:4001/notification',
