@@ -7,7 +7,6 @@ export class AtlasService {
   private baseUrl: string;
   private password: string;
   private readonly logger = new Logger(AtlasService.name);
-  // FIXME: remove when changing to keycloak auth
   private basicAuth = true;
 
   constructor(config: ConfigService) {

@@ -161,6 +161,23 @@ export class AtlasEntityHeaderDto {
   @IsOptional()
   @IsObject()
   attributes?: Record<string, unknown>;
+
+  @IsString()
+  status!: string; // Atlas built in entity status
+
+  @IsArray()
+  classificationNames!: unknown[];
+
+  @IsArray()
+  meaningNames!: unknown[];
+  @IsArray()
+  meanings!: unknown[];
+
+  @IsBoolean()
+  isIncomplete!: boolean;
+
+  @IsArray()
+  labels!: unknown[];
 }
 
 export class AtlasRelationshipMetaDto {
