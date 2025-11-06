@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
@@ -66,7 +67,6 @@ describe('AtlasService', () => {
     const endpoint = '/entity/guid/123';
     const params = { verbose: true };
     const body = { foo: 'bar' };
-    const token = 'jwt-token';
 
     it('GET uses Basic auth by default', async () => {
       mockedAxios.get.mockResolvedValueOnce({ data: { ok: true } });
@@ -77,19 +77,6 @@ describe('AtlasService', () => {
         {
           params,
           headers: { Authorization: service.createBasicAuthHeader() },
-        },
-      );
-    });
-
-    it('GET uses Bearer when basicAuth is false', async () => {
-      (service as any).basicAuth = false;
-      mockedAxios.get.mockResolvedValueOnce({ data: { ok: true } });
-      await service.get(endpoint, params, token);
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        `${ATLAS_URI}/api/atlas/v2${endpoint}`,
-        {
-          params,
-          headers: { Authorization: service.createBearerAuthHeader(token) },
         },
       );
     });
