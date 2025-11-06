@@ -11,7 +11,7 @@ describe('AtlasService', () => {
   let service: AtlasService;
   let configService: jest.Mocked<ConfigService>;
 
-  const ATLAS_URI = 'http://atlas.local:21000';
+  const ATLAS_URI = 'http://localhost:21000';
   const ATLAS_PASSWORD = 'supersecret';
 
   beforeAll(() => {
