@@ -34,6 +34,8 @@ export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(
+        // TODO: investigate
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         cookieParser(),
         AuthMiddleware,
         auth({
@@ -92,7 +94,7 @@ export class AuthModule implements NestModule {
   ): Provider[] {
     const reqProviders = [
       {
-        useFactory: async (configService: ConfigService) => {
+        useFactory: (configService: ConfigService) => {
           return {
             issuerBaseURL: configService.get<string>('auth.issuerBaseURL'),
             audience: configService.get<string>('auth.audience'),

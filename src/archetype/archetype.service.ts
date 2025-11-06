@@ -92,7 +92,7 @@ export class ArchetypeService {
       const templateInfo: ArchetypeDto = {
         projectId: projectId,
         archetypeId: archetypeId,
-        name: entityRes.entity?.attributes?.name!,
+        name: entityRes.entity?.attributes?.name,
         status: entityRes.entity?.attributes?.status as ArchetypeStatus,
         nodes: [],
         edges: [],
@@ -110,16 +110,16 @@ export class ArchetypeService {
         )
           continue;
 
-        const nodeId = entity.attributes?.qualifiedName.split('@').at(-1)!;
+        const nodeId = entity.attributes.qualifiedName.split('@').at(-1)!;
 
         // add node itself
         const node: ArchetypeNodeDto = {
           id: nodeId, // NOTE: Maybe use GUID
           data: {
-            label: entity.attributes?.label!,
-            level: entity.attributes?.level!,
+            label: entity.attributes.label!,
+            level: entity.attributes.level!,
           },
-          position: entity.attributes?.position!,
+          position: entity.attributes.position!,
           type: (entity.attributes?.level === 0
             ? 'root'
             : 'category') as ArchetypeNodeType,
@@ -136,7 +136,7 @@ export class ArchetypeService {
             continue;
 
           const parentNodeId =
-            entity.relationshipAttributes?.parent_node?.qualifiedName
+            entity.relationshipAttributes.parent_node.qualifiedName
               .split('@')
               .at(-1)!; // NOTE: Maybe use GUID
           const edge: ArchetypeEdgeDto = {
@@ -156,18 +156,18 @@ export class ArchetypeService {
           )
             continue;
           const columnNodeId = entity.relationshipAttributes?.column?.guid;
-          const columName = entity.relationshipAttributes?.column?.qualifiedName
+          const columName = entity.relationshipAttributes.column.qualifiedName
             .split('@')
             .at(-1)!;
           const node: ArchetypeNodeDto = {
             id: columnNodeId,
             data: {
               label: columName,
-              level: entity.attributes!.level! + 1,
+              level: entity.attributes.level! + 1,
             },
             position: {
-              x: entity.attributes!.position!.x,
-              y: entity.attributes!.position!.y + 200,
+              x: entity.attributes.position!.x,
+              y: entity.attributes.position!.y + 200,
             },
             type: ArchetypeNodeType.Column,
           };
@@ -261,8 +261,8 @@ export class ArchetypeService {
         for (const key in templateEntity?.referredEntities) {
           const node = templateEntity.referredEntities[key];
           // TODO: check if this is the best thing to use
-          const objectName = node
-            .attributes!.label!.replace(/\s+/g, '_')
+          const objectName = node.attributes
+            .label!.replace(/\s+/g, '_')
             .toLowerCase();
           const description = node.attributes?.label;
           // check for node has children

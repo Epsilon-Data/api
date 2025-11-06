@@ -458,7 +458,7 @@ export class KeycloakAdminService {
   async newResource(
     id: string,
     ownerId: string,
-    collaborators: string[],
+    collaborators?: string[],
     custodian?: string,
   ) {
     try {
@@ -529,23 +529,25 @@ export class KeycloakAdminService {
       });
 
       // invite collaborators and add them to the group
-      collaborators.map(async (email) => {
-        const users = (await this.checkUser({ email })) || [];
-        if (!users.length) {
-          // TODO: add realm roles to user
-          const user = await this.createUser({
-            username: email,
-            email,
-            enabled: true,
-            groups: [`${groupPrefix}${id}`],
-          });
-          await this.setUserActions(user.id);
-        } else {
-          users.map(async (user: UserRepresentation) => {
-            await this.addUserToGroup(user.id!, createGroup.id);
-          });
-        }
-      });
+      if (collaborators) {
+        collaborators.map(async (email) => {
+          const users = (await this.checkUser({ email })) || [];
+          if (!users.length) {
+            // TODO: add realm roles to user
+            const user = await this.createUser({
+              username: email,
+              email,
+              enabled: true,
+              groups: [`${groupPrefix}${id}`],
+            });
+            await this.setUserActions(user.id);
+          } else {
+            users.map(async (user: UserRepresentation) => {
+              await this.addUserToGroup(user.id!, createGroup.id);
+            });
+          }
+        });
+      }
 
       if (custodian) {
         // temp username

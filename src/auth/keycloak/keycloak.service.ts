@@ -9,7 +9,7 @@ import * as querystring from 'querystring';
 import type { AuthModuleConfig } from '../config.interface';
 import { AUTH_CONFIG } from '../config.interface';
 import { KeycloakAuthzRequestDto, KeycloakPermissionDto } from './dto';
-import { PermissionsDto } from '../dto/permissions.dto';
+import { Request } from 'express';
 
 @Injectable()
 export class KeycloakService {
@@ -17,8 +17,12 @@ export class KeycloakService {
 
   constructor(@Inject(AUTH_CONFIG) private config: AuthModuleConfig) {}
 
-  async checkPermission(authzRequest: KeycloakAuthzRequestDto, request) {
-    const token = request.auth?.token || this.extractTokenFromHeader(request);
+  async checkPermission(
+    authzRequest: KeycloakAuthzRequestDto,
+    request: Request,
+  ) {
+    const token = (request.auth?.token ||
+      this.extractTokenFromHeader(request)) as string;
     if (!token) {
       return Promise.reject(new Error('No bearer token'));
     }

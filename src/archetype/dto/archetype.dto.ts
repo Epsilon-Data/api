@@ -319,23 +319,13 @@ export class ArchetypeDto {
   })
   @IsOptional()
   @IsDate()
-  @Transform(({ value }) => transformToDateString(value), { toClassOnly: true })
+  @Transform(({ value }) => transformDateString(value), { toClassOnly: true })
   lastModified?: Date;
 }
 
-function transformToDateString(value: any) {
-  if (value == null || value === '') return undefined;
+function transformDateString(value: string | Date): Date {
+  if (value instanceof Date) return value;
 
-  if (typeof value === 'string') {
-    const timestamp = Number(value);
-    // handle numeric string =
-    if (!isNaN(timestamp)) return new Date(timestamp);
-    return new Date(value);
-  }
-  // handle epoch as number
-  if (typeof value === 'number') {
-    return new Date(value);
-  }
-  // already a Date or invalid input
-  return value;
+  const parsedDate = new Date(value);
+  return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 }

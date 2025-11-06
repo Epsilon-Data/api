@@ -161,12 +161,9 @@ class VisualDto {
   link: string;
 }
 
-function transformDateString(value: any): Date {
-  if (typeof value === 'string') {
-    const parsedDate = new Date(value);
-    if (!isNaN(parsedDate.getTime())) {
-      return parsedDate;
-    }
-  }
-  return value;
+function transformDateString(value: string | Date): Date {
+  if (value instanceof Date) return value;
+
+  const parsedDate = new Date(value);
+  return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 }

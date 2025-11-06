@@ -17,6 +17,8 @@ import {
   KeycloakAuthzRequestDto,
   KeycloakPermissionDto,
 } from 'src/auth/keycloak/dto';
+import { Request, Response } from 'express';
+
 // import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 // type RouteParamMetadata = {
 //   index: number;
@@ -62,8 +64,13 @@ export class ResourceGuard implements CanActivate {
 
     // get context
     const ctx = context.switchToHttp();
-    const request = ctx.getRequest();
-    const response = ctx.getResponse();
+    const request = ctx.getRequest<
+      Request & {
+        auth?: { payload?: Record<string, unknown> };
+        scopes?: string[];
+      }
+    >();
+    const response = ctx.getResponse<Response>();
 
     // if is not an HTTP request ignore this guard
     if (!request) {
@@ -91,14 +98,14 @@ export class ResourceGuard implements CanActivate {
     );
     const conditionalScopesResult =
       conditionalScopes != null || conditionalScopes != undefined
-        ? conditionalScopes(request, request.auth.token)
+        ? conditionalScopes(request, request.auth?.token || '')
         : [];
 
     // combine scopes
     const scopes = [...explicitScopes, ...conditionalScopesResult];
 
     // Attach resolved scopes
-    request.scopes = [scopes];
+    request.scopes = [...scopes];
 
     // build permissions object
     const permission: KeycloakPermissionDto = {

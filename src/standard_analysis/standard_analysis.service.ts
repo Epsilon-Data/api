@@ -2,13 +2,18 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class StandardAnalysisService {
-  private calculateMean(data: any[], columnName: string) {
-    const sum = data.reduce((acc, row) => acc + row[columnName], 0);
+  private calculateMean(data: unknown[], columnName: string) {
+    const sum = data.reduce(
+      (acc: number, row: Record<string, number>) => acc + row[columnName],
+      0,
+    ) as number;
     return sum / data.length;
   }
 
-  private calculateMedian(data: any[], columnName: string) {
-    const values = data.map((row) => row[columnName]).sort((a, b) => a - b);
+  private calculateMedian(data: unknown[], columnName: string) {
+    const values = data
+      .map((row: Record<string, number>) => row[columnName])
+      .sort((a, b) => a - b);
     const middle = Math.floor(values.length / 2);
 
     if (values.length % 2 === 0) {
@@ -18,48 +23,55 @@ export class StandardAnalysisService {
     }
   }
 
-  private async calculateMode(data: any[], columnName: string): Promise<any> {
-    const frequency = await this.calculateFrequency(data, columnName);
+  private calculateMode(data: unknown[], columnName: string) {
+    const frequency = this.calculateFrequency(data, columnName);
     const mode = Object.keys(frequency).reduce((a, b) =>
       frequency[a] > frequency[b] ? a : b,
     );
     return mode;
   }
 
-  private calculateMinimum(data: any[], columnName: string) {
-    return Math.min(...data.map((row) => row[columnName]));
+  private calculateMinimum(data: unknown[], columnName: string) {
+    return Math.min(
+      ...data.map((row: Record<string, number>) => row[columnName]),
+    );
   }
 
-  private calculateMaximum(data: any[], columnName: string) {
-    return Math.max(...data.map((row) => row[columnName]));
+  private calculateMaximum(data: unknown[], columnName: string) {
+    return Math.max(
+      ...data.map((row: Record<string, number>) => row[columnName]),
+    );
   }
 
-  private async calculateStandardDeviation(
-    data: any[],
-    columnName: string,
-  ): Promise<number> {
-    const variance = await this.calculateVariance(data, columnName);
+  private calculateStandardDeviation(data: unknown[], columnName: string) {
+    const variance = this.calculateVariance(data, columnName);
     return Math.sqrt(variance);
   }
 
-  private async calculateVariance(data: any[], columnName: string) {
-    const mean = await this.calculateMean(data, columnName);
+  private calculateVariance(data: unknown[], columnName: string) {
+    const mean = this.calculateMean(data, columnName);
     const variance =
-      data.reduce((acc, row) => acc + Math.pow(row[columnName] - mean, 2), 0) /
-      data.length;
+      (data.reduce(
+        (acc: number, row: Record<string, number>) =>
+          acc + Math.pow(row[columnName] - mean, 2),
+        0,
+      ) as number) / data.length;
     return variance;
   }
 
-  private calculateFrequency(data: any[], columnName: string) {
-    const frequency = data.reduce((acc, row) => {
-      const value = row[columnName];
-      if (!value || value.length === 0) {
-        acc['invalid'] = (acc['invalid'] || 0) + 1;
-      } else {
-        acc[value] = (acc[value] || 0) + 1;
-      }
-      return acc;
-    }, {});
+  private calculateFrequency(data: unknown[], columnName: string) {
+    const frequency = data.reduce(
+      (acc: Record<string, number>, row: Record<string, unknown>) => {
+        const value = row[columnName] as string;
+        if (!value) {
+          acc['invalid'] = (acc['invalid'] || 0) + 1;
+        } else {
+          acc[value] = (acc[value] || 0) + 1;
+        }
+        return acc;
+      },
+      {},
+    ) as Record<string, number>;
     if (!frequency['invalid']) {
       frequency['invalid'] = 0;
     }
@@ -76,53 +88,43 @@ export class StandardAnalysisService {
     return sortedFrequency;
   }
 
-  async getOrdinalAnalysis(
+  getOrdinalAnalysis(
     tableName: string,
     columnName: string,
     calculations: string[],
-  ): Promise<any> {
+  ) {
     const data = []; //await this.getColumnData(tableName, columnName);
 
     const result = {};
 
-    calculations.forEach(async (calc) => {
+    calculations.forEach((calc) => {
       switch (calc) {
         case 'mean':
-          result[calc] = (await this.calculateMean(data, columnName)).toFixed(
-            4,
-          );
+          result[calc] = this.calculateMean(data, columnName).toFixed(4);
           break;
         case 'median':
-          result[calc] = await this.calculateMedian(data, columnName);
+          result[calc] = this.calculateMedian(data, columnName);
           break;
         case 'mode':
-          result[calc] = await this.calculateMode(data, columnName);
+          result[calc] = this.calculateMode(data, columnName);
           break;
         case 'min':
-          result[calc] = await this.calculateMinimum(data, columnName);
+          result[calc] = this.calculateMinimum(data, columnName);
           break;
         case 'max':
-          result[calc] = await this.calculateMaximum(data, columnName);
+          result[calc] = this.calculateMaximum(data, columnName);
           break;
         case 'sd':
-          result[calc] = (
-            await this.calculateStandardDeviation(data, columnName)
+          result[calc] = this.calculateStandardDeviation(
+            data,
+            columnName,
           ).toFixed(4);
           break;
         case 'var':
-          result[calc] = (
-            await this.calculateVariance(data, columnName)
-          ).toFixed(4);
+          result[calc] = this.calculateVariance(data, columnName).toFixed(4);
           break;
         default:
-          console.log(`Unknown calculation: ${calc}`);
-      }
-
-      if (
-        result.hasOwnProperty(calc) &&
-        (result[calc] == undefined || isNaN(result[calc]))
-      ) {
-        result[calc] = 'N/A';
+          result[calc] = 'N/A';
       }
     });
 

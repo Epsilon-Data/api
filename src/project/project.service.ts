@@ -195,7 +195,9 @@ export class ProjectService {
       },
     });
 
-    const memberEmails = memberData.map((member) => member.email);
+    const memberEmails = (memberData as unknown[]).map(
+      (member: Record<string, string>) => member.email,
+    );
 
     // add keycloak resource
     // TODO: better error handling

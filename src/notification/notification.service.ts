@@ -11,7 +11,7 @@ export class NotificationService {
     this.url = config.get<string>('notificationServiceUrl');
   }
 
-  async sendNotification(notificationDto: NotificationDto) {
+  async sendNotification(notificationDto: NotificationDto): Promise<unknown> {
     try {
       const response = await axios.post(`${this.url}/send`, notificationDto);
       return response.data;
@@ -26,7 +26,7 @@ export class NotificationService {
     }
   }
 
-  async getNotifications(userId: string) {
+  async getNotifications(userId: string): Promise<unknown> {
     try {
       const response = await axios.get(`${this.url}/user/${userId}`);
       return response.data;

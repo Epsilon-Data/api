@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 
 @Injectable()
 export class AtlasService {
@@ -24,7 +24,7 @@ export class AtlasService {
     return `Bearer ${tokenString}`;
   }
 
-  async get<T>(endpoint: string, params?: any, token?: string): Promise<T> {
+  async get<T>(endpoint: string, params?: unknown, token?: string): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
       token && !this.basicAuth
@@ -32,22 +32,22 @@ export class AtlasService {
         : this.createBasicAuthHeader();
 
     try {
-      const response = await axios.get(url, {
+      const response: AxiosResponse<T> = await axios.get(url, {
         params,
         headers: { Authorization: authHeader },
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`GET request to ${url} failed: ${error.message}`);
+      this.logger.error(`GET request to ${url} failed: ${error}`);
       throw error;
     }
   }
 
   async post<T>(
     endpoint: string,
-    body: any,
+    body: unknown,
     token?: string,
-    params?: any,
+    params?: unknown,
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
@@ -56,21 +56,21 @@ export class AtlasService {
         : this.createBasicAuthHeader();
 
     try {
-      const response = await axios.post(url, body, {
+      const response: AxiosResponse<T> = await axios.post(url, body, {
         params,
         headers: { Authorization: authHeader },
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`POST request to ${url} failed: ${error.message}`);
+      this.logger.error(`POST request to ${url} failed: ${error}`);
       throw error;
     }
   }
 
   async put<T>(
     endpoint: string,
-    body: any,
-    params?: any,
+    body: unknown,
+    params?: unknown,
     token?: string,
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
@@ -79,7 +79,7 @@ export class AtlasService {
         ? this.createBearerAuthHeader(token)
         : this.createBasicAuthHeader();
     try {
-      const response = await axios.put(url, body, {
+      const response: AxiosResponse<T> = await axios.put(url, body, {
         params,
         headers: {
           Authorization: authHeader,
@@ -88,12 +88,16 @@ export class AtlasService {
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`PUT request to ${url} failed: ${error.message}`);
+      this.logger.error(`PUT request to ${url} failed: ${error}`);
       throw error;
     }
   }
 
-  async delete<T>(endpoint: string, params?: any, token?: string): Promise<T> {
+  async delete<T>(
+    endpoint: string,
+    params?: unknown,
+    token?: string,
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader =
       token && !this.basicAuth
@@ -101,13 +105,13 @@ export class AtlasService {
         : this.createBasicAuthHeader();
 
     try {
-      const response = await axios.delete(url, {
+      const response: AxiosResponse<T> = await axios.delete(url, {
         params,
         headers: { Authorization: authHeader },
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`DELETE request to ${url} failed: ${error.message}`);
+      this.logger.error(`DELETE request to ${url} failed: ${error}`);
       throw error;
     }
   }

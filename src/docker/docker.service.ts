@@ -1,12 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
-import Docker from 'dockerode';
+import Docker, { Container } from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DockerService {
-  private docker: Docker;
+  private readonly docker: Docker;
   private atlasUrl: string;
   private username: string;
   private password: string;
@@ -33,8 +35,8 @@ export class DockerService {
   async runDataBroker(
     ownerId: string,
     projectId: string,
-    database: DatabaseInfoDto,
     requestId: string,
+    database: DatabaseInfoDto,
   ) {
     this.logger.log(
       `Preparing to run crawler container for request ${requestId}...`,
@@ -44,7 +46,7 @@ export class DockerService {
       `ATLAS_ADMIN_USER=${this.username}`,
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
-      `DATABASE_URL=${this.isDev ? database.url?.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database}`,
+      `DATABASE_URL=${this.isDev ? database.url?.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database.url}`,
       `PROJECT_ID=${projectId}`,
     ];
 
@@ -128,7 +130,7 @@ export class DockerService {
     imageName: string,
     envVariables: string[],
     name: string,
-  ) {
+  ): Promise<Container> {
     const existingContainers = await this.docker.listContainers({
       all: true,
       filters: {
@@ -140,7 +142,7 @@ export class DockerService {
     if (existingContainers.length > 0) {
       if (await this.isContainerRunning(existingContainers[0].Id)) {
         this.logger.debug(`Running image ${imageName} exists, monitoring...`);
-        return this.docker.getContainer(existingContainers[0].Id);
+        return await this.docker.getContainer(existingContainers[0].Id);
       } else {
         const existingContainer = this.docker.getContainer(
           existingContainers[0].Id,
@@ -172,7 +174,8 @@ export class DockerService {
   private monitorContainer(container: Docker.Container): Promise<void> {
     return new Promise((resolve, reject) => {
       container.wait((err, data) => {
-        if (err) return reject(err);
+        if (err)
+          return reject(err instanceof Error ? err : new Error(String(err)));
         resolve(data);
       });
     });

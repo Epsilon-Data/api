@@ -8,7 +8,6 @@ import {
   Patch,
   UseGuards,
   Param,
-  Req,
   Post,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis_request.service';

@@ -11,7 +11,6 @@ import {
   Patch,
   Post,
   Put,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ArchetypeService } from './archetype.service';

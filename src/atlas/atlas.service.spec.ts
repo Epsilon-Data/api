@@ -11,7 +11,7 @@ describe('AtlasService', () => {
   let service: AtlasService;
   let configService: jest.Mocked<ConfigService>;
 
-  const ATLAS_URI = 'http://localhost:21000';
+  const ATLAS_URI = 'http://atlas.local:21000';
   const ATLAS_PASSWORD = 'supersecret';
 
   beforeAll(() => {
@@ -149,7 +149,7 @@ describe('AtlasService', () => {
       await expect(service.get(endpoint)).rejects.toThrow('boom');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          `GET request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: boom`,
+          `GET request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: boom`,
         ),
       );
     });
@@ -161,7 +161,7 @@ describe('AtlasService', () => {
       await expect(service.post(endpoint, {})).rejects.toThrow('bad post');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          `POST request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: bad post`,
+          `POST request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: bad post`,
         ),
       );
     });
@@ -173,7 +173,7 @@ describe('AtlasService', () => {
       await expect(service.put(endpoint, {})).rejects.toThrow('bad put');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          `PUT request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: bad put`,
+          `PUT request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: bad put`,
         ),
       );
     });
@@ -185,7 +185,7 @@ describe('AtlasService', () => {
       await expect(service.delete(endpoint)).rejects.toThrow('bad delete');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          `DELETE request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: bad delete`,
+          `DELETE request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: bad delete`,
         ),
       );
     });

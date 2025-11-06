@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ArchetypeService } from './archetype.service';
 import { AtlasService } from 'src/atlas/atlas.service';
@@ -7,6 +8,7 @@ import {
   AtlasArchetypeEntityResponseDto,
   AtlasArchetypeNodeAttributesDto,
   AtlasArchetypeTypeName,
+  AtlasEntityDto,
   AtlasEntityResponseDto,
   AtlasQueryType,
   AtlasSearchBasicHeadlessResponseDto,
@@ -369,7 +371,8 @@ describe('ArchetypeService', () => {
       // - category child: id=node_1, type=category, position from attributes
       // - column node derived from relation: id=columnGuid, type=Column, label from qn last segment
       // order is based on iteration over referredEntities; assert presence rather than strict order
-      const nodeIds = result.nodes.map((n) => n.id);
+      result.nodes = result.nodes || [];
+      const nodeIds = result.nodes?.map((n) => n.id);
       expect(nodeIds).toEqual(
         expect.arrayContaining([rootNodeId, catNodeId, columnGuid]),
       );
@@ -394,7 +397,8 @@ describe('ArchetypeService', () => {
       // Edges:
       // - parent edge: root -> category
       // - column edge: category -> column
-      const edgeIds = result.edges.map((e) => e.id);
+      result.edges = result.edges || [];
+      const edgeIds = result.edges?.map((e) => e.id);
       expect(edgeIds).toEqual(
         expect.arrayContaining([
           `edge_${rootNodeId}_${catNodeId}`,
@@ -484,6 +488,7 @@ describe('ArchetypeService', () => {
       const result = await service.getArchetypeDetails(projectId, archetypeId);
 
       // nodes should include root + child only (no column)
+      result.nodes = result.nodes || [];
       expect(result.nodes.map((n) => n.id)).toEqual(
         expect.arrayContaining([rootNodeId, catNodeId]),
       );
@@ -492,6 +497,7 @@ describe('ArchetypeService', () => {
       // no edges due to non-ACTIVE relations
       expect(result.edges).toHaveLength(1);
 
+      result.edges = result.edges || [];
       const parentEdge = result.edges.find(
         (e) => e.id === `edge_${rootNodeId}_${catNodeId}`,
       )!;
@@ -596,15 +602,15 @@ describe('ArchetypeService', () => {
       const tableName = `public.examination`;
       const columnQN = `${projectId}@${tableName}@column_age`;
 
-      const templateEntity: AtlasArchetypeEntityResponseDto = {
+      const templateEntity = {
         entity: {
           guid: templateGuid,
           typeName: AtlasArchetypeTypeName.Template,
           attributes: {
             name: templateName,
             status: 'PUBLISHED',
-          } as any,
-        } as any,
+          },
+        },
         referredEntities: {
           PARENT: {
             guid: 'PARENT',
@@ -624,7 +630,7 @@ describe('ArchetypeService', () => {
               parent_node: null,
               child_nodes: [{}, {}], // for length check
             },
-          } as any,
+          },
           CHILD: {
             guid: 'CHILD',
             typeName: 'archetype_node',
@@ -653,7 +659,7 @@ describe('ArchetypeService', () => {
                 qualifiedName: columnQN,
               },
             },
-          } as any,
+          },
         },
       };
       atlas.get.mockResolvedValueOnce(templateEntity);
@@ -664,16 +670,18 @@ describe('ArchetypeService', () => {
         entity: {
           guid: columnGuid,
           typeName: 'rdbms_column',
-          attributes: { data_type: 'int' } as any,
-        } as any,
+          attributes: { data_type: 'int' } as Record<string, unknown>,
+        } as AtlasEntityDto,
         referredEntities: {},
       };
       atlas.get.mockResolvedValueOnce(columnEntity);
 
-      const schema = (await service.getAnalysisArchetype(
-        projectId,
-        token,
-      )) as any;
+      const schema = (await service.getAnalysisArchetype(projectId, token)) as {
+        $schema: 'https://json-schema.org/draft/2020-12/schema#';
+        title: string;
+        type: 'object';
+        properties: Record<string, object>;
+      };
 
       // Assert atlas.post called with endpoint, body, token
       expect(atlas.post).toHaveBeenCalledTimes(1);
@@ -749,7 +757,7 @@ describe('ArchetypeService', () => {
       atlas.post.mockResolvedValueOnce({
         approximateCount: 0,
         queryType: 'BASIC',
-        searchParameters: {} as any,
+        searchParameters: {},
       } as AtlasSearchBasicHeadlessResponseDto);
 
       const res = await service.getAnalysisArchetype(projectId);

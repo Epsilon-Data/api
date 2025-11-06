@@ -8,7 +8,11 @@ export type CurrentUserInfo = {
 
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext) => {
-    const req = ctx.switchToHttp().getRequest<any>();
+    const req = ctx.switchToHttp().getRequest<
+      Request & {
+        auth?: { payload?: Record<string, unknown> };
+      }
+    >();
     const id = req?.auth?.payload?.sub?.toString?.();
     const username = req?.auth?.payload?.preferred_username?.toString?.();
     const email = req?.auth?.payload?.email?.toString?.();

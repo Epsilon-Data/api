@@ -348,7 +348,7 @@ export class AtlasArchetypeEntityDto extends AtlasEntityDto<
   @IsOptional()
   @ValidateNested()
   @Type(() => AtlasArchetypeNodeAttributesDto)
-  declare attributes?: AtlasArchetypeNodeAttributesDto;
+  declare attributes: AtlasArchetypeNodeAttributesDto;
 
   @IsOptional()
   @ValidateNested()

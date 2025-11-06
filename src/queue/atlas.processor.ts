@@ -10,6 +10,7 @@ import {
   ArchetypeNodePermissionDto,
   ArchetypeEdgeDto,
   ArchetypeDto,
+  ArchetypeNodeType,
 } from 'src/archetype/dto';
 import {
   AtlasArchetypeAnalysisPermissionClassificationDto,
@@ -24,12 +25,21 @@ import {
 } from 'src/atlas/dto';
 
 import { customAlphabet } from 'nanoid';
+import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 type ArchetypeJobData = {
   owner: string;
   projectId: string;
   archetype: ArchetypeDto;
 };
+
+type DataBrokerJobData = {
+  owner: string;
+  projectId: string;
+  requestId: string;
+  database: DatabaseInfoDto;
+};
+
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
 @Processor('atlas-queue')
@@ -45,15 +55,16 @@ export class AtlasProcessor {
 
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
-    const { ownerId, projectId, requestId, database } = job.data;
+    const { owner, projectId, requestId, database } =
+      job.data as DataBrokerJobData;
     this.logger.log(
       `Handling 'process-data-broker' for requestId ${requestId}...`,
     );
     return await this.docker.runDataBroker(
-      ownerId,
+      owner,
       projectId,
-      database,
       requestId,
+      database,
     );
   }
 
@@ -68,7 +79,7 @@ export class AtlasProcessor {
       this.logger.log(
         `Archetype already exists, handing handling over to 'process-add-archetype'...`,
       );
-      this.handleUpdateArchetypeJob(job);
+      await this.handleUpdateArchetypeJob(job);
       return archetype.archetypeId;
     }
     try {
@@ -145,7 +156,7 @@ export class AtlasProcessor {
 
   @Process('process-update-archetype')
   async handleUpdateArchetypeJob(job: Job) {
-    const { owner, projectId, archetype }: ArchetypeJobData = job.data;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
     this.logger.log(
       `Handling 'process-update-archetype' for archetype ${archetype.archetypeId}...`,
     );
@@ -181,7 +192,7 @@ export class AtlasProcessor {
       if (Object.keys(entityRes?.referredEntities).length) {
         for (const key in entityRes?.referredEntities) {
           const entity = entityRes?.referredEntities[key];
-          const qualifiedName = entity.attributes?.qualifiedName!;
+          const qualifiedName = entity.attributes.qualifiedName;
           if (
             entity.typeName !== AtlasArchetypeTypeName.Node || //
             entity.status !== 'ACTIVE' ||
@@ -212,20 +223,20 @@ export class AtlasProcessor {
             try {
               // check if classification already exists for the entity
               if (this.hasAnalysisPermClassification(guid, classifications)) {
-                this.atlas.put<AtlasArchetypeEntityResponseDto>(
+                void this.atlas.put<AtlasArchetypeEntityResponseDto>(
                   `/entity/guid/${guid}/classifications`,
                   permissions,
                 );
               } else {
                 // create classification for existing entity
-                this.atlas.post<AtlasArchetypeEntityResponseDto>(
+                void this.atlas.post<AtlasArchetypeEntityResponseDto>(
                   `/entity/guid/${guid}/classifications`,
                   permissions,
                 );
               }
             } catch (err) {
               this.logger.error(
-                `Failed to set classifications for ${guid}: ${err?.message}`,
+                `Failed to set classifications for ${guid}: ${err}`,
               );
             }
           },
@@ -318,7 +329,10 @@ export class AtlasProcessor {
 
   @Process('process-delete-archetype')
   async handleDeleteArchetypeJob(job: Job) {
-    const { archetypeId, projectId } = job.data;
+    const { archetypeId, projectId } = job.data as {
+      archetypeId: string;
+      projectId: string;
+    };
     this.logger.log(
       `Handling 'process-delete-archetype' for archetype ${archetypeId}...`,
     );
@@ -561,7 +575,7 @@ export class AtlasProcessor {
         [ArchetypeNodeDto[], ArchetypeNodeDto[]]
       >(
         (acc, node) => {
-          if (node.type === 'column') acc[0].push(node);
+          if (node.type === ArchetypeNodeType.Column) acc[0].push(node);
           else acc[1].push(node);
           return acc;
         },

@@ -10,7 +10,7 @@ export class QueueService {
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
   async dataBrokerJob(
-    ownerId: string,
+    owner: string,
     projectId: string,
     requestId: string,
     database: DatabaseInfoDto,
@@ -21,7 +21,7 @@ export class QueueService {
     return await this.atlasQueue.add(
       'process-data-broker',
       {
-        ownerId,
+        owner,
         projectId,
         requestId,
         database,

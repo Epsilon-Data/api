@@ -11,7 +11,10 @@ import {
   KEYCLOAK_ADMIN_INSTANCE,
 } from './config.interface';
 import { AdminController } from './admin.controller';
-import { KeycloakAdminClient } from '@epsilon-data/keycloak-admin-client';
+import {
+  Credentials,
+  KeycloakAdminClient,
+} from '@epsilon-data/keycloak-admin-client';
 
 @Global()
 @Module({
@@ -93,12 +96,12 @@ export class AdminModule {
       },
       {
         useFactory: async (config: AdminModuleConfig) => {
-          const credentials = {
+          const credentials: Credentials = {
             grantType: 'client_credentials',
             clientId: config.clientId,
             clientSecret: config.clientSecret,
           };
-          const kcAdminClient: any = new KeycloakAdminClient({
+          const kcAdminClient = new KeycloakAdminClient({
             baseUrl: config.issuerBaseURL,
             realmName: config.realm,
           });
