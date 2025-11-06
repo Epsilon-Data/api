@@ -13,6 +13,10 @@ import {
   ConditionalScopeFn,
   META_CONDITIONAL_SCOPES,
 } from '../decorators/scopes.decorator';
+import {
+  KeycloakAuthzRequestDto,
+  KeycloakPermissionDto,
+} from 'src/auth/keycloak/dto';
 // import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 // type RouteParamMetadata = {
 //   index: number;
@@ -20,6 +24,16 @@ import {
 //   pipes: any[];
 //   type: string;
 // };
+
+export type Permission = {
+  id: string;
+  scopes: string[];
+};
+
+export type AuthzRequest = {
+  permissions: Permission[];
+  response_mode: 'decision'; // can be 'permissions'
+};
 
 @Injectable()
 export class ResourceGuard implements CanActivate {
@@ -87,11 +101,11 @@ export class ResourceGuard implements CanActivate {
     request.scopes = [scopes];
 
     // build permissions object
-    const permission = {
+    const permission: KeycloakPermissionDto = {
       id: resource,
       scopes: scopes,
     };
-    const authzRequest = {
+    const authzRequest: KeycloakAuthzRequestDto = {
       permissions: [permission],
       response_mode: 'decision', // can be 'permissions'
     };

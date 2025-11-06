@@ -47,7 +47,7 @@ export class ConnectionRequestService {
   async testConnection(databaseDto: DatabaseInfoDto) {
     const connectionData = {
       driver: databaseDto.type,
-      port: parseInt(databaseDto.port),
+      port: parseInt(databaseDto.port || ''),
       host: databaseDto.host,
       user: databaseDto.username,
       password: databaseDto.password,

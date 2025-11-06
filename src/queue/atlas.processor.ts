@@ -1,5 +1,5 @@
 import { Processor, Process } from '@nestjs/bull';
-import { Job } from 'bull';
+import type { Job } from 'bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -59,7 +59,7 @@ export class AtlasProcessor {
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
-    const { owner, projectId, archetype }: ArchetypeJobData = job.data;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
     this.logger.log(
       `Handling 'process-add-archetype' for projectId ${projectId}...`,
     );
@@ -103,7 +103,9 @@ export class AtlasProcessor {
         );
 
       // 2. store real archetype template ref (Atlas GUID)
-      const templateGuid = Object.values(templateResponse?.guidAssignments)[0];
+      const templateGuid = Object.values(
+        templateResponse?.guidAssignments || {},
+      )[0];
 
       // check if any nodes are added
       if (archetype.nodes?.length) {
@@ -179,11 +181,11 @@ export class AtlasProcessor {
       if (Object.keys(entityRes?.referredEntities).length) {
         for (const key in entityRes?.referredEntities) {
           const entity = entityRes?.referredEntities[key];
-          const qualifiedName = entity.attributes?.qualifiedName;
+          const qualifiedName = entity.attributes?.qualifiedName!;
           if (
             entity.typeName !== AtlasArchetypeTypeName.Node || //
             entity.status !== 'ACTIVE' ||
-            !nodeIds.has(qualifiedName.split('@').at(-1))
+            !nodeIds.has(qualifiedName.split('@').at(-1)!)
           )
             continue; // skip anything not a Node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
 
@@ -196,14 +198,15 @@ export class AtlasProcessor {
       // update existing nodes classifications with permissions
       // TODO: improve so not flooding the API with requests
       // TODO: improve error handling
-      if (archetype.permissions?.length) {
+      if (archetype.permissions) {
         Object.entries(existingNodes).forEach(
           ([qualifiedName, { guid, classifications }]) => {
-            const nodeId = qualifiedName.split('@').at(-1);
-            const permissions = this.getPermissionClassification(
-              nodeId,
-              archetype.permissions,
-            );
+            const nodeId = qualifiedName.split('@').at(-1)!;
+            const permissions =
+              this.getPermissionClassification(
+                nodeId,
+                archetype.permissions || [],
+              ) || [];
             if (!permissions.length) return;
 
             try {
@@ -372,9 +375,12 @@ export class AtlasProcessor {
     // sort nodes by Id (needed for parent lookup)
     nodes.sort((a, b) => a.id.localeCompare(b.id));
 
-    const columnEdges = archetype.edges.filter((edge: ArchetypeEdgeDto) =>
-      columns.find((e) => e.id === edge.target),
-    );
+    // get column edges if exists
+    const columnEdges =
+      archetype.edges?.filter((edge: ArchetypeEdgeDto) =>
+        columns.find((e) => e.id === edge.target),
+      ) || [];
+
     const guidAssignments: string[] = [];
 
     return {
@@ -385,7 +391,7 @@ export class AtlasProcessor {
         )?.target;
 
         // find parent node
-        const parentId = archetype.edges.find(
+        const parentId = archetype.edges?.find(
           (e) => e.target === node.id,
         )?.source;
 
@@ -502,7 +508,7 @@ export class AtlasProcessor {
     permissions: ArchetypeNodePermissionDto[],
   ): AtlasArchetypeEntityDto['classifications'] {
     const classifications: AtlasArchetypeEntityDto['classifications'] = [];
-    const permission = permissions?.find((p) => p.id === nodeId)?.permission;
+    const permission = permissions.find((p) => p.id === nodeId)?.permission;
     if (permission) {
       classifications.push({
         typeName: 'archetype_node_analysis_permissions',
@@ -550,18 +556,22 @@ export class AtlasProcessor {
 
   private separateColumnsNodes(archetype: ArchetypeDto) {
     // separate columns from actual archetype_nodes
-    const [columns, nodes] = archetype.nodes?.reduce<
-      [ArchetypeNodeDto[], ArchetypeNodeDto[]]
-    >(
-      (acc, node) => {
-        if (node.type === 'column') acc[0].push(node);
-        else acc[1].push(node);
-        return acc;
-      },
-      [[], []],
-    );
-    return { columns, nodes };
+    if (archetype.nodes) {
+      const [columns, nodes] = archetype.nodes.reduce<
+        [ArchetypeNodeDto[], ArchetypeNodeDto[]]
+      >(
+        (acc, node) => {
+          if (node.type === 'column') acc[0].push(node);
+          else acc[1].push(node);
+          return acc;
+        },
+        [[], []],
+      );
+      return { columns, nodes };
+    }
+    return { columns: [], nodes: [] };
   }
+
   private hasAnalysisPermClassification(
     guid: string,
     classifications: AtlasArchetypeEntityDto['classifications'] | undefined,

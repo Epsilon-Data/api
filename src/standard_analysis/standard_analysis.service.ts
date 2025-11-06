@@ -2,18 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class StandardAnalysisService {
-  private async calculateMean(
-    data: any[],
-    columnName: string,
-  ): Promise<number> {
+  private calculateMean(data: any[], columnName: string) {
     const sum = data.reduce((acc, row) => acc + row[columnName], 0);
     return sum / data.length;
   }
 
-  private async calculateMedian(
-    data: any[],
-    columnName: string,
-  ): Promise<number> {
+  private calculateMedian(data: any[], columnName: string) {
     const values = data.map((row) => row[columnName]).sort((a, b) => a - b);
     const middle = Math.floor(values.length / 2);
 
@@ -32,17 +26,11 @@ export class StandardAnalysisService {
     return mode;
   }
 
-  private async calculateMinimum(
-    data: any[],
-    columnName: string,
-  ): Promise<number> {
+  private calculateMinimum(data: any[], columnName: string) {
     return Math.min(...data.map((row) => row[columnName]));
   }
 
-  private async calculateMaximum(
-    data: any[],
-    columnName: string,
-  ): Promise<number> {
+  private calculateMaximum(data: any[], columnName: string) {
     return Math.max(...data.map((row) => row[columnName]));
   }
 
@@ -54,10 +42,7 @@ export class StandardAnalysisService {
     return Math.sqrt(variance);
   }
 
-  private async calculateVariance(
-    data: any[],
-    columnName: string,
-  ): Promise<number> {
+  private async calculateVariance(data: any[], columnName: string) {
     const mean = await this.calculateMean(data, columnName);
     const variance =
       data.reduce((acc, row) => acc + Math.pow(row[columnName] - mean, 2), 0) /
@@ -65,10 +50,7 @@ export class StandardAnalysisService {
     return variance;
   }
 
-  private async calculateFrequency(
-    data: any[],
-    columnName: string,
-  ): Promise<any> {
+  private calculateFrequency(data: any[], columnName: string) {
     const frequency = data.reduce((acc, row) => {
       const value = row[columnName];
       if (!value || value.length === 0) {

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import type { Queue } from 'bull';
 import { ArchetypeDto } from 'src/archetype/dto';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 
@@ -103,7 +103,7 @@ export class QueueService {
       return { message: 'Job not found or still processing' };
     }
 
-    const result = await job.finished();
+    const result: unknown = await job.finished();
     return { jobId, result };
   }
 

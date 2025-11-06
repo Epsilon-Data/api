@@ -13,6 +13,7 @@ import {
   IsUUID,
   IsNotEmpty,
   IsDefined,
+  Equals,
 } from 'class-validator';
 import {
   ArchetypeNodePositionDto,
@@ -97,8 +98,8 @@ export class AtlasSimpleClassificationDto {
 }
 
 export class AtlasArchetypeAnalysisPermissionClassificationDto extends AtlasSimpleClassificationDto {
-  @IsString()
-  override typeName: 'archetype_node_analysis_permissions';
+  @Equals('archetype_node_analysis_permissions')
+  override typeName = 'archetype_node_analysis_permissions' as const;
 
   @IsDefined()
   @IsObject()
@@ -342,17 +343,17 @@ export class AtlasArchetypeEntityDto extends AtlasEntityDto<
   AtlasArchetypeRelationshipMetaDto
 > {
   @IsEnum(AtlasArchetypeTypeName)
-  override typeName!: AtlasArchetypeTypeName;
+  declare typeName: AtlasArchetypeTypeName;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => AtlasArchetypeNodeAttributesDto)
-  override attributes?: AtlasArchetypeNodeAttributesDto;
+  declare attributes?: AtlasArchetypeNodeAttributesDto;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => AtlasArchetypeRelationshipMetaDto)
-  override relationshipAttributes?: AtlasArchetypeRelationshipMetaDto;
+  declare relationshipAttributes?: AtlasArchetypeRelationshipMetaDto;
 
   @IsOptional()
   @IsArray()

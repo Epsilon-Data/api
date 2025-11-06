@@ -1,22 +1,20 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class DatabaseInfoDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Logical database name (database)',
     example: 'analytics_dw',
   })
-  @IsOptional()
   @IsString()
-  name?: string;
+  name: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Database engine/type',
     example: 'postgres', // e.g. postgres | mysql | mssql | oracle | sqlite
   })
-  @IsOptional()
   @IsString()
-  type?: string;
+  type: string;
 
   @ApiPropertyOptional({
     description: 'Hostname or IP address of the database server',

@@ -5,6 +5,7 @@ import { KeycloakAdminService } from './keycloak/keycloak.admin.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import {
   ADMIN_CONFIG,
+  ADMIN_MODULE_CONFIG_FACTORY,
   AdminModuleAsyncConfig,
   AdminModuleConfig,
   KEYCLOAK_ADMIN_INSTANCE,
@@ -72,7 +73,7 @@ export class AdminModule {
     const reqProviders = [
       {
         // TODO: remove this if not needed
-        useFactory: async (configService: ConfigService) => {
+        useFactory: (configService: ConfigService) => {
           return {
             issuerBaseURL: configService.get<string>('admin.issuerBaseURL'),
             realm: configService.get<string>('admin.realm'),
@@ -102,8 +103,9 @@ export class AdminModule {
             realmName: config.realm,
           });
           // init keycloak admin client
-          await kcAdminClient.auth(credentials);
-          setInterval(() => kcAdminClient.auth(credentials), 58 * 1000);
+          // TODO: improve this
+          void (await kcAdminClient.auth(credentials));
+          setInterval(() => void kcAdminClient.auth(credentials), 58 * 1000);
           return kcAdminClient;
         },
         inject: [ADMIN_CONFIG],
@@ -119,10 +121,14 @@ export class AdminModule {
 
     return [
       ...reqProviders,
-      {
-        provide: config.useClass,
-        useClass: config.useClass,
-      },
+      ...(config.useClass
+        ? [
+            {
+              provide: ADMIN_MODULE_CONFIG_FACTORY,
+              useClass: config.useClass,
+            } satisfies Provider,
+          ]
+        : []),
     ];
   }
 }

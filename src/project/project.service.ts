@@ -104,7 +104,10 @@ export class ProjectService {
   }
 
   async getProjectRequests(projectId: string, email: string) {
-    const requestList = { connection: [], analysis: [] };
+    const requestList: { connection: unknown[]; analysis: unknown[] } = {
+      connection: [],
+      analysis: [],
+    };
     requestList.connection = await this.prisma.connection.findMany({
       where: {
         orgAdminEmail: email,
@@ -171,9 +174,7 @@ export class ProjectService {
       connection: {
         create: {
           orgAdminEmail: dto.connection.orgAdminEmail,
-          tempDbDetails: dto.connection.tempDbDetails
-            ? JSON.stringify(dto.connection.tempDbDetails)
-            : null,
+          tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
           request: {
             create: {
               requestorId: dto.ownerId,
@@ -197,9 +198,14 @@ export class ProjectService {
     const memberEmails = memberData.map((member) => member.email);
 
     // add keycloak resource
-    this.keycloak.newResource(project.projectId, project.ownerId, memberEmails);
+    // TODO: better error handling
+    void this.keycloak.newResource(
+      project.projectId,
+      project.ownerId,
+      memberEmails,
+    );
 
-    if (dto.connection.additionalInfo) {
+    if (dto.connection.additionalInfo && project.connection) {
       await this.prisma.comment.create({
         data: {
           requestId: project.connection.request.requestId,
@@ -209,7 +215,7 @@ export class ProjectService {
       });
     }
 
-    if (dto.connection.tempDbDetails.url) {
+    if (dto.connection.tempDbDetails?.url && project.connection) {
       await this.prisma.request.update({
         where: {
           requestId: project.connection.requestId,
@@ -224,7 +230,7 @@ export class ProjectService {
         project.connection.requestId,
         dto.connection.tempDbDetails,
       );
-    } else {
+    } else if (project.connection) {
       await this.prisma.request.update({
         where: {
           requestId: project.connection.requestId,
@@ -305,20 +311,19 @@ export class ProjectService {
       },
     });
 
-    const bucket = 'cover';
-    const key = `${projectId}/cover.jpg`;
-    let cover = null;
+    if (project) {
+      const bucket = 'cover';
+      const key = `${projectId}/cover.jpg`;
 
-    const exists = await this.fileStorage.fileExists(bucket, key);
-    if (exists) {
-      cover = await this.fileStorage.getFileUrl(bucket, key);
+      const cover = await this.fileStorage.getFileUrl(bucket, key);
+
+      return {
+        projectId: projectId,
+        visualizations: project.visualizations,
+        cover: cover || null,
+      };
     }
-
-    return {
-      projectId: projectId,
-      visualizations: project.visualizations,
-      cover: cover,
-    };
+    return {};
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {

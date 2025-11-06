@@ -35,9 +35,10 @@ export class DatabaseService {
         token,
       );
 
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
+    const activeTables =
+      tableResult.entities?.filter(
+        (entity: any) => entity.status === 'ACTIVE',
+      ) || [];
 
     let columnCount = 0;
 
@@ -96,7 +97,7 @@ export class DatabaseService {
       activeTables = [];
     }
 
-    const resultArray = [];
+    const resultArray: unknown[] = [];
     for (const table of activeTables) {
       const guid = table.guid;
       const columnsParams = {
@@ -137,10 +138,10 @@ export class DatabaseService {
           );
 
           return {
-            name: result.entity.attributes.name,
-            type: result.entity.attributes.data_type,
-            nullable: result.entity.attributes.isNullable,
-            primary: result.entity.attributes.isPrimaryKey,
+            name: result.entity.attributes?.name,
+            type: result.entity.attributes?.data_type,
+            nullable: result.entity.attributes?.isNullable,
+            primary: result.entity.attributes?.isPrimaryKey,
           };
         }),
       );
@@ -148,8 +149,8 @@ export class DatabaseService {
       const tableInfo = {
         name: table.attributes.name,
         colCount: activeColumns.length,
-        schema: schemaResult.entities[0].attributes.name,
-        columns: columns,
+        schema: schemaResult.entities?.[0]?.attributes?.name ?? 'public',
+        columns,
       };
 
       resultArray.push(tableInfo);
@@ -171,13 +172,13 @@ export class DatabaseService {
     const tables = tableResult.entities ?? [];
     if (!tables.length) return [];
 
-    const output = [];
+    const output: unknown[] = [];
 
     // 2. iterate tables
     for (const table of tables) {
       const guid = table.guid;
       const tableName =
-        table.attributes.name ?? table.displayText ?? table.guid;
+        table.attributes?.name ?? table.displayText ?? table.guid;
 
       // 3. get columns for each table
       const result = await this.atlas.get<AtlasSearchDslResponseDto>(
@@ -209,7 +210,7 @@ export class DatabaseService {
       token,
     );
 
-    if (result.entity.attributes.erd) {
+    if (result.entity.attributes?.erd) {
       const erdText =
         typeof result.entity.attributes.erd === 'string'
           ? result.entity.attributes.erd

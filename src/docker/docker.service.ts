@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
-import * as Docker from 'dockerode';
+import Docker from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -20,21 +20,21 @@ export class DockerService {
     config: ConfigService,
     private prisma: PrismaService,
   ) {
-    this.atlasUrl = config.get<string>('atlas.uri');
-    this.password = config.get<string>('atlas.adminPassword');
-    this.username = config.get<string>('atlas.adminUsername');
+    this.atlasUrl = config.get<string>('atlas.uri')!;
+    this.password = config.get<string>('atlas.adminPassword')!;
+    this.username = config.get<string>('atlas.adminUsername')!;
 
     this.docker = new Docker();
-    this.imageName = config.get<string>('brokerImage');
+    this.imageName = config.get<string>('brokerImage')!;
 
-    this.isDev = config.get<boolean>('isDev');
+    this.isDev = config.get<boolean>('isDev')!;
   }
 
   async runDataBroker(
     ownerId: string,
     projectId: string,
-    database?: DatabaseInfoDto,
-    requestId?: string,
+    database: DatabaseInfoDto,
+    requestId: string,
   ) {
     this.logger.log(
       `Preparing to run crawler container for request ${requestId}...`,
@@ -44,7 +44,7 @@ export class DockerService {
       `ATLAS_ADMIN_USER=${this.username}`,
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
-      `DATABASE_URL=${this.isDev ? database.url.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database}`,
+      `DATABASE_URL=${this.isDev ? database.url?.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database}`,
       `PROJECT_ID=${projectId}`,
     ];
 
@@ -90,8 +90,6 @@ export class DockerService {
           where: { projectId },
           data: { status: 'ACTIVE' },
         });
-      } catch (err) {
-        throw err; // rethrow errors because async
       } finally {
         //  5. Run cleanup for the container instance
         this.logger.debug(`Removing container ${instanceName}...`);
@@ -140,7 +138,7 @@ export class DockerService {
 
     // remove container if stopped
     if (existingContainers.length > 0) {
-      if (this.isContainerRunning(existingContainers[0].Id)) {
+      if (await this.isContainerRunning(existingContainers[0].Id)) {
         this.logger.debug(`Running image ${imageName} exists, monitoring...`);
         return this.docker.getContainer(existingContainers[0].Id);
       } else {
@@ -189,7 +187,7 @@ export class DockerService {
     return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs);
   }
 
-  private async isContainerRunning(containerId: string): Promise<boolean> {
+  private async isContainerRunning(containerId: string) {
     try {
       const container = this.docker.getContainer(containerId);
       const data = await container.inspect();

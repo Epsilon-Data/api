@@ -13,11 +13,11 @@ import {
   AuthModuleAsyncConfig,
   AuthModuleConfig,
   AUTH_CONFIG,
-  // KEYCLOAK_INSTANCE,
+  AUTH_MODULE_CONFIG_FACTORY,
 } from './config.interface';
 
 import { auth } from 'express-oauth2-jwt-bearer';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KeycloakService } from './keycloak/keycloak.service';
@@ -110,14 +110,6 @@ export class AuthModule implements NestModule {
         inject: config.inject,
         provide: AUTH_CONFIG,
       },
-      // {
-      //   useFactory: (config: AuthModuleConfig) => {
-      //     const keycloak: KeycloakService = new KeycloakService(config);
-      //     return keycloak;
-      //   },
-      //   inject: [AUTH_CONFIG],
-      //   provide: KEYCLOAK_INSTANCE,
-      // },
       KeycloakService,
     ];
     if (config.useExisting || config.useFactory) {
@@ -126,10 +118,14 @@ export class AuthModule implements NestModule {
 
     return [
       ...reqProviders,
-      {
-        provide: config.useClass,
-        useClass: config.useClass,
-      },
+      ...(config.useClass
+        ? [
+            {
+              provide: AUTH_MODULE_CONFIG_FACTORY,
+              useClass: config.useClass,
+            } satisfies Provider,
+          ]
+        : []),
     ];
   }
 }

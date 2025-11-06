@@ -2,6 +2,7 @@ import { ModuleMetadata, Type } from '@nestjs/common';
 
 export const ADMIN_CONFIG = 'ADMIN_CONFIG';
 export const KEYCLOAK_ADMIN_INSTANCE = 'KEYCLOAK_ADMIN_INSTANCE';
+export const ADMIN_MODULE_CONFIG_FACTORY = 'ADMIN_MODULE_CONFIG_FACTORY';
 
 export type AdminModuleConfig = {
   issuerBaseURL: string;

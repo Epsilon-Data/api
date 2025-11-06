@@ -323,7 +323,7 @@ export class ArchetypeDto {
   lastModified?: Date;
 }
 
-function transformToDateString(value: any): Date {
+function transformToDateString(value: any) {
   if (value == null || value === '') return undefined;
 
   if (typeof value === 'string') {

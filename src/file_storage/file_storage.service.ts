@@ -31,7 +31,7 @@ export class FileStorageService {
     });
   }
 
-  async listFiles(bucketName: string, prefix: string): Promise<string[]> {
+  async listFiles(bucketName: string, prefix: string) {
     const params = {
       Bucket: bucketName,
       Prefix: prefix,
@@ -80,7 +80,7 @@ export class FileStorageService {
     await this.s3.send(command);
   }
 
-  async fileExists(bucketName: string, key: string): Promise<boolean> {
+  async fileExists(bucketName: string, key: string) {
     const params = {
       Bucket: bucketName,
       Key: key,

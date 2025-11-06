@@ -1,5 +1,6 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
-import { AuthModuleConfig, AUTH_CONFIG } from './config.interface';
+import { AUTH_CONFIG } from './config.interface';
+import type { AuthModuleConfig } from './config.interface';
 import { Request, Response, NextFunction } from 'express';
 
 import { addToken } from '@epsilon-data/epsilon-api-middleware';

@@ -38,7 +38,7 @@ describe('ArchetypeService', () => {
     }).compile();
 
     service = module.get(ArchetypeService);
-    atlas = module.get(AtlasService) as jest.Mocked<AtlasService>;
+    atlas = module.get(AtlasService);
     jest.clearAllMocks();
   });
 

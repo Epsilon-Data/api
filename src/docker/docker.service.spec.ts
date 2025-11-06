@@ -46,7 +46,7 @@ describe('DockerService', () => {
           case 'isDev':
             return IS_DEV;
           default:
-            return undefined as any;
+            return undefined as unknown;
         }
       }),
     } as unknown as jest.Mocked<ConfigService>;

@@ -6,7 +6,10 @@ import {
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import fetch from 'node-fetch';
 import * as querystring from 'querystring';
-import { AUTH_CONFIG, AuthModuleConfig } from '../config.interface';
+import type { AuthModuleConfig } from '../config.interface';
+import { AUTH_CONFIG } from '../config.interface';
+import { KeycloakAuthzRequestDto, KeycloakPermissionDto } from './dto';
+import { PermissionsDto } from '../dto/permissions.dto';
 
 @Injectable()
 export class KeycloakService {
@@ -14,7 +17,7 @@ export class KeycloakService {
 
   constructor(@Inject(AUTH_CONFIG) private config: AuthModuleConfig) {}
 
-  async checkPermission(authzRequest, request) {
+  async checkPermission(authzRequest: KeycloakAuthzRequestDto, request) {
     const token = request.auth?.token || this.extractTokenFromHeader(request);
     if (!token) {
       return Promise.reject(new Error('No bearer token'));
@@ -22,10 +25,10 @@ export class KeycloakService {
     const params = {
       grant_type: 'urn:ietf:params:oauth:grant-type:uma-ticket',
       audience: authzRequest.audience || this.config.clientId,
-      permission: [],
+      permission: [] as string[],
       response_mode: authzRequest.response_mode || 'decision',
     };
-    const permissions = authzRequest.permissions || [];
+    const permissions: KeycloakPermissionDto[] = authzRequest.permissions || [];
     for (let i = 0; i < permissions.length; i++) {
       const resource = permissions[i];
       let permission = resource.id;
@@ -60,6 +63,7 @@ export class KeycloakService {
 
       // Read text if it exists
       const text = await res.text();
+
       if (res.status >= 500) {
         throw AuthorizationServerException(
           `Server error response in a Permission request: ${text}`,

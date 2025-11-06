@@ -11,7 +11,7 @@ export class AtlasService {
 
   constructor(config: ConfigService) {
     this.baseUrl = `${config.get<string>('atlas.uri')}/api/atlas/v2`;
-    this.password = config.get<string>('atlas.adminPassword');
+    this.password = config.get<string>('atlas.adminPassword')!;
   }
 
   createBasicAuthHeader(): string {

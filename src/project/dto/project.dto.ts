@@ -40,7 +40,7 @@ class DatabaseDto {
 class ConnectionDto {
   @IsOptional()
   @IsUUID()
-  requestId?: string;
+  requestId: string;
 
   @IsOptional()
   @IsString()
@@ -96,9 +96,9 @@ export class ProjectDto {
   @IsNotEmpty()
   ethicsId: string;
 
-  @IsOptional()
+  @IsDefined()
   @IsString()
-  description?: string;
+  description: string;
 
   @IsDefined()
   @IsDate()
@@ -121,9 +121,9 @@ export class ProjectDto {
   @Transform(({ value }) => parseInt(value))
   participantsNum: number;
 
-  @IsOptional()
+  @IsDefined()
   @IsString({ each: true })
-  dbKeywords?: string[];
+  dbKeywords: string[];
 
   @IsDefined()
   @IsNotEmptyObject()

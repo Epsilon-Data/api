@@ -58,13 +58,13 @@ export class ArchetypeService {
       const entities = res?.entities ?? [];
       return entities.map((entity) => ({
         // use nanoid as the archetypeID
-        id: (entity.attributes?.qualifiedName as string).split('@').at(-1),
+        id: (entity.attributes!.qualifiedName as string).split('@').at(-1),
         name: entity.displayText,
-        status: entity.attributes?.status,
-        createdBy: entity.attributes?.owner,
-        created: new Date(entity.attributes?.__timestamp as number),
+        status: entity.attributes!.status,
+        createdBy: entity.attributes!.owner,
+        created: new Date(entity.attributes!.__timestamp as number),
         lastModified: new Date(
-          entity.attributes?.__modificationTimestamp as number,
+          entity.attributes!.__modificationTimestamp as number,
         ),
       }));
     } catch (error) {
@@ -92,7 +92,7 @@ export class ArchetypeService {
       const templateInfo: ArchetypeDto = {
         projectId: projectId,
         archetypeId: archetypeId,
-        name: entityRes.entity?.attributes?.name,
+        name: entityRes.entity?.attributes?.name!,
         status: entityRes.entity?.attributes?.status as ArchetypeStatus,
         nodes: [],
         edges: [],
@@ -110,21 +110,21 @@ export class ArchetypeService {
         )
           continue;
 
-        const nodeId = entity.attributes?.qualifiedName?.split('@').at(-1);
+        const nodeId = entity.attributes?.qualifiedName.split('@').at(-1)!;
 
         // add node itself
         const node: ArchetypeNodeDto = {
           id: nodeId, // NOTE: Maybe use GUID
           data: {
-            label: entity.attributes?.label,
-            level: entity.attributes?.level,
+            label: entity.attributes?.label!,
+            level: entity.attributes?.level!,
           },
-          position: entity.attributes?.position,
+          position: entity.attributes?.position!,
           type: (entity.attributes?.level === 0
             ? 'root'
             : 'category') as ArchetypeNodeType,
         };
-        templateInfo.nodes.push(node);
+        templateInfo.nodes!.push(node);
 
         // add edge if parent exists
         if (entity.relationshipAttributes?.parent_node) {
@@ -138,13 +138,13 @@ export class ArchetypeService {
           const parentNodeId =
             entity.relationshipAttributes?.parent_node?.qualifiedName
               .split('@')
-              .at(-1); // NOTE: Maybe use GUID
+              .at(-1)!; // NOTE: Maybe use GUID
           const edge: ArchetypeEdgeDto = {
             id: `edge_${parentNodeId}_${nodeId}`, // NOTE: maybe use relationship GUID here
             source: parentNodeId,
             target: nodeId,
           };
-          templateInfo.edges.push(edge);
+          templateInfo.edges!.push(edge);
         }
 
         // add column node and edge
@@ -158,27 +158,27 @@ export class ArchetypeService {
           const columnNodeId = entity.relationshipAttributes?.column?.guid;
           const columName = entity.relationshipAttributes?.column?.qualifiedName
             .split('@')
-            .at(-1);
+            .at(-1)!;
           const node: ArchetypeNodeDto = {
             id: columnNodeId,
             data: {
               label: columName,
-              level: entity.attributes?.level + 1,
+              level: entity.attributes!.level! + 1,
             },
             position: {
-              x: entity.attributes?.position?.x,
-              y: entity.attributes?.position?.y + 200,
+              x: entity.attributes!.position!.x,
+              y: entity.attributes!.position!.y + 200,
             },
             type: ArchetypeNodeType.Column,
           };
-          templateInfo.nodes.push(node);
+          templateInfo.nodes!.push(node);
 
           const edge: ArchetypeEdgeDto = {
             source: nodeId,
             target: columnNodeId,
             id: `edge_${nodeId}_${columnNodeId}`, // NOTE: maybe use relationship GUID here
           };
-          templateInfo.edges.push(edge);
+          templateInfo.edges!.push(edge);
         }
 
         // add permissions (skip root node)
@@ -199,7 +199,7 @@ export class ArchetypeService {
               : null;
           })();
           if (analysisPermission)
-            templateInfo.permissions.push(analysisPermission);
+            templateInfo.permissions!.push(analysisPermission);
         }
       }
       return templateInfo;
@@ -261,8 +261,8 @@ export class ArchetypeService {
         for (const key in templateEntity?.referredEntities) {
           const node = templateEntity.referredEntities[key];
           // TODO: check if this is the best thing to use
-          const objectName = node.attributes?.label
-            .replace(/\s+/g, '_')
+          const objectName = node
+            .attributes!.label!.replace(/\s+/g, '_')
             .toLowerCase();
           const description = node.attributes?.label;
           // check for node has children

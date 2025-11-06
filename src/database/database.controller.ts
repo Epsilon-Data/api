@@ -4,13 +4,15 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { DatabaseService } from './database.service';
 
-import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { CurrentUser } from 'src/common/decorators/user.decorator';
+import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
@@ -50,10 +52,9 @@ export class DatabaseController {
   @Post(':projectId/sync')
   @ApiOperation({ summary: 'Sync Database' })
   syncDatasource(
-    @Req() request: Request,
+    @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    const userId = request.auth.payload.sub.toString();
-    return this.databaseSourceService.syncDatasource(userId, projectId);
+    return this.databaseSourceService.syncDatasource(user.id, projectId);
   }
 }
