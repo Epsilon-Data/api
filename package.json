@@ -6,6 +6,10 @@
   "bugs": {
     "url": "https://github.com/epsilon-data/api/issues"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epsilon-data/api.git"
+  },
   "private": true,
   "license": "MIT",
   "engines": {
@@ -14,6 +18,7 @@
   },
   "scripts": {
     "prisma:dev:deploy": "prisma migrate deploy",
+    "prepare": "pnpm simple-git-hooks",
     "db:prepare": "pnpm dlx prisma migrate deploy",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -128,11 +133,11 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged",
-    "pre-push": "pnpm tsx hooks/prevent-push-to-main.ts",
-    "commit-msg": "pnpm tsx hooks/verify-commit.ts $1"
+    "pre-push": "pnpm dlx hooks/prevent-push-to-main.ts",
+    "commit-msg": "pnpm dlx hooks/verify-commit.ts $1"
   },
   "lint-staged": {
     "*.md": "prettier --write",
-    "*.{ts}": "eslint --fix"
+    "{src,apps,libs,test}/**/*.ts": "eslint --fix"
   }
 }
