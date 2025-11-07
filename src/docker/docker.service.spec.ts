@@ -10,7 +10,6 @@ beforeAll(() => {
 });
 
 // Mock dockerode constructor
-// test hooks
 const dockerCreateMock = jest.fn();
 jest.mock('dockerode', () => {
   return jest.fn().mockImplementation((...args: unknown[]) => {
