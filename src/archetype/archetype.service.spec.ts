@@ -5,7 +5,6 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import {
   AtlasArchetypeEntityDto,
-  AtlasArchetypeEntityResponseDto,
   AtlasArchetypeNodeAttributesDto,
   AtlasArchetypeTypeName,
   AtlasEntityDto,
@@ -55,7 +54,7 @@ describe('ArchetypeService', () => {
       const ts = 1761812843720;
       const modTs = 1761926760710;
 
-      const atlasResponse: AtlasSearchBasicResponseDto = {
+      const atlasResponse = {
         queryType: AtlasQueryType.BASIC,
         searchParameters: {},
         entities: [
@@ -203,7 +202,7 @@ describe('ArchetypeService', () => {
       const tableName = `public.examination`;
       const columnQN = `${projectId}@${tableName}@column_hr`;
 
-      const atlasResponse: AtlasArchetypeEntityResponseDto = {
+      const atlasResponse = {
         entity: {
           guid: templateGuid,
           typeName: AtlasArchetypeTypeName.Template,
@@ -254,7 +253,7 @@ describe('ArchetypeService', () => {
                 removePropagationsOnEntityDelete: false,
               },
             ],
-          } as any,
+          },
 
           // Category child entity with parent relation to root, and a column relation
           [catGuid]: {
@@ -308,7 +307,7 @@ describe('ArchetypeService', () => {
                 attributes: { access_level: 'HIGH' },
               },
             ],
-          } as any,
+          },
 
           // column related to template (should not exist, but testing if it gets excluded)
           [columnGuid]: {
@@ -323,7 +322,7 @@ describe('ArchetypeService', () => {
               table: {},
             },
             classifications: [],
-          } as any,
+          },
 
           // Add an INACTIVE node to ensure it is skipped entirely
           inactive: {
@@ -337,7 +336,7 @@ describe('ArchetypeService', () => {
               position: { x: 0, y: 0 },
             },
             relationshipAttributes: {},
-          } as any,
+          },
         },
       };
 
@@ -441,12 +440,12 @@ describe('ArchetypeService', () => {
       const rootQN = `${projectId}@${archetypeId}@${rootNodeId}`;
       const catQN = `${projectId}@${archetypeId}@${catNodeId}`;
 
-      const atlasResponse: AtlasArchetypeEntityResponseDto = {
+      const atlasResponse = {
         entity: {
           typeName: AtlasArchetypeTypeName.Template,
           attributes: { name: 'X', status: 'DRAFT' },
           updateTime: 1,
-        } as any,
+        },
         referredEntities: {
           [rootGuid]: {
             guid: 'a',
@@ -459,7 +458,7 @@ describe('ArchetypeService', () => {
               position: { x: 0, y: 0 },
             },
             relationshipAttributes: {},
-          } as any,
+          },
           [catGuid]: {
             guid: 'b',
             typeName: 'archetype_node',
@@ -482,7 +481,7 @@ describe('ArchetypeService', () => {
                 qualifiedName: `${projectId}@${archetypeId}@col`,
               }, // skip column
             },
-          } as any,
+          },
         },
       };
 
@@ -526,7 +525,7 @@ describe('ArchetypeService', () => {
       const token = 'test-token';
       const attributes = { name: 'New Name', status: 'PUBLISHED' };
 
-      atlas.put.mockResolvedValueOnce({} as any);
+      atlas.put.mockResolvedValueOnce({});
 
       await expect(
         service.updateArchetypeDetails(
@@ -560,8 +559,6 @@ describe('ArchetypeService', () => {
       const archetypeId = 'a';
       const attributes = { status: 'DRAFT' };
       const err = new Error('Atlas PUT failed');
-
-      jest.spyOn(Logger.prototype as any, 'error');
       atlas.put.mockRejectedValueOnce(err);
 
       await expect(
@@ -743,7 +740,7 @@ describe('ArchetypeService', () => {
       expect(schema.properties[parentKey]).toBeDefined();
       expect(schema.properties[parentKey]).toMatchObject({
         type: 'object',
-        properties: expect.any(Object),
+        properties: expect.any(Object) as Record<string, unknown>,
       });
 
       // Child column "Age" -> objectName "age" becomes a property under parent

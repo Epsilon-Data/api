@@ -41,4 +41,4 @@ async function bootstrap() {
   // start api service
   await app.listen(configService.get<number>('apiPort')!);
 }
-bootstrap();
+void bootstrap();

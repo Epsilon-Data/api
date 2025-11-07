@@ -150,6 +150,7 @@ export class ProjectService {
 
   async createProject(owner: string, dto: ProjectDto) {
     // TODO:  Why not have this as object?
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const memberData = JSON.parse(dto.members);
     const customId = nanoid(12);
     const packageName = dto.name
@@ -170,6 +171,7 @@ export class ProjectService {
       startDate: dto.startDate,
       endDate: dto.endDate,
       participantsNum: dto.participantsNum,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       members: memberData,
       dbKeywords: dto.dbKeywords,
       connection: {

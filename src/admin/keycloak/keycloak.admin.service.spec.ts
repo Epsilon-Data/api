@@ -27,7 +27,7 @@ const kcAdminClientMock = {
   clientScopes: {
     find: jest.fn(),
   },
-} as any;
+};
 
 describe('KeycloakAdminService', () => {
   let service: KeycloakAdminService;
