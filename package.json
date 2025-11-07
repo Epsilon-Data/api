@@ -122,7 +122,8 @@
       "chromedriver"
     ],
     "onlyBuiltDependencies": [
-      "@prisma/client"
+      "@prisma/client",
+      "simple-git-hooks"
     ]
   },
   "simple-git-hooks": {
