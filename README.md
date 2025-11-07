@@ -119,3 +119,11 @@ npx prisma migrate resolve --applied 0_init
 ```bash
 npx prisma migrate dev
 ```
+
+## Before raising PR
+
+```bash
+pnpm run clean-install # cleans cache, reinstalls and checks versions of packages
+pnpm fix # runs lint and prettier
+pnpm test # runs all unit tests for packages and services
+```

@@ -32,6 +32,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "fix": "pnpm lint && pnpm format",
     "postinstall": "prisma generate && docker pull ${BROKER_IMAGE:-ghcr.io/epsilon-data/data-broker:latest} || true",
     "clean-install": "pnpm i && pnpm prune && pnpm store prune"
   },
