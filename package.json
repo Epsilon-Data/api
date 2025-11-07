@@ -82,6 +82,7 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
     "jest": "^30.0.0",
+    "picocolors": "^1.1.1",
     "prettier": "^3.6.2",
     "prisma": "^6.19.0",
     "source-map-support": "^0.5.21",
@@ -121,5 +122,14 @@
     "onlyBuiltDependencies": [
       "@prisma/client"
     ]
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged",
+    "pre-push": "pnpm tsx hooks/prevent-push-to-main.ts",
+    "commit-msg": "pnpm tsx hooks/verify-commit.ts $1"
+  },
+  "lint-staged": {
+    "*.md": "prettier --write",
+    "*.{ts}": "eslint --fix"
   }
 }
