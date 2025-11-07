@@ -102,6 +102,8 @@ export class FileStorageService {
         throw new Error(
           `S3 error checking bucket "${bucketName}": ${error.name} (${error.$metadata?.httpStatusCode ?? 'n/a'})`,
         );
+      } else {
+        throw error;
       }
     }
   }
@@ -140,6 +142,8 @@ export class FileStorageService {
         throw new Error(
           `S3 error checking bucket "${bucketName}": ${error.name} (${error.$metadata?.httpStatusCode ?? 'n/a'})`,
         );
+      } else {
+        throw error;
       }
 
       // Non-AWS error (network, runtime, etc.)

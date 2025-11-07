@@ -87,7 +87,7 @@ export interface PolicyRoleRepresentation {
   required?: boolean;
 }
 export interface PolicyRepresentation {
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
   decisionStrategy?: DecisionStrategy;
   description?: string;
   id?: string;
@@ -117,8 +117,8 @@ export interface GroupRepresentation {
   subGroupCount?: number;
   subGroups?: GroupRepresentation[];
   access?: Record<string, boolean>;
-  attributes?: Record<string, any>;
-  clientRoles?: Record<string, any>;
+  attributes?: Record<string, unknown>;
+  clientRoles?: Record<string, unknown>;
   realmRoles?: string[];
 }
 
@@ -529,8 +529,9 @@ export class KeycloakAdminService {
       });
 
       // invite collaborators and add them to the group
+      // TODO: improve this
       if (collaborators) {
-        collaborators.map(async (email) => {
+        const collabQueries = collaborators.map(async (email) => {
           const users = (await this.checkUser({ email })) || [];
           if (!users.length) {
             // TODO: add realm roles to user
@@ -540,13 +541,14 @@ export class KeycloakAdminService {
               enabled: true,
               groups: [`${groupPrefix}${id}`],
             });
-            await this.setUserActions(user.id);
+            return await this.setUserActions(user.id);
           } else {
-            users.map(async (user: UserRepresentation) => {
+            return users.map(async (user: UserRepresentation) => {
               await this.addUserToGroup(user.id!, createGroup.id);
             });
           }
         });
+        await Promise.all(collabQueries);
       }
 
       if (custodian) {
@@ -563,10 +565,9 @@ export class KeycloakAdminService {
           });
           await this.setUserActions(user.id);
         } else {
-          users.map(async (user: UserRepresentation) => {
-            custodianUserName = user.username!;
-            await this.addUserToGroup(user.id!, createGroup.id);
-          });
+          const user = users[0];
+          custodianUserName = user.username!;
+          await this.addUserToGroup(user.id!, createGroup.id);
         }
         // create custodian policy
         await this.createPolicy(client, 'user', {

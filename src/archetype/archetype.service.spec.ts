@@ -20,11 +20,14 @@ import { Logger } from '@nestjs/common';
 describe('ArchetypeService', () => {
   let service: ArchetypeService;
   let atlas: jest.Mocked<AtlasService>;
+  let logSpy: jest.SpyInstance<any, unknown[], unknown>;
 
   const mockQueue = {} as unknown as jest.Mocked<QueueService>;
 
   beforeAll(() => {
-    jest.spyOn(Logger.prototype as any, 'error').mockImplementation(() => {});
+    logSpy = jest
+      .spyOn(Logger.prototype as any, 'error')
+      .mockImplementation(() => {});
   });
 
   beforeEach(async () => {
@@ -54,7 +57,7 @@ describe('ArchetypeService', () => {
 
       const atlasResponse: AtlasSearchBasicResponseDto = {
         queryType: AtlasQueryType.BASIC,
-        searchParameters: {} as any,
+        searchParameters: {},
         entities: [
           {
             typeName: 'archetype_template',
@@ -162,7 +165,7 @@ describe('ArchetypeService', () => {
     it('returns [] when response has no entities', async () => {
       const atlasResponse: AtlasSearchBasicResponseDto = {
         queryType: AtlasQueryType.BASIC,
-        searchParameters: {} as any,
+        searchParameters: {},
         approximateCount: 0,
       };
       atlas.post.mockResolvedValueOnce(atlasResponse);
@@ -558,7 +561,7 @@ describe('ArchetypeService', () => {
       const attributes = { status: 'DRAFT' };
       const err = new Error('Atlas PUT failed');
 
-      const logSpy = jest.spyOn(Logger.prototype as any, 'error');
+      jest.spyOn(Logger.prototype as any, 'error');
       atlas.put.mockRejectedValueOnce(err);
 
       await expect(
@@ -768,7 +771,6 @@ describe('ArchetypeService', () => {
     it('logs and rethrows on unexpected errors', async () => {
       const projectId = 'oops';
       const err = new Error('boom');
-      const logSpy = jest.spyOn(Logger.prototype as any, 'error');
 
       atlas.post.mockRejectedValueOnce(err);
 

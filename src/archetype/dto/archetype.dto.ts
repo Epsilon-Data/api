@@ -18,6 +18,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { transformDateString } from 'src/common/utils/class.util';
 
 export enum ArchetypeStatus {
   DRAFT = 'DRAFT',
@@ -321,11 +322,4 @@ export class ArchetypeDto {
   @IsDate()
   @Transform(({ value }) => transformDateString(value), { toClassOnly: true })
   lastModified?: Date;
-}
-
-function transformDateString(value: string | Date): Date {
-  if (value instanceof Date) return value;
-
-  const parsedDate = new Date(value);
-  return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 }

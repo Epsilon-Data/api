@@ -11,12 +11,15 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 describe('AtlasService', () => {
   let service: AtlasService;
   let configService: jest.Mocked<ConfigService>;
+  let logSpy: jest.SpyInstance<any, unknown[], unknown>;
 
   const ATLAS_URI = 'http://atlas.local:21000';
   const ATLAS_PASSWORD = 'supersecret';
 
   beforeAll(() => {
-    jest.spyOn(Logger.prototype as any, 'error').mockImplementation(() => {});
+    logSpy = jest
+      .spyOn(Logger.prototype as any, 'error')
+      .mockImplementation(() => {});
   });
 
   beforeEach(async () => {
@@ -132,7 +135,6 @@ describe('AtlasService', () => {
     it('logs and rethrows GET errors', async () => {
       const err = new Error('boom');
       mockedAxios.get.mockRejectedValueOnce(err);
-      const logSpy = jest.spyOn(Logger.prototype as any, 'error');
       await expect(service.get(endpoint)).rejects.toThrow('boom');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -144,7 +146,6 @@ describe('AtlasService', () => {
     it('logs and rethrows POST errors', async () => {
       const err = new Error('bad post');
       mockedAxios.post.mockRejectedValueOnce(err);
-      const logSpy = jest.spyOn(Logger.prototype as any, 'error');
       await expect(service.post(endpoint, {})).rejects.toThrow('bad post');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -156,7 +157,6 @@ describe('AtlasService', () => {
     it('logs and rethrows PUT errors', async () => {
       const err = new Error('bad put');
       mockedAxios.put.mockRejectedValueOnce(err);
-      const logSpy = jest.spyOn(Logger.prototype as any, 'error');
       await expect(service.put(endpoint, {})).rejects.toThrow('bad put');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -168,7 +168,6 @@ describe('AtlasService', () => {
     it('logs and rethrows DELETE errors', async () => {
       const err = new Error('bad delete');
       mockedAxios.delete.mockRejectedValueOnce(err);
-      const logSpy = jest.spyOn(Logger.prototype as any, 'error');
       await expect(service.delete(endpoint)).rejects.toThrow('bad delete');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(

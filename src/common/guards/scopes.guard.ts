@@ -13,10 +13,10 @@ export class ScopesGuard implements CanActivate {
   ): boolean | Promise<boolean> | Observable<boolean> {
     const ctx = context.switchToHttp();
 
-    let err = undefined;
+    let err;
     const resp = ctx.getResponse<Response>();
     requiredScopes(this.scopes)(ctx.getRequest<Request>(), resp, (res) => {
-      err = res;
+      err = res as Error;
     });
 
     if (resp.headersSent) {
@@ -24,7 +24,7 @@ export class ScopesGuard implements CanActivate {
     }
 
     if (err) {
-      throw new Error(err);
+      throw err instanceof Error ? err : new Error(String(err));
     }
 
     return true;

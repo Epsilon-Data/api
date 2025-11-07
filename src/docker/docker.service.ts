@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
@@ -54,7 +55,7 @@ export class DockerService {
     try {
       // 1. Check if image exists and throw error if it does not
       this.logger.debug(`Checking for base image ${this.imageName}...`);
-      this.imageExistsLocally(this.imageName);
+      void this.imageExistsLocally(this.imageName);
 
       //  2. Start container
       this.logger.debug(`Starting the container ${instanceName}...`);
@@ -140,7 +141,7 @@ export class DockerService {
 
     // remove container if stopped
     if (existingContainers.length > 0) {
-      if (await this.isContainerRunning(existingContainers[0].Id)) {
+      if (await this.isContainerRunning(existingContainers[0].Id as string)) {
         this.logger.debug(`Running image ${imageName} exists, monitoring...`);
         return await this.docker.getContainer(existingContainers[0].Id);
       } else {
@@ -171,7 +172,7 @@ export class DockerService {
     return container;
   }
 
-  private monitorContainer(container: Docker.Container): Promise<void> {
+  private monitorContainer(container: Docker.Container) {
     return new Promise((resolve, reject) => {
       container.wait((err, data) => {
         if (err)

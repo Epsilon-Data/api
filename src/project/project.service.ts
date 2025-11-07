@@ -6,7 +6,7 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service'
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
-import { PermissionsDto } from 'src/auth/dto';
+import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
 @Injectable()
 export class ProjectService {
   constructor(
@@ -60,7 +60,7 @@ export class ProjectService {
     return projects;
   }
 
-  async getUserProjects(permissions: PermissionsDto[]) {
+  async getUserProjects(permissions: KeycloakPermissionDto[]) {
     const uuids = permissions.map((item) => item.rsname.split(':')[1]);
     const projects = await this.prisma.project.findMany({
       where: {
@@ -149,6 +149,7 @@ export class ProjectService {
   }
 
   async createProject(owner: string, dto: ProjectDto) {
+    // TODO:  Why not have this as object?
     const memberData = JSON.parse(dto.members);
     const customId = nanoid(12);
     const packageName = dto.name
@@ -325,7 +326,7 @@ export class ProjectService {
         cover: cover || null,
       };
     }
-    return {};
+    return null;
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {
@@ -338,7 +339,7 @@ export class ProjectService {
       },
     });
 
-    this.fileStorage.deleteFile('cover', `${projectId}`);
+    await this.fileStorage.deleteFile('cover', `${projectId}`);
     return projectId;
   }
 
@@ -352,7 +353,7 @@ export class ProjectService {
       },
     });
 
-    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
+    await this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
   }
 }

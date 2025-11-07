@@ -34,8 +34,8 @@ export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(
-        // TODO: investigate
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        // TODO: investigate this
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument
         cookieParser(),
         AuthMiddleware,
         auth({

@@ -12,7 +12,7 @@ beforeAll(() => {
 // Mock dockerode constructor
 const dockerCreateMock = jest.fn();
 jest.mock('dockerode', () => {
-  return jest.fn().mockImplementation((...args: any[]) => {
+  return jest.fn().mockImplementation((...args: unknown[]) => {
     dockerCreateMock(...args);
     return {
       // add any docker instance methods you may call later (e.g., listContainers)

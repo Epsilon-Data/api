@@ -12,6 +12,7 @@ import {
   ValidateNested,
   IsUrl,
 } from 'class-validator';
+import { parseInteger, transformDateString } from 'src/common/utils/class.util';
 
 class DatabaseDto {
   @IsOptional()
@@ -118,7 +119,7 @@ export class ProjectDto {
   @IsDefined()
   @IsNumber()
   @IsNotEmpty()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInteger(value))
   participantsNum: number;
 
   @IsDefined()
@@ -159,11 +160,4 @@ class VisualDto {
   @IsUrl()
   @IsNotEmpty()
   link: string;
-}
-
-function transformDateString(value: string | Date): Date {
-  if (value instanceof Date) return value;
-
-  const parsedDate = new Date(value);
-  return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 }

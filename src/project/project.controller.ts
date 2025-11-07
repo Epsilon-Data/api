@@ -16,14 +16,13 @@ import {
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { ProjectDto, SettingsDto } from './dto';
-import express from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/utils/options';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
-import { PermissionsDto } from 'src/auth/dto';
+import type { Request } from 'express';
 
 // import { Resource } from 'src/common/decorators/resource.decorator';
 // import { Scopes } from 'src/common/decorators/scopes.decorator';
@@ -50,16 +49,17 @@ export class ProjectController {
 
   @Get('')
   @ApiOperation({ summary: 'Get list of all projects for logged in user' })
-  async getUserProjects(@Req() request: express.Request) {
-    // check for user resorce permissions
+  async getUserProjects(@Req() request: Request) {
+    // check for user resource permissions
     // TODO: perhaps call this once and cache
     const authzRequest = {
       response_mode: 'permissions',
     };
-    const permissions = (await this.keycloakConnect.checkPermission(
+
+    const permissions = await this.keycloakConnect.getPermissions(
       authzRequest,
       request,
-    )) as PermissionsDto[];
+    );
     return await this.projectService.getUserProjects(permissions);
   }
 

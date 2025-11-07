@@ -309,7 +309,10 @@ export class ArchetypeService {
                 schema.properties[parentRef] = this.initJsonObject();
               }
               schema.properties[parentRef]['properties'] = {
-                ...schema.properties[parentRef]['properties'],
+                ...(schema.properties[parentRef]['properties'] as Record<
+                  string,
+                  unknown
+                >),
                 ...properties,
               };
             } else {
