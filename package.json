@@ -32,7 +32,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "postinstall": "prisma generate && docker pull ${BROKER_IMAGE:-ghcr.io/epsilon-data/data-broker:latest} || true"
+    "postinstall": "prisma generate && docker pull ${BROKER_IMAGE:-ghcr.io/epsilon-data/data-broker:latest} || true",
+    "clean-install": "pnpm i && pnpm prune && pnpm store prune"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.925.0",
@@ -98,6 +99,7 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.20.0"
   },
@@ -133,8 +135,8 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged",
-    "pre-push": "pnpm dlx hooks/prevent-push-to-main.ts",
-    "commit-msg": "pnpm dlx hooks/verify-commit.ts $1"
+    "pre-push": "pnpm tsx hooks/prevent-push-to-main.ts",
+    "commit-msg": "pnpm tsx hooks/verify-commit.ts $1"
   },
   "lint-staged": {
     "*.md": "prettier --write",
