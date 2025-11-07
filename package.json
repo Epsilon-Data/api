@@ -139,7 +139,9 @@
     "commit-msg": "pnpm tsx hooks/verify-commit.ts $1"
   },
   "lint-staged": {
-    "*.md": "prettier --write",
-    "{src,apps,libs,test}/**/*.ts": "eslint --fix"
+    "**/*.{js,ts,tsx}": [
+      "eslint --fix"
+    ],
+    "**/*": "prettier --write --ignore-unknown"
   }
 }
