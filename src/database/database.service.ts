@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import {
@@ -10,6 +10,7 @@ import {
 
 @Injectable()
 export class DatabaseService {
+  private readonly logger = new Logger(DatabaseService.name);
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
@@ -88,6 +89,7 @@ export class DatabaseService {
       token,
     );
 
+    // TODO: check if DSL always only return active?
     const activeTables = tablesResult.entities
       ? tablesResult.entities.filter(
           (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
@@ -95,22 +97,29 @@ export class DatabaseService {
       : [];
 
     const resultArray: unknown[] = [];
+
     for (const table of activeTables) {
       const guid = table.guid;
-      const columnsParams = {
-        query: `from rdbms_table where __guid = "${guid}" select columns`,
+      // 3. get columns for each table
+      const params = {
+        ignoreRelationships: false,
+        minExtInfo: false,
       };
-      const columnsResult = await this.atlas.get<AtlasSearchDslResponseDto>(
-        '/search/dsl',
-        columnsParams,
+      const result = await this.atlas.get<AtlasEntityResponseDto>(
+        '/entity/guid/' + guid,
+        params,
         token,
       );
-
-      const activeColumns = columnsResult.entities
-        ? columnsResult.entities.filter(
-            (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
-          )
-        : [];
+      // ignore table if no foreign_keys
+      if (
+        !(
+          result.entity.relationshipAttributes?.foreign_keys as Record<
+            string,
+            unknown
+          >[]
+        ).length
+      )
+        continue;
 
       const schemaParams = {
         query: `from rdbms_table where __guid = "${guid}" select db`,
@@ -120,33 +129,27 @@ export class DatabaseService {
         schemaParams,
       );
 
-      const columns = await Promise.all(
-        activeColumns.map(async (column) => {
-          const params = {
-            ignoreRelationships: true,
-          };
-          const result = await this.atlas.get<AtlasEntityResponseDto>(
-            '/entity/guid/' + column.guid,
-            params,
-            token,
-          );
-
-          return {
-            name: result.entity.attributes?.name,
-            type: result.entity.attributes?.data_type,
-            nullable: result.entity.attributes?.isNullable,
-            primary: result.entity.attributes?.isPrimaryKey,
-          };
-        }),
-      );
-
+      const columns: Record<string, unknown>[] = [];
+      if (result.referredEntities) {
+        // 4. iterate build column objects
+        for (const key in result.referredEntities) {
+          const entity = result.referredEntities[key];
+          if (entity.status !== 'ACTIVE' || entity.typeName !== 'rdbms_column')
+            continue;
+          columns.push({
+            name: entity.attributes?.name ?? entity.displayText ?? entity.guid,
+            type: entity.attributes?.data_type,
+            nullable: entity.attributes?.isNullable,
+            primary: entity.attributes?.isPrimaryKey,
+          });
+        }
+      }
       const tableInfo = {
         name: table.attributes?.name,
-        colCount: activeColumns.length,
+        colCount: columns.length,
         schema: schemaResult.entities?.[0]?.attributes?.name ?? 'public',
         columns,
       };
-
       resultArray.push(tableInfo);
     }
 
@@ -175,17 +178,34 @@ export class DatabaseService {
         table.attributes?.name ?? table.displayText ?? table.guid;
 
       // 3. get columns for each table
-      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
-        '/search/dsl',
-        { query: `from rdbms_table where __guid = "${guid}" select columns` },
+      const params = {
+        ignoreRelationships: false,
+        minExtInfo: false,
+      };
+      const result = await this.atlas.get<AtlasEntityResponseDto>(
+        '/entity/guid/' + guid,
+        params,
         token,
       );
-      // 4. iterate build column objects
-      if (result.entities) {
-        for (const col of result.entities) {
+      // ignore table if no foreign_keys
+      if (
+        !(
+          result.entity.relationshipAttributes?.foreign_keys as Record<
+            string,
+            unknown
+          >[]
+        ).length
+      )
+        continue;
+      if (result.referredEntities) {
+        // 4. iterate build column objects
+        for (const key in result.referredEntities) {
+          const entity = result.referredEntities[key];
+          if (entity.status !== 'ACTIVE' || entity.typeName !== 'rdbms_column')
+            continue;
           output.push({
-            id: col.guid,
-            name: col.attributes?.name ?? col.displayText ?? col.guid,
+            id: entity.guid,
+            name: entity.attributes?.name ?? entity.displayText ?? entity.guid,
             table: tableName,
           });
         }

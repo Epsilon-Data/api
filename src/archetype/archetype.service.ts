@@ -101,105 +101,107 @@ export class ArchetypeService {
       };
 
       // add all archetype_nodes
-      for (const key in entityRes?.referredEntities) {
-        const entity = entityRes.referredEntities[key];
-        // if entity is not ACTIVE or archetype_node
-        if (
-          entity.status !== 'ACTIVE' ||
-          entity.typeName !== AtlasArchetypeTypeName.Node
-        )
-          continue;
-
-        const nodeId = entity.attributes.qualifiedName.split('@').at(-1)!;
-
-        // add node itself
-        const node: ArchetypeNodeDto = {
-          id: nodeId, // NOTE: Maybe use GUID
-          data: {
-            label: entity.attributes.label!,
-            level: entity.attributes.level!,
-          },
-          position: entity.attributes.position!,
-          type: (entity.attributes?.level === 0
-            ? 'root'
-            : 'category') as ArchetypeNodeType,
-        };
-        templateInfo.nodes!.push(node);
-
-        // add edge if parent exists
-        if (entity.relationshipAttributes?.parent_node) {
-          // skip if relationship is inactive
+      if (entityRes?.referredEntities) {
+        for (const key in entityRes?.referredEntities) {
+          const entity = entityRes.referredEntities[key];
+          // if entity is not ACTIVE or archetype_node
           if (
-            entity.relationshipAttributes?.parent_node?.relationshipStatus !==
-            'ACTIVE'
+            entity.status !== 'ACTIVE' ||
+            entity.typeName !== AtlasArchetypeTypeName.Node
           )
             continue;
 
-          const parentNodeId =
-            entity.relationshipAttributes.parent_node.qualifiedName
-              .split('@')
-              .at(-1)!; // NOTE: Maybe use GUID
-          const edge: ArchetypeEdgeDto = {
-            id: `edge_${parentNodeId}_${nodeId}`, // NOTE: maybe use relationship GUID here
-            source: parentNodeId,
-            target: nodeId,
-          };
-          templateInfo.edges!.push(edge);
-        }
+          const nodeId = entity.attributes.qualifiedName.split('@').at(-1)!;
 
-        // add column node and edge
-        if (entity.relationshipAttributes?.column) {
-          // skip if relationship is inactive
-          if (
-            entity.relationshipAttributes?.column?.relationshipStatus !==
-            'ACTIVE'
-          )
-            continue;
-          const columnNodeId = entity.relationshipAttributes?.column?.guid;
-          const columName = entity.relationshipAttributes.column.qualifiedName
-            .split('@')
-            .at(-1)!;
+          // add node itself
           const node: ArchetypeNodeDto = {
-            id: columnNodeId,
+            id: nodeId, // NOTE: Maybe use GUID
             data: {
-              label: columName,
-              level: entity.attributes.level! + 1,
+              label: entity.attributes.label!,
+              level: entity.attributes.level!,
             },
-            position: {
-              x: entity.attributes.position!.x,
-              y: entity.attributes.position!.y + 200,
-            },
-            type: ArchetypeNodeType.Column,
+            position: entity.attributes.position!,
+            type: (entity.attributes?.level === 0
+              ? 'root'
+              : 'category') as ArchetypeNodeType,
           };
           templateInfo.nodes!.push(node);
 
-          const edge: ArchetypeEdgeDto = {
-            source: nodeId,
-            target: columnNodeId,
-            id: `edge_${nodeId}_${columnNodeId}`, // NOTE: maybe use relationship GUID here
-          };
-          templateInfo.edges!.push(edge);
-        }
+          // add edge if parent exists
+          if (entity.relationshipAttributes?.parent_node) {
+            // skip if relationship is inactive
+            if (
+              entity.relationshipAttributes?.parent_node?.relationshipStatus !==
+              'ACTIVE'
+            )
+              continue;
 
-        // add permissions (skip root node)
-        if (entity.attributes?.level !== 0) {
-          const analysisPermission = (() => {
-            const permission = entity.classifications?.find(
-              (c) =>
-                c.typeName === 'archetype_node_analysis_permissions' &&
-                c.entityStatus === 'ACTIVE' &&
-                entity.guid === c.entityGuid, // don't include propagated permissions
-            );
-            return permission
-              ? {
-                  id: nodeId,
-                  permission: permission?.attributes
-                    ?.access_level as ArchetypePermission,
-                }
-              : null;
-          })();
-          if (analysisPermission)
-            templateInfo.permissions!.push(analysisPermission);
+            const parentNodeId =
+              entity.relationshipAttributes.parent_node.qualifiedName
+                .split('@')
+                .at(-1)!; // NOTE: Maybe use GUID
+            const edge: ArchetypeEdgeDto = {
+              id: `edge_${parentNodeId}_${nodeId}`, // NOTE: maybe use relationship GUID here
+              source: parentNodeId,
+              target: nodeId,
+            };
+            templateInfo.edges!.push(edge);
+          }
+
+          // add column node and edge
+          if (entity.relationshipAttributes?.column) {
+            // skip if relationship is inactive
+            if (
+              entity.relationshipAttributes?.column?.relationshipStatus !==
+              'ACTIVE'
+            )
+              continue;
+            const columnNodeId = entity.relationshipAttributes?.column?.guid;
+            const columName = entity.relationshipAttributes.column.qualifiedName
+              .split('@')
+              .at(-1)!;
+            const node: ArchetypeNodeDto = {
+              id: columnNodeId,
+              data: {
+                label: columName,
+                level: entity.attributes.level! + 1,
+              },
+              position: {
+                x: entity.attributes.position!.x,
+                y: entity.attributes.position!.y + 200,
+              },
+              type: ArchetypeNodeType.Column,
+            };
+            templateInfo.nodes!.push(node);
+
+            const edge: ArchetypeEdgeDto = {
+              source: nodeId,
+              target: columnNodeId,
+              id: `edge_${nodeId}_${columnNodeId}`, // NOTE: maybe use relationship GUID here
+            };
+            templateInfo.edges!.push(edge);
+          }
+
+          // add permissions (skip root node)
+          if (entity.attributes?.level !== 0) {
+            const analysisPermission = (() => {
+              const permission = entity.classifications?.find(
+                (c) =>
+                  c.typeName === 'archetype_node_analysis_permissions' &&
+                  c.entityStatus === 'ACTIVE' &&
+                  entity.guid === c.entityGuid, // don't include propagated permissions
+              );
+              return permission
+                ? {
+                    id: nodeId,
+                    permission: permission?.attributes
+                      ?.access_level as ArchetypePermission,
+                  }
+                : null;
+            })();
+            if (analysisPermission)
+              templateInfo.permissions!.push(analysisPermission);
+          }
         }
       }
       return templateInfo;
