@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
+import { customAlphabet } from 'nanoid';
 
 import {
   ArchetypeNodeDto,
@@ -12,6 +13,7 @@ import {
   ArchetypeDto,
   ArchetypeNodeType,
 } from 'src/archetype/dto';
+
 import {
   AtlasArchetypeAnalysisPermissionClassificationDto,
   AtlasArchetypeEntityDto,
@@ -24,21 +26,7 @@ import {
   AtlasSubmitArchetypeEntityDto,
 } from 'src/atlas/dto';
 
-import { customAlphabet } from 'nanoid';
-import { DatabaseInfoDto } from 'src/connection_request/dto';
-
-type ArchetypeJobData = {
-  owner: string;
-  projectId: string;
-  archetype: ArchetypeDto;
-};
-
-type DataBrokerJobData = {
-  owner: string;
-  projectId: string;
-  requestId: string;
-  database: DatabaseInfoDto;
-};
+import { ArchetypeJobDataDto, DataBrokerJobDataDto } from './dto';
 
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
@@ -56,7 +44,7 @@ export class AtlasProcessor {
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
     const { owner, projectId, requestId, database } =
-      job.data as DataBrokerJobData;
+      job.data as DataBrokerJobDataDto;
     this.logger.log(
       `Handling 'process-data-broker' for requestId ${requestId}...`,
     );
@@ -70,7 +58,7 @@ export class AtlasProcessor {
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
-    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobDataDto;
     this.logger.log(
       `Handling 'process-add-archetype' for projectId ${projectId}...`,
     );
@@ -91,7 +79,6 @@ export class AtlasProcessor {
         attributes: {
           owner: owner,
           name: archetype.name,
-          // TODO: is this needed?
           projectId: projectId,
           // nanoid is used later as archetypeId in frontend
           qualifiedName: `${projectId}@${archetype.archetypeId}`,
@@ -156,7 +143,7 @@ export class AtlasProcessor {
 
   @Process('process-update-archetype')
   async handleUpdateArchetypeJob(job: Job) {
-    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobDataDto;
     this.logger.log(
       `Handling 'process-update-archetype' for archetype ${archetype.archetypeId}...`,
     );
@@ -532,40 +519,6 @@ export class AtlasProcessor {
       } as AtlasArchetypeAnalysisPermissionClassificationDto);
     }
     return classifications;
-  }
-
-  private addParent(
-    archetypeId: string,
-    nodeId: string,
-    edges: ArchetypeEdgeDto[],
-  ) {
-    const parent = edges.find((e) => e.target === nodeId)?.source;
-    return parent
-      ? {
-          parent_node: {
-            typeName: AtlasArchetypeTypeName.Node,
-            uniqueAttributes: {
-              qualifiedName: `${archetypeId}@${parent}`,
-            },
-          },
-        }
-      : {};
-  }
-
-  private addColumn(
-    archetypeId: string,
-    nodeId: string,
-    columnEdges: ArchetypeEdgeDto[],
-  ) {
-    const columnGuid = columnEdges.find((e) => e.source === nodeId)?.target;
-    return parent
-      ? {
-          column: {
-            typeName: 'column',
-            guid: columnGuid,
-          },
-        }
-      : {};
   }
 
   private separateColumnsNodes(archetype: ArchetypeDto) {
