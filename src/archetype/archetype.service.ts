@@ -100,7 +100,7 @@ export class ArchetypeService {
         lastModified: new Date(entityRes.entity?.updateTime),
       };
 
-      // add all archetype_nodes
+      // add all archetype_nodes if any exist
       if (entityRes?.referredEntities) {
         for (const key in entityRes?.referredEntities) {
           const entity = entityRes.referredEntities[key];
