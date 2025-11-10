@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
-import * as Docker from 'dockerode';
+import Docker, { Container } from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DockerService {
-  private docker: Docker;
+  private readonly docker: Docker;
   private atlasUrl: string;
   private username: string;
   private password: string;
@@ -20,21 +23,21 @@ export class DockerService {
     config: ConfigService,
     private prisma: PrismaService,
   ) {
-    this.atlasUrl = config.get<string>('atlas.uri');
-    this.password = config.get<string>('atlas.adminPassword');
-    this.username = config.get<string>('atlas.adminUsername');
+    this.atlasUrl = config.get<string>('atlas.uri')!;
+    this.password = config.get<string>('atlas.adminPassword')!;
+    this.username = config.get<string>('atlas.adminUsername')!;
 
     this.docker = new Docker();
-    this.imageName = config.get<string>('brokerImage');
+    this.imageName = config.get<string>('brokerImage')!;
 
-    this.isDev = config.get<boolean>('isDev');
+    this.isDev = config.get<boolean>('isDev')!;
   }
 
   async runDataBroker(
     ownerId: string,
     projectId: string,
-    database?: DatabaseInfoDto,
-    requestId?: string,
+    requestId: string,
+    database: DatabaseInfoDto,
   ) {
     this.logger.log(
       `Preparing to run crawler container for request ${requestId}...`,
@@ -44,7 +47,7 @@ export class DockerService {
       `ATLAS_ADMIN_USER=${this.username}`,
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
-      `DATABASE_URL=${this.isDev ? database.url.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database}`,
+      `DATABASE_URL=${this.isDev ? database.url?.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database.url}`,
       `PROJECT_ID=${projectId}`,
     ];
 
@@ -52,7 +55,7 @@ export class DockerService {
     try {
       // 1. Check if image exists and throw error if it does not
       this.logger.debug(`Checking for base image ${this.imageName}...`);
-      this.imageExistsLocally(this.imageName);
+      void this.imageExistsLocally(this.imageName);
 
       //  2. Start container
       this.logger.debug(`Starting the container ${instanceName}...`);
@@ -90,8 +93,6 @@ export class DockerService {
           where: { projectId },
           data: { status: 'ACTIVE' },
         });
-      } catch (err) {
-        throw err; // rethrow errors because async
       } finally {
         //  5. Run cleanup for the container instance
         this.logger.debug(`Removing container ${instanceName}...`);
@@ -130,7 +131,7 @@ export class DockerService {
     imageName: string,
     envVariables: string[],
     name: string,
-  ) {
+  ): Promise<Container> {
     const existingContainers = await this.docker.listContainers({
       all: true,
       filters: {
@@ -140,9 +141,9 @@ export class DockerService {
 
     // remove container if stopped
     if (existingContainers.length > 0) {
-      if (this.isContainerRunning(existingContainers[0].Id)) {
+      if (await this.isContainerRunning(existingContainers[0].Id as string)) {
         this.logger.debug(`Running image ${imageName} exists, monitoring...`);
-        return this.docker.getContainer(existingContainers[0].Id);
+        return await this.docker.getContainer(existingContainers[0].Id);
       } else {
         const existingContainer = this.docker.getContainer(
           existingContainers[0].Id,
@@ -171,10 +172,11 @@ export class DockerService {
     return container;
   }
 
-  private monitorContainer(container: Docker.Container): Promise<void> {
+  private monitorContainer(container: Docker.Container) {
     return new Promise((resolve, reject) => {
       container.wait((err, data) => {
-        if (err) return reject(err);
+        if (err)
+          return reject(err instanceof Error ? err : new Error(String(err)));
         resolve(data);
       });
     });
@@ -189,7 +191,7 @@ export class DockerService {
     return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs);
   }
 
-  private async isContainerRunning(containerId: string): Promise<boolean> {
+  private async isContainerRunning(containerId: string) {
     try {
       const container = this.docker.getContainer(containerId);
       const data = await container.inspect();

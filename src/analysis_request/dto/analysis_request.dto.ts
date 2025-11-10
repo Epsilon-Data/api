@@ -8,6 +8,8 @@ import {
   IsOptional,
 } from 'class-validator';
 
+import { transformDateString } from 'src/common/utils/class.util';
+
 export class AnalysisDto {
   @IsOptional()
   @IsUUID()
@@ -77,14 +79,4 @@ export class AnalysisDto {
   @IsString()
   @IsNotEmpty()
   projectEthicsId: string;
-}
-
-function transformDateString(value: any): Date {
-  if (typeof value === 'string') {
-    const parsedDate = new Date(value);
-    if (!isNaN(parsedDate.getTime())) {
-      return parsedDate;
-    }
-  }
-  return value;
 }

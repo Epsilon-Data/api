@@ -18,6 +18,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { transformDateString } from 'src/common/utils/class.util';
 
 export enum ArchetypeStatus {
   DRAFT = 'DRAFT',
@@ -319,23 +320,6 @@ export class ArchetypeDto {
   })
   @IsOptional()
   @IsDate()
-  @Transform(({ value }) => transformToDateString(value), { toClassOnly: true })
+  @Transform(({ value }) => transformDateString(value), { toClassOnly: true })
   lastModified?: Date;
-}
-
-function transformToDateString(value: any): Date {
-  if (value == null || value === '') return undefined;
-
-  if (typeof value === 'string') {
-    const timestamp = Number(value);
-    // handle numeric string =
-    if (!isNaN(timestamp)) return new Date(timestamp);
-    return new Date(value);
-  }
-  // handle epoch as number
-  if (typeof value === 'number') {
-    return new Date(value);
-  }
-  // already a Date or invalid input
-  return value;
 }

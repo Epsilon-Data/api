@@ -11,25 +11,31 @@ export class NotificationService {
     this.url = config.get<string>('notificationServiceUrl');
   }
 
-  async sendNotification(notificationDto: NotificationDto) {
+  async sendNotification(notificationDto: NotificationDto): Promise<unknown> {
     try {
       const response = await axios.post(`${this.url}/send`, notificationDto);
       return response.data;
     } catch (error) {
       throw new HttpException(
-        'Error sending notification',
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: `Error sending notifications, error: ${error}`,
+        },
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 
-  async getNotifications(userId: string) {
+  async getNotifications(userId: string): Promise<unknown> {
     try {
       const response = await axios.get(`${this.url}/user/${userId}`);
       return response.data;
     } catch (error) {
       throw new HttpException(
-        'Error fetching notifications',
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: `Error fetching notifications, error: ${error}`,
+        },
         HttpStatus.BAD_REQUEST,
       );
     }

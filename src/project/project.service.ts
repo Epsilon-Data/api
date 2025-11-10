@@ -6,7 +6,7 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service'
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
-import { PermissionsDto } from 'src/auth/dto';
+import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
 @Injectable()
 export class ProjectService {
   constructor(
@@ -60,7 +60,7 @@ export class ProjectService {
     return projects;
   }
 
-  async getUserProjects(permissions: PermissionsDto[]) {
+  async getUserProjects(permissions: KeycloakPermissionDto[]) {
     const uuids = permissions.map((item) => item.rsname.split(':')[1]);
     const projects = await this.prisma.project.findMany({
       where: {
@@ -104,7 +104,10 @@ export class ProjectService {
   }
 
   async getProjectRequests(projectId: string, email: string) {
-    const requestList = { connection: [], analysis: [] };
+    const requestList: { connection: unknown[]; analysis: unknown[] } = {
+      connection: [],
+      analysis: [],
+    };
     requestList.connection = await this.prisma.connection.findMany({
       where: {
         orgAdminEmail: email,
@@ -146,6 +149,8 @@ export class ProjectService {
   }
 
   async createProject(owner: string, dto: ProjectDto) {
+    // TODO:  Why not have this as object?
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const memberData = JSON.parse(dto.members);
     const customId = nanoid(12);
     const packageName = dto.name
@@ -166,14 +171,13 @@ export class ProjectService {
       startDate: dto.startDate,
       endDate: dto.endDate,
       participantsNum: dto.participantsNum,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       members: memberData,
       dbKeywords: dto.dbKeywords,
       connection: {
         create: {
           orgAdminEmail: dto.connection.orgAdminEmail,
-          tempDbDetails: dto.connection.tempDbDetails
-            ? JSON.stringify(dto.connection.tempDbDetails)
-            : null,
+          tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
           request: {
             create: {
               requestorId: dto.ownerId,
@@ -194,12 +198,19 @@ export class ProjectService {
       },
     });
 
-    const memberEmails = memberData.map((member) => member.email);
+    const memberEmails = (memberData as unknown[]).map(
+      (member: Record<string, string>) => member.email,
+    );
 
     // add keycloak resource
-    this.keycloak.newResource(project.projectId, project.ownerId, memberEmails);
+    // TODO: better error handling
+    void this.keycloak.newResource(
+      project.projectId,
+      project.ownerId,
+      memberEmails,
+    );
 
-    if (dto.connection.additionalInfo) {
+    if (dto.connection.additionalInfo && project.connection) {
       await this.prisma.comment.create({
         data: {
           requestId: project.connection.request.requestId,
@@ -209,7 +220,7 @@ export class ProjectService {
       });
     }
 
-    if (dto.connection.tempDbDetails.url) {
+    if (dto.connection.tempDbDetails?.url && project.connection) {
       await this.prisma.request.update({
         where: {
           requestId: project.connection.requestId,
@@ -224,7 +235,7 @@ export class ProjectService {
         project.connection.requestId,
         dto.connection.tempDbDetails,
       );
-    } else {
+    } else if (project.connection) {
       await this.prisma.request.update({
         where: {
           requestId: project.connection.requestId,
@@ -305,20 +316,19 @@ export class ProjectService {
       },
     });
 
-    const bucket = 'cover';
-    const key = `${projectId}/cover.jpg`;
-    let cover = null;
+    if (project) {
+      const bucket = 'cover';
+      const key = `${projectId}/cover.jpg`;
 
-    const exists = await this.fileStorage.fileExists(bucket, key);
-    if (exists) {
-      cover = await this.fileStorage.getFileUrl(bucket, key);
+      const cover = await this.fileStorage.getFileUrl(bucket, key);
+
+      return {
+        projectId: projectId,
+        visualizations: project.visualizations,
+        cover: cover || null,
+      };
     }
-
-    return {
-      projectId: projectId,
-      visualizations: project.visualizations,
-      cover: cover,
-    };
+    return null;
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {
@@ -331,7 +341,7 @@ export class ProjectService {
       },
     });
 
-    this.fileStorage.deleteFile('cover', `${projectId}`);
+    await this.fileStorage.deleteFile('cover', `${projectId}`);
     return projectId;
   }
 
@@ -345,7 +355,7 @@ export class ProjectService {
       },
     });
 
-    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
+    await this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
   }
 }

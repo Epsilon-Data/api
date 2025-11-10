@@ -9,6 +9,7 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
+  S3ServiceException,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
@@ -19,19 +20,18 @@ export class FileStorageService {
   private readonly s3: S3Client;
 
   constructor(config: ConfigService) {
-    const s3Details = config.get<any>('s3');
     this.s3 = new S3Client({
-      endpoint: s3Details.uri,
+      endpoint: config.get<string>('s3.uri')!,
       credentials: {
-        accessKeyId: s3Details.keyId,
-        secretAccessKey: s3Details.secretKey,
+        accessKeyId: config.get<string>('s3.keyId')!,
+        secretAccessKey: config.get<string>('s3.secretKey')!,
       },
       region: 'us-east-1',
       forcePathStyle: true,
     });
   }
 
-  async listFiles(bucketName: string, prefix: string): Promise<string[]> {
+  async listFiles(bucketName: string, prefix: string) {
     const params = {
       Bucket: bucketName,
       Prefix: prefix,
@@ -80,7 +80,7 @@ export class FileStorageService {
     await this.s3.send(command);
   }
 
-  async fileExists(bucketName: string, key: string): Promise<boolean> {
+  async fileExists(bucketName: string, key: string) {
     const params = {
       Bucket: bucketName,
       Key: key,
@@ -90,9 +90,20 @@ export class FileStorageService {
     try {
       await this.s3.send(command);
       return true;
-    } catch (error) {
-      if (error.name === 'NotFound' || error.$metadata.httpStatusCode === 404) {
-        return false;
+    } catch (error: unknown) {
+      if (error instanceof S3ServiceException) {
+        if (
+          error.name === 'NotFound' ||
+          error.$metadata.httpStatusCode === 404
+        ) {
+          return false;
+        }
+        // other checking error
+        throw new Error(
+          `S3 error checking bucket "${bucketName}": ${error.name} (${error.$metadata?.httpStatusCode ?? 'n/a'})`,
+        );
+      } else {
+        throw error;
       }
     }
   }
@@ -117,17 +128,28 @@ export class FileStorageService {
       // Check if the bucket exists
       const headCommand = new HeadBucketCommand({ Bucket: bucketName });
       await this.s3.send(headCommand);
-    } catch (error) {
-      if (
-        error.name === 'NotFound' ||
-        error.$metadata?.httpStatusCode === 404
-      ) {
-        // Bucket does not exist, so create it
-        const createCommand = new CreateBucketCommand({ Bucket: bucketName });
-        await this.s3.send(createCommand);
+    } catch (error: unknown) {
+      if (error instanceof S3ServiceException) {
+        // 404 -> bucket does not exist
+        if (
+          error.$metadata?.httpStatusCode === 404 ||
+          error.name === 'NotFound'
+        ) {
+          await this.s3.send(new CreateBucketCommand({ Bucket: bucketName }));
+          return;
+        }
+        // checking error
+        throw new Error(
+          `S3 error checking bucket "${bucketName}": ${error.name} (${error.$metadata?.httpStatusCode ?? 'n/a'})`,
+        );
       } else {
-        throw new Error(`Error checking bucket: ${error.message}`);
+        throw error;
       }
+
+      // Non-AWS error (network, runtime, etc.)
+      throw new Error(
+        `Unknown error checking bucket "${bucketName}": ${String(error)}`,
+      );
     }
   }
 }

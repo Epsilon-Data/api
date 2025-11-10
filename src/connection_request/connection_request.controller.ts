@@ -6,11 +6,9 @@ import {
   HttpStatus,
   Param,
   Post,
-  Req,
   // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { Request } from 'express';
 import { DatabaseInfoDto } from './dto';
 import {
   ApiOkResponse,
@@ -18,6 +16,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+
+import { CurrentUser } from 'src/common/decorators/user.decorator';
+import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 // import { Scopes } from 'src/auth/scopes.decorator';
 // import { Resource } from 'src/auth/resource.decorator';
@@ -34,10 +35,8 @@ export class ConnectionRequestController {
   @ApiOperation({
     summary: 'Get list of logged in user connection requests',
   })
-  getList(@Req() request: Request) {
-    // TODO: use decorator for this
-    const userId = request.auth.payload.sub.toString();
-    return this.connectionRequestService.getList(userId);
+  getList(@CurrentUser() user: CurrentUserInfo) {
+    return this.connectionRequestService.getList(user.id);
   }
 
   @Post('test')
@@ -57,7 +56,7 @@ export class ConnectionRequestController {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
-          error: 'Wrong credentials',
+          error: `Wrong credentials error: ${error}`,
         },
         HttpStatus.UNAUTHORIZED,
       );
@@ -70,10 +69,9 @@ export class ConnectionRequestController {
     summary: 'Approve connection request',
   })
   async approve(
-    @Req() request: Request,
+    @CurrentUser() user: CurrentUserInfo,
     @Param('requestId') requestId: string,
   ) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.connectionRequestService.approve(userId, requestId);
+    return await this.connectionRequestService.approve(user.id, requestId);
   }
 }

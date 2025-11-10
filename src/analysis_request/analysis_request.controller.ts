@@ -8,14 +8,14 @@ import {
   Patch,
   UseGuards,
   Param,
-  Req,
   Post,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis_request.service';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
 import { AnalysisDto } from './dto';
-import { Request } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from 'src/common/decorators/user.decorator';
+import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 @ApiTags('Analysis Request')
 @Controller('analysis-request')
@@ -35,14 +35,13 @@ export class AnalysisRequestController {
     summary: 'Get list of analysis requests',
   })
   @UseGuards(new ScopesGuard('api.hub.read'))
-  async getList(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.analysisRequestService.getList(userId);
+  async getList(@CurrentUser() user: CurrentUserInfo) {
+    return await this.analysisRequestService.getList(user.id);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create analysis request' })
-  createRequest(@Req() request: Request, @Body() dto: AnalysisDto) {
+  createRequest(@Body() dto: AnalysisDto) {
     return this.analysisRequestService.createRequest(dto);
   }
 

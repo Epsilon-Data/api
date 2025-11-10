@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import {
+  AtlasEntityHeaderDto,
   AtlasEntityResponseDto,
   AtlasSearchDslAttributesResponseDto,
   AtlasSearchDslResponseDto,
@@ -35,9 +36,10 @@ export class DatabaseService {
         token,
       );
 
-    const activeTables = tableResult.entities.filter(
-      (entity: any) => entity.status === 'ACTIVE',
-    );
+    const activeTables =
+      tableResult.entities?.filter(
+        (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
+      ) || [];
 
     let columnCount = 0;
 
@@ -55,7 +57,7 @@ export class DatabaseService {
 
       if (result.entities) {
         const activeColumns = result.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
+          (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
         );
         columnCount += activeColumns.length;
       }
@@ -86,17 +88,13 @@ export class DatabaseService {
       token,
     );
 
-    let activeTables;
+    const activeTables = tablesResult.entities
+      ? tablesResult.entities.filter(
+          (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
+        )
+      : [];
 
-    if (tablesResult.entities) {
-      activeTables = tablesResult.entities.filter(
-        (entity: any) => entity.status === 'ACTIVE',
-      );
-    } else {
-      activeTables = [];
-    }
-
-    const resultArray = [];
+    const resultArray: unknown[] = [];
     for (const table of activeTables) {
       const guid = table.guid;
       const columnsParams = {
@@ -108,14 +106,11 @@ export class DatabaseService {
         token,
       );
 
-      let activeColumns;
-      if (columnsResult.entities) {
-        activeColumns = columnsResult.entities.filter(
-          (entity: any) => entity.status === 'ACTIVE',
-        );
-      } else {
-        activeColumns = [];
-      }
+      const activeColumns = columnsResult.entities
+        ? columnsResult.entities.filter(
+            (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
+          )
+        : [];
 
       const schemaParams = {
         query: `from rdbms_table where __guid = "${guid}" select db`,
@@ -137,19 +132,19 @@ export class DatabaseService {
           );
 
           return {
-            name: result.entity.attributes.name,
-            type: result.entity.attributes.data_type,
-            nullable: result.entity.attributes.isNullable,
-            primary: result.entity.attributes.isPrimaryKey,
+            name: result.entity.attributes?.name,
+            type: result.entity.attributes?.data_type,
+            nullable: result.entity.attributes?.isNullable,
+            primary: result.entity.attributes?.isPrimaryKey,
           };
         }),
       );
 
       const tableInfo = {
-        name: table.attributes.name,
+        name: table.attributes?.name,
         colCount: activeColumns.length,
-        schema: schemaResult.entities[0].attributes.name,
-        columns: columns,
+        schema: schemaResult.entities?.[0]?.attributes?.name ?? 'public',
+        columns,
       };
 
       resultArray.push(tableInfo);
@@ -171,13 +166,13 @@ export class DatabaseService {
     const tables = tableResult.entities ?? [];
     if (!tables.length) return [];
 
-    const output = [];
+    const output: unknown[] = [];
 
     // 2. iterate tables
     for (const table of tables) {
       const guid = table.guid;
       const tableName =
-        table.attributes.name ?? table.displayText ?? table.guid;
+        table.attributes?.name ?? table.displayText ?? table.guid;
 
       // 3. get columns for each table
       const result = await this.atlas.get<AtlasSearchDslResponseDto>(
@@ -209,7 +204,7 @@ export class DatabaseService {
       token,
     );
 
-    if (result.entity.attributes.erd) {
+    if (result.entity.attributes?.erd) {
       const erdText =
         typeof result.entity.attributes.erd === 'string'
           ? result.entity.attributes.erd
@@ -223,13 +218,13 @@ export class DatabaseService {
     return '';
   }
 
-  async findDbId(projectId: string) {
+  findDbId(projectId: string) {
     //TODO: getDbId from Atlas
     return projectId;
   }
 
   async syncDatasource(userId: string, projectId: string) {
-    const dbId = await this.findDbId(projectId);
+    const dbId = this.findDbId(projectId);
     await this.prisma.connection.findUnique({
       where: {
         projectId: projectId,

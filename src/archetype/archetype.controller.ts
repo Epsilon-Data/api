@@ -11,7 +11,6 @@ import {
   Patch,
   Post,
   Put,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ArchetypeService } from './archetype.service';
@@ -29,6 +28,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+
+import { CurrentUser } from 'src/common/decorators/user.decorator';
+import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
@@ -82,13 +84,12 @@ export class ArchetypeController {
     description: 'Archetype creation accepted for processing',
   })
   createArchetype(
+    @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() archetype: ArchetypeDto,
-    @Req() request: Request,
   ) {
-    const username = request.auth.payload.preferred_username.toString();
     return this.archetypeService.createArchetype(
-      username,
+      user.username,
       projectId,
       archetype,
     );
@@ -104,14 +105,13 @@ export class ArchetypeController {
     description: 'Archetype update accepted for processing',
   })
   updateArchetype(
+    @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('archetypeId') archetypeId: string,
     @Body() archetype: ArchetypeDto,
-    @Req() request: Request,
   ) {
-    const username = request.auth.payload.preferred_username.toString();
     return this.archetypeService.updateArchetype(
-      username,
+      user.username,
       projectId,
       archetypeId,
       archetype,

@@ -1,14 +1,11 @@
 import { SetMetadata } from '@nestjs/common';
-import * as KeycloakConnect from 'keycloak-connect';
+import { Request } from 'express';
 
 export const META_SCOPES = 'scopes';
 
 export const META_CONDITIONAL_SCOPES = 'conditional-scopes';
 
-export type ConditionalScopeFn = (
-  request: any,
-  token: KeycloakConnect.Token,
-) => string[];
+export type ConditionalScopeFn = (request: Request, token: string) => string[];
 
 /**
  * Keycloak authorization scopes.
@@ -31,7 +28,12 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
  */
 export const ResolvedScopes = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
-    const req = ctx.switchToHttp().getRequest();
+    const req = ctx.switchToHttp().getRequest<
+      Request & {
+        auth?: { payload?: Record<string, unknown> };
+        scopes?: string[];
+      }
+    >();
     return req.scopes;
   },
 );

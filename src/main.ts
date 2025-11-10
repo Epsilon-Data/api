@@ -10,9 +10,9 @@ import { PrismaClientExceptionFilter } from './prisma/prisma-client-exception/pr
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
-  app.setGlobalPrefix(configService.get<string>('apiBaseUrl'));
+  app.setGlobalPrefix(configService.get<string>('apiBaseUrl')!);
   app.enableCors({
-    origin: configService.get('auth.trustedWebOrigins'),
+    origin: configService.get<string[]>('auth.trustedWebOrigins'),
     credentials: true,
   });
 
@@ -39,6 +39,6 @@ async function bootstrap() {
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
   // start api service
-  await app.listen(configService.get('apiPort'));
+  await app.listen(configService.get<number>('apiPort')!);
 }
-bootstrap();
+void bootstrap();

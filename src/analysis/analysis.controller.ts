@@ -13,6 +13,7 @@ import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { ProjectService } from 'src/project/project.service';
 import { LoginDto } from './dto/login.dto';
 import { ArchetypeService } from 'src/archetype/archetype.service';
+import type { Request } from 'express';
 
 @Controller('analysis')
 export class AnalysisController {
@@ -42,8 +43,9 @@ export class AnalysisController {
       authzRequest,
       request,
     );
-    //TODO: may need a different query for the project to get info for SDK
-    return await this.projectService.getUserProjects(permissions);
+    if (permissions)
+      //TODO: may need a different query for the project to get info for SDK
+      return await this.projectService.getUserProjects(permissions);
   }
 
   @Get('datasets/:projectId')

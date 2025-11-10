@@ -1,5 +1,5 @@
 import { Processor, Process } from '@nestjs/bull';
-import { Job } from 'bull';
+import type { Job } from 'bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -10,6 +10,7 @@ import {
   ArchetypeNodePermissionDto,
   ArchetypeEdgeDto,
   ArchetypeDto,
+  ArchetypeNodeType,
 } from 'src/archetype/dto';
 import {
   AtlasArchetypeAnalysisPermissionClassificationDto,
@@ -24,12 +25,21 @@ import {
 } from 'src/atlas/dto';
 
 import { customAlphabet } from 'nanoid';
+import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 type ArchetypeJobData = {
   owner: string;
   projectId: string;
   archetype: ArchetypeDto;
 };
+
+type DataBrokerJobData = {
+  owner: string;
+  projectId: string;
+  requestId: string;
+  database: DatabaseInfoDto;
+};
+
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
 @Processor('atlas-queue')
@@ -45,21 +55,22 @@ export class AtlasProcessor {
 
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
-    const { ownerId, projectId, requestId, database } = job.data;
+    const { owner, projectId, requestId, database } =
+      job.data as DataBrokerJobData;
     this.logger.log(
       `Handling 'process-data-broker' for requestId ${requestId}...`,
     );
     return await this.docker.runDataBroker(
-      ownerId,
+      owner,
       projectId,
-      database,
       requestId,
+      database,
     );
   }
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
-    const { owner, projectId, archetype }: ArchetypeJobData = job.data;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
     this.logger.log(
       `Handling 'process-add-archetype' for projectId ${projectId}...`,
     );
@@ -68,7 +79,7 @@ export class AtlasProcessor {
       this.logger.log(
         `Archetype already exists, handing handling over to 'process-add-archetype'...`,
       );
-      this.handleUpdateArchetypeJob(job);
+      await this.handleUpdateArchetypeJob(job);
       return archetype.archetypeId;
     }
     try {
@@ -103,7 +114,9 @@ export class AtlasProcessor {
         );
 
       // 2. store real archetype template ref (Atlas GUID)
-      const templateGuid = Object.values(templateResponse?.guidAssignments)[0];
+      const templateGuid = Object.values(
+        templateResponse?.guidAssignments || {},
+      )[0];
 
       // check if any nodes are added
       if (archetype.nodes?.length) {
@@ -143,7 +156,7 @@ export class AtlasProcessor {
 
   @Process('process-update-archetype')
   async handleUpdateArchetypeJob(job: Job) {
-    const { owner, projectId, archetype }: ArchetypeJobData = job.data;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
     this.logger.log(
       `Handling 'process-update-archetype' for archetype ${archetype.archetypeId}...`,
     );
@@ -179,11 +192,11 @@ export class AtlasProcessor {
       if (Object.keys(entityRes?.referredEntities).length) {
         for (const key in entityRes?.referredEntities) {
           const entity = entityRes?.referredEntities[key];
-          const qualifiedName = entity.attributes?.qualifiedName;
+          const qualifiedName = entity.attributes.qualifiedName;
           if (
             entity.typeName !== AtlasArchetypeTypeName.Node || //
             entity.status !== 'ACTIVE' ||
-            !nodeIds.has(qualifiedName.split('@').at(-1))
+            !nodeIds.has(qualifiedName.split('@').at(-1)!)
           )
             continue; // skip anything not a Node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
 
@@ -196,33 +209,34 @@ export class AtlasProcessor {
       // update existing nodes classifications with permissions
       // TODO: improve so not flooding the API with requests
       // TODO: improve error handling
-      if (archetype.permissions?.length) {
+      if (archetype.permissions) {
         Object.entries(existingNodes).forEach(
           ([qualifiedName, { guid, classifications }]) => {
-            const nodeId = qualifiedName.split('@').at(-1);
-            const permissions = this.getPermissionClassification(
-              nodeId,
-              archetype.permissions,
-            );
+            const nodeId = qualifiedName.split('@').at(-1)!;
+            const permissions =
+              this.getPermissionClassification(
+                nodeId,
+                archetype.permissions || [],
+              ) || [];
             if (!permissions.length) return;
 
             try {
               // check if classification already exists for the entity
               if (this.hasAnalysisPermClassification(guid, classifications)) {
-                this.atlas.put<AtlasArchetypeEntityResponseDto>(
+                void this.atlas.put<AtlasArchetypeEntityResponseDto>(
                   `/entity/guid/${guid}/classifications`,
                   permissions,
                 );
               } else {
                 // create classification for existing entity
-                this.atlas.post<AtlasArchetypeEntityResponseDto>(
+                void this.atlas.post<AtlasArchetypeEntityResponseDto>(
                   `/entity/guid/${guid}/classifications`,
                   permissions,
                 );
               }
             } catch (err) {
               this.logger.error(
-                `Failed to set classifications for ${guid}: ${err?.message}`,
+                `Failed to set classifications for ${guid}: ${err}`,
               );
             }
           },
@@ -315,7 +329,10 @@ export class AtlasProcessor {
 
   @Process('process-delete-archetype')
   async handleDeleteArchetypeJob(job: Job) {
-    const { archetypeId, projectId } = job.data;
+    const { archetypeId, projectId } = job.data as {
+      archetypeId: string;
+      projectId: string;
+    };
     this.logger.log(
       `Handling 'process-delete-archetype' for archetype ${archetypeId}...`,
     );
@@ -372,9 +389,12 @@ export class AtlasProcessor {
     // sort nodes by Id (needed for parent lookup)
     nodes.sort((a, b) => a.id.localeCompare(b.id));
 
-    const columnEdges = archetype.edges.filter((edge: ArchetypeEdgeDto) =>
-      columns.find((e) => e.id === edge.target),
-    );
+    // get column edges if exists
+    const columnEdges =
+      archetype.edges?.filter((edge: ArchetypeEdgeDto) =>
+        columns.find((e) => e.id === edge.target),
+      ) || [];
+
     const guidAssignments: string[] = [];
 
     return {
@@ -385,7 +405,7 @@ export class AtlasProcessor {
         )?.target;
 
         // find parent node
-        const parentId = archetype.edges.find(
+        const parentId = archetype.edges?.find(
           (e) => e.target === node.id,
         )?.source;
 
@@ -502,7 +522,7 @@ export class AtlasProcessor {
     permissions: ArchetypeNodePermissionDto[],
   ): AtlasArchetypeEntityDto['classifications'] {
     const classifications: AtlasArchetypeEntityDto['classifications'] = [];
-    const permission = permissions?.find((p) => p.id === nodeId)?.permission;
+    const permission = permissions.find((p) => p.id === nodeId)?.permission;
     if (permission) {
       classifications.push({
         typeName: 'archetype_node_analysis_permissions',
@@ -550,18 +570,22 @@ export class AtlasProcessor {
 
   private separateColumnsNodes(archetype: ArchetypeDto) {
     // separate columns from actual archetype_nodes
-    const [columns, nodes] = archetype.nodes?.reduce<
-      [ArchetypeNodeDto[], ArchetypeNodeDto[]]
-    >(
-      (acc, node) => {
-        if (node.type === 'column') acc[0].push(node);
-        else acc[1].push(node);
-        return acc;
-      },
-      [[], []],
-    );
-    return { columns, nodes };
+    if (archetype.nodes) {
+      const [columns, nodes] = archetype.nodes.reduce<
+        [ArchetypeNodeDto[], ArchetypeNodeDto[]]
+      >(
+        (acc, node) => {
+          if (node.type === ArchetypeNodeType.Column) acc[0].push(node);
+          else acc[1].push(node);
+          return acc;
+        },
+        [[], []],
+      );
+      return { columns, nodes };
+    }
+    return { columns: [], nodes: [] };
   }
+
   private hasAnalysisPermClassification(
     guid: string,
     classifications: AtlasArchetypeEntityDto['classifications'] | undefined,

@@ -16,11 +16,13 @@ import {
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { ProjectDto, SettingsDto } from './dto';
-import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/utils/options';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+import { CurrentUser } from 'src/common/decorators/user.decorator';
+import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+import type { Request } from 'express';
 
 // import { Resource } from 'src/common/decorators/resource.decorator';
 // import { Scopes } from 'src/common/decorators/scopes.decorator';
@@ -36,26 +38,25 @@ export class ProjectController {
 
   @Get('own')
   @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
-  async getUserOwnedProjects(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return await this.projectService.getUserOwnedProjects(userId);
+  async getUserOwnedProjects(@CurrentUser() user: CurrentUserInfo) {
+    return await this.projectService.getUserOwnedProjects(user.id);
   }
 
   @Get('share')
-  async getUserSharedProjects(@Req() request: Request) {
-    const userEmail = request.auth.payload.email.toString();
-    return await this.projectService.getUserSharedProjects(userEmail);
+  async getUserSharedProjects(@CurrentUser() user: CurrentUserInfo) {
+    return await this.projectService.getUserSharedProjects(user.email);
   }
 
   @Get('')
   @ApiOperation({ summary: 'Get list of all projects for logged in user' })
   async getUserProjects(@Req() request: Request) {
-    // check for user resorce permissions
+    // check for user resource permissions
     // TODO: perhaps call this once and cache
     const authzRequest = {
       response_mode: 'permissions',
     };
-    const permissions = await this.keycloakConnect.checkPermission(
+
+    const permissions = await this.keycloakConnect.getPermissions(
       authzRequest,
       request,
     );
@@ -75,19 +76,17 @@ export class ProjectController {
   @Get(':projectId/requests')
   @ApiOperation({ summary: 'Get list of incoming requests' })
   async getProjectRequests(
-    @Req() request: Request,
+    @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    const email = request.auth.payload.email.toString();
-    return await this.projectService.getProjectRequests(projectId, email);
+    return await this.projectService.getProjectRequests(projectId, user.email);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create project' })
-  createProject(@Req() request: Request, @Body() dto: ProjectDto) {
+  createProject(@CurrentUser() user: CurrentUserInfo, @Body() dto: ProjectDto) {
     // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
-    const owner = request.auth.payload.preferred_username.toString();
-    return this.projectService.createProject(owner, dto);
+    return this.projectService.createProject(user.username, dto);
   }
 
   @Get(':projectId')
