@@ -18,7 +18,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { transformDateString } from 'src/common/utils/class.util';
+import { transformDateString } from 'src/utils/class.util';
 
 export enum ArchetypeStatus {
   DRAFT = 'DRAFT',
