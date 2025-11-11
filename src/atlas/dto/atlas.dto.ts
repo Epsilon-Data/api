@@ -170,7 +170,11 @@ export class AtlasEntityHeaderDto {
   classificationNames!: unknown[];
 
   @IsArray()
+  classifications: unknown[];
+
+  @IsArray()
   meaningNames!: unknown[];
+
   @IsArray()
   meanings!: unknown[];
 
@@ -436,6 +440,16 @@ export class AtlasEntityResponseDto {
   @ValidateNested()
   @Type(() => AtlasEntityDto)
   entity!: AtlasEntityDto;
+}
+
+export class AtlasBulkEntityResponseDto {
+  @IsObject()
+  referredEntities!: Record<string, AtlasEntityDto>;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasEntityDto)
+  entities!: AtlasEntityDto[];
 }
 
 export class AtlasArchetypeEntityResponseDto {
