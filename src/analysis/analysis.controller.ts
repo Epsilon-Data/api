@@ -44,8 +44,8 @@ export class AnalysisController {
       request,
     );
     if (permissions)
-      //TODO: may need a different query for the project to get info for SDK
-      return await this.projectService.getUserProjects(permissions);
+      //TODO: need a different query for the project to get info for SDK
+      return await this.projectService.getUserSharedProjects(permissions);
   }
 
   @Get('datasets/:projectId')

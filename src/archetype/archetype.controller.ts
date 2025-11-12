@@ -76,7 +76,7 @@ export class ArchetypeController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view', 'edit')
+  @Scopes('view, edit')
   @Post(':projectId')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Create archetype for a project' })

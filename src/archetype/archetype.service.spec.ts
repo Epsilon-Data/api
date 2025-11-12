@@ -15,6 +15,7 @@ import {
 } from 'src/atlas/dto';
 import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
 import { Logger } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 describe('ArchetypeService', () => {
   let service: ArchetypeService;
@@ -36,6 +37,12 @@ describe('ArchetypeService', () => {
         {
           provide: AtlasService,
           useValue: { get: jest.fn(), post: jest.fn(), put: jest.fn() },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            project: { update: jest.fn() },
+          },
         },
         { provide: QueueService, useValue: mockQueue },
       ],

@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ProjectDto, SettingsDto } from './dto';
+import { ProjectDto, ProjectListDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
@@ -9,6 +9,7 @@ import { QueueService } from 'src/queue/queue.service';
 import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
 @Injectable()
 export class ProjectService {
+  private readonly logger = new Logger(ProjectService.name);
   constructor(
     private prisma: PrismaService,
     private queue: QueueService,
@@ -16,7 +17,7 @@ export class ProjectService {
     private readonly keycloak: KeycloakAdminService,
   ) {}
 
-  async getUserOwnedProjects(userId: string) {
+  async getUserOwnedProjects(userId: string): Promise<ProjectListDto[]> {
     const projects = await this.prisma.project.findMany({
       where: {
         ownerId: userId,
@@ -40,28 +41,15 @@ export class ProjectService {
     return projects;
   }
 
-  async getUserSharedProjects(userEmail: string) {
-    const projects = await this.prisma.$queryRaw<
-      Array<{
-        projectId: string;
-        customId: string;
-        name: string;
-        lastModified: Date;
-        createdDate: Date;
-        status: string;
-        university: string | null;
-        faculty: string | null;
-      }>
-    >`
-    SELECT "projectId","customId","name","lastModified","createdDate","status","university","faculty"
-    FROM "Project"
-    WHERE "members"::jsonb @> ${JSON.stringify([{ email: userEmail }])}::jsonb
-  `;
-    return projects;
-  }
-
-  async getUserProjects(permissions: KeycloakPermissionDto[]) {
-    const uuids = permissions.map((item) => item.rsname.split(':')[1]);
+  async getUserSharedProjects(
+    permissions: KeycloakPermissionDto[],
+  ): Promise<ProjectListDto[]> {
+    const uuids = permissions
+      .filter(
+        (item) =>
+          item.scopes.includes('view') && !item.scopes.includes('delete'),
+      )
+      .map((item) => item.rsname.split(':').at(1)!);
     const projects = await this.prisma.project.findMany({
       where: {
         projectId: {
@@ -87,7 +75,7 @@ export class ProjectService {
     return await this.prisma.project.findMany({
       where: {
         status: {
-          in: ['MAPPED', 'LINKED', 'ACTIVE'],
+          in: ['MAPPED'],
         },
       },
       select: {
@@ -96,7 +84,6 @@ export class ProjectService {
         name: true,
         lastModified: true,
         createdDate: true,
-        status: true,
         university: true,
         faculty: true,
       },
@@ -248,6 +235,7 @@ export class ProjectService {
 
     return project;
   }
+
   async getProjectDetails(projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: {
@@ -328,7 +316,7 @@ export class ProjectService {
         cover: cover || null,
       };
     }
-    return null;
+    return {};
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {
@@ -341,6 +329,7 @@ export class ProjectService {
       },
     });
 
+    // TODO: check this
     await this.fileStorage.deleteFile('cover', `${projectId}`);
     return projectId;
   }
