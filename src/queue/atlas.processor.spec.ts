@@ -214,7 +214,7 @@ describe('AtlasProcessor', () => {
           { id: 'mhvuf2ff', permission: 'HIGH_LEVEL' },
           { id: 'mhvufchf', permission: 'HIGH_LEVEL' },
         ],
-        status: 'DRAFT',
+        status: 'ACTIVE', // full object, should be active
       } as ArchetypeDto,
     } as ArchetypeJobDataDto,
   } as Job;
@@ -375,7 +375,7 @@ describe('AtlasProcessor', () => {
     } as ArchetypeJobDataDto,
   } as unknown as Job;
 
-  // update job mock no nodes mock
+  // update job mock no nodes, edges or permissions mock
   const updateJobNoNodes = {
     id: 'update-archetype-job',
     name: 'process-update-archetype',
@@ -386,10 +386,7 @@ describe('AtlasProcessor', () => {
         projectId: 'e638b66b-c509-44fe-b754-5b7c63a4879f',
         archetypeId: 'irqwYwvo6E5n',
         name: 'Test template edit no nodes',
-        nodes: [],
-        edges: [],
-        status: 'DRAFT',
-        permissions: [],
+        status: 'DRAFT', // not full object should be Draft (missing nodes, edges and permissions)
       } as ArchetypeDto,
     } as ArchetypeJobDataDto,
   } as unknown as Job;
@@ -1337,7 +1334,6 @@ describe('AtlasProcessor', () => {
             }),
           }),
         }),
-        undefined,
       );
 
       expect(prismaService.project.update).toHaveBeenCalledWith(

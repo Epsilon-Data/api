@@ -476,3 +476,15 @@ export class AtlasPutEntityResponseDto extends AtlasPostEntityResponseDto {
   @IsArray()
   partialUpdatedEntities?: unknown[];
 }
+
+export class AtlasExistingNode {
+  @IsDefined()
+  @IsUUID()
+  guid: string;
+
+  @IsDefined()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AtlasArchetypeEntityDto)
+  classifications: AtlasArchetypeEntityDto['classifications'];
+}
