@@ -368,6 +368,7 @@ export class ArchetypeService {
     attributes: unknown,
     token?: string,
   ) {
+    // TODO: perhaps also add check if archetype state can change from one to another
     try {
       await this.atlas.put<AtlasPutEntityResponseDto>(
         `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
