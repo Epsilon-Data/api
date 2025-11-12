@@ -95,7 +95,6 @@ export class ArchetypeController {
     );
   }
 
-  // TODO: classifications needs to be updated in a separate classification call
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Put(':projectId/:archetypeId')
