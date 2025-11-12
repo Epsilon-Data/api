@@ -67,8 +67,7 @@ export class AtlasProcessor {
       this.logger.log(
         `Archetype already exists, handing handling over to 'process-add-archetype'...`,
       );
-      await this.handleUpdateArchetypeJob(job);
-      return archetype.archetypeId;
+      return await this.handleUpdateArchetypeJob(job);
     }
     try {
       //  1. create archetype_template entity
@@ -257,7 +256,7 @@ export class AtlasProcessor {
                   },
                 })),
               }
-            : {}),
+            : { nodes: [] }),
         },
       };
       const { entities, guidAssignments } = nodes.length
