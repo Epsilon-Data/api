@@ -18,7 +18,7 @@ import { ProjectService } from './project.service';
 import { ProjectDto, SettingsDto } from './dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { coverOptions } from 'src/utils/options';
+import { coverOptions } from 'src/utils/options.util';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';

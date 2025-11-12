@@ -1,161 +1,225 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import {
+  AtlasBulkEntityResponseDto,
+  AtlasEntityDto,
   AtlasEntityHeaderDto,
   AtlasEntityResponseDto,
-  AtlasSearchDslAttributesResponseDto,
   AtlasSearchDslResponseDto,
 } from 'src/atlas/dto';
 
 @Injectable()
 export class DatabaseService {
+  private readonly logger = new Logger(DatabaseService.name);
   constructor(
     private prisma: PrismaService,
     private atlas: AtlasService,
   ) {}
 
   async summary(projectId: string, token?: string) {
-    const tableParams = {
-      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
-    };
-    const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
-      '/search/dsl',
-      tableParams,
+    const instanceQuery = this.getInstanceInfo(projectId, token);
+    const tablesQuery = this.getTables(projectId, token);
+
+    const [tables, instance] = await Promise.all([tablesQuery, instanceQuery]);
+
+    // return if no tables
+    if (tables.length === 0) {
+      const overall = {
+        schemaCount: instance.schemas,
+        totalTableCount: 0,
+        totalColCount: 0,
+      };
+      return { overall, diagram: instance.diagram };
+    }
+
+    const guids = tables.map((t) => t.guid).filter(Boolean);
+    const guidParams = guids
+      .map((g) => `guid=${encodeURIComponent(g)}`)
+      .join('&');
+
+    const bulkResponse = await this.atlas.get<AtlasBulkEntityResponseDto>(
+      `/entity/bulk?${guidParams}`,
+      {
+        ignoreRelationships: false,
+        minExtInfo: true,
+      },
       token,
     );
 
-    const schemaParams = {
-      query: `from rdbms_db where instance.projectId = "${projectId}" select __guid, __state`,
-    };
-
-    const schemaResult =
-      await this.atlas.get<AtlasSearchDslAttributesResponseDto>(
-        '/search/dsl',
-        schemaParams,
-        token,
-      );
-
-    const activeTables =
-      tableResult.entities?.filter(
-        (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
-      ) || [];
-
-    let columnCount = 0;
-
-    for (const table of activeTables) {
-      const guid = table.guid;
-
-      const params = {
-        query: `from rdbms_table where __guid = "${guid}" select columns`,
-      };
-      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
-        '/search/dsl',
-        params,
-        token,
-      );
-
-      if (result.entities) {
-        const activeColumns = result.entities.filter(
-          (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
-        );
-        columnCount += activeColumns.length;
-      }
-    }
-
-    const schemaCount = schemaResult.attributes.values.filter(
-      (item) => item[1] === 'ACTIVE',
+    const activeColumnCount = Object.values(
+      bulkResponse.referredEntities ?? {},
+    ).filter(
+      (e) => e.status === 'ACTIVE' && e.typeName === 'rdbms_column',
     ).length;
 
-    const overall = {
-      schemaCount: schemaCount,
-      totalTableCount: activeTables.length,
-      totalColCount: columnCount,
+    return {
+      overall: {
+        schemaCount: instance.schemas ?? 0,
+        totalTableCount: tables.length,
+        totalColCount: activeColumnCount,
+      },
+      diagram: instance.diagram,
     };
-
-    const diagram = await this.getErdDiagram(projectId);
-    return { overall: overall, diagram: diagram };
   }
 
   async tables(projectId: string, token?: string) {
-    const tableParams = {
-      query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
-    };
+    const tables = await this.getTables(projectId, token);
+    // return if no tables
+    if (tables.length === 0) return [];
 
-    const tablesResult = await this.atlas.get<AtlasSearchDslResponseDto>(
-      '/search/dsl',
-      tableParams,
-      token,
+    // get all table details
+    const tablesDetails = await Promise.allSettled(
+      this.getTablesDetails(tables, token),
     );
 
-    const activeTables = tablesResult.entities
-      ? tablesResult.entities.filter(
-          (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
-        )
-      : [];
+    // process output
+    const output = tablesDetails.flatMap((s) => {
+      if (s.status !== 'fulfilled') return [];
+      const payload = s.value as
+        | { table: AtlasEntityHeaderDto; result: AtlasEntityResponseDto }
+        | { table: AtlasEntityHeaderDto; __error: unknown };
 
-    const resultArray: unknown[] = [];
-    for (const table of activeTables) {
-      const guid = table.guid;
-      const columnsParams = {
-        query: `from rdbms_table where __guid = "${guid}" select columns`,
-      };
-      const columnsResult = await this.atlas.get<AtlasSearchDslResponseDto>(
-        '/search/dsl',
-        columnsParams,
-        token,
-      );
+      // skip if error in query
+      if ('__error' in payload) return [];
 
-      const activeColumns = columnsResult.entities
-        ? columnsResult.entities.filter(
-            (entity: AtlasEntityHeaderDto) => entity.status === 'ACTIVE',
-          )
-        : [];
-
-      const schemaParams = {
-        query: `from rdbms_table where __guid = "${guid}" select db`,
-      };
-      const schemaResult = await this.atlas.get<AtlasSearchDslResponseDto>(
-        '/search/dsl',
-        schemaParams,
-      );
-
-      const columns = await Promise.all(
-        activeColumns.map(async (column) => {
-          const params = {
-            ignoreRelationships: true,
-          };
-          const result = await this.atlas.get<AtlasEntityResponseDto>(
-            '/entity/guid/' + column.guid,
-            params,
-            token,
-          );
-
-          return {
-            name: result.entity.attributes?.name,
-            type: result.entity.attributes?.data_type,
-            nullable: result.entity.attributes?.isNullable,
-            primary: result.entity.attributes?.isPrimaryKey,
-          };
-        }),
-      );
-
-      const tableInfo = {
-        name: table.attributes?.name,
-        colCount: activeColumns.length,
-        schema: schemaResult.entities?.[0]?.attributes?.name ?? 'public',
-        columns,
+      const { table, result } = payload as {
+        table: AtlasEntityHeaderDto;
+        result: AtlasEntityResponseDto;
       };
 
-      resultArray.push(tableInfo);
-    }
+      // ignore table if no foreign_keys or foreign_key_references
+      // TODO: should we ignore this?
+      // Maybe we should add a notice here
+      // if (
+      //   !(result.entity.relationshipAttributes?.foreign_keys as []).length &&
+      //   !(result.entity.relationshipAttributes?.foreign_key_references as [])
+      //     .length
+      // )
+      //   return [];
 
-    return resultArray;
+      const columns: Record<string, unknown>[] = [];
+      const referred = result.referredEntities ?? {};
+      for (const key in referred) {
+        const entity = referred[key];
+        if (entity?.status !== 'ACTIVE' || entity?.typeName !== 'rdbms_column')
+          continue;
+        columns.push({
+          name: entity.attributes?.name ?? entity.displayText ?? entity.guid,
+          type: entity.attributes?.data_type,
+          nullable: entity.attributes?.isNullable,
+          primary: entity.attributes?.isPrimaryKey,
+        });
+      }
+
+      return [
+        {
+          name: table.attributes?.name,
+          colCount: columns.length,
+          schema:
+            ((
+              result.entity?.relationshipAttributes?.db as Record<
+                string,
+                unknown
+              >
+            )?.displayText as string) ?? 'public',
+          columns,
+        },
+      ];
+    });
+
+    return output;
   }
 
   async columns(projectId: string, token?: string) {
-    // 1. get all tables related to project
-    const tableResult = await this.atlas.get<AtlasSearchDslResponseDto>(
+    // get all tables related to project
+    const tables = await this.getTables(projectId, token);
+    // return if no tables
+    if (tables.length === 0) return [];
+
+    const tablesDetails = await Promise.allSettled(
+      this.getTablesDetails(tables, token),
+    );
+
+    // process output
+    const output = tablesDetails.flatMap((s) => {
+      if (s.status !== 'fulfilled') return [];
+      const payload = s.value as
+        | { table: AtlasEntityHeaderDto; result: AtlasEntityResponseDto }
+        | { table: AtlasEntityHeaderDto; __error: unknown };
+
+      // skip if error in query
+      if ('__error' in payload) return [];
+
+      const { table, result } = payload as {
+        table: AtlasEntityHeaderDto;
+        result: AtlasEntityResponseDto;
+      };
+
+      // ignore table if no foreign_keys or foreign_key_references
+      if (
+        !(result.entity.relationshipAttributes?.foreign_keys as []).length &&
+        !(result.entity.relationshipAttributes?.foreign_key_references as [])
+          .length
+      )
+        return [];
+
+      const referred = result.referredEntities ?? {};
+      const columns: { id: string; name: string; table: string }[] = [];
+      for (const key in referred) {
+        const entity: AtlasEntityDto = referred[key];
+        if (entity?.status !== 'ACTIVE' || entity?.typeName !== 'rdbms_column')
+          continue;
+        columns.push({
+          id: entity.guid,
+          name:
+            (entity.attributes?.name as string) ??
+            entity.displayText ??
+            entity.guid ??
+            '',
+          table: (table.attributes?.name as string) ?? '',
+        });
+      }
+      return columns;
+    });
+
+    return output;
+  }
+
+  private async getInstanceInfo(projectId: string, token?: string) {
+    const params = {
+      ignoreRelationships: false,
+      minExtInfo: true,
+      'attr:projectId': projectId,
+    };
+    const result = await this.atlas.get<AtlasEntityResponseDto>(
+      `/entity/uniqueAttribute/type/rdbms_instance`,
+      params,
+      token,
+    );
+    if (result.entity && result.entity.status === 'ACTIVE') {
+      if (result.entity.attributes?.erd) {
+        const erdText =
+          typeof result.entity.attributes.erd === 'string'
+            ? result.entity.attributes.erd
+            : JSON.stringify(result.entity.attributes.erd ?? '');
+        const diagram = erdText.replace(
+          /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
+          '""',
+        );
+        const databases = result.entity.relationshipAttributes?.databases as [];
+        const schemas = databases.filter(
+          (database: Record<string, unknown>) =>
+            database.entityStatus === 'ACTIVE',
+        ).length;
+        return { schemas, diagram };
+      }
+    }
+    return { schemas: 0, diagram: '' };
+  }
+
+  private async getTables(projectId: string, token?: string) {
+    const tablesResult = await this.atlas.get<AtlasSearchDslResponseDto>(
       '/search/dsl',
       {
         query: `from rdbms_db where instance.projectId = "${projectId}" select tables`,
@@ -163,61 +227,31 @@ export class DatabaseService {
       token,
     );
 
-    const tables = tableResult.entities ?? [];
-    if (!tables.length) return [];
+    return tablesResult.entities ?? [];
+  }
 
-    const output: unknown[] = [];
-
-    // 2. iterate tables
-    for (const table of tables) {
+  private getTablesDetails(
+    tableEntities: AtlasEntityHeaderDto[],
+    token?: string,
+  ) {
+    return tableEntities.map((table) => {
       const guid = table.guid;
-      const tableName =
-        table.attributes?.name ?? table.displayText ?? table.guid;
 
-      // 3. get columns for each table
-      const result = await this.atlas.get<AtlasSearchDslResponseDto>(
-        '/search/dsl',
-        { query: `from rdbms_table where __guid = "${guid}" select columns` },
-        token,
-      );
-      // 4. iterate build column objects
-      if (result.entities) {
-        for (const col of result.entities) {
-          output.push({
-            id: col.guid,
-            name: col.attributes?.name ?? col.displayText ?? col.guid,
-            table: tableName,
-          });
-        }
-      }
-    }
-    return output;
+      return this.atlas
+        .get<AtlasEntityResponseDto>(
+          `/entity/guid/${guid}`,
+          {
+            ignoreRelationships: false,
+            minExtInfo: false,
+          },
+          token,
+        )
+        .then((result) => ({ table, result }))
+        .catch((err: unknown) => ({ table, __error: err })); // capture per-table error
+    });
   }
 
-  async getErdDiagram(projectId: string, token?: string): Promise<string> {
-    const params = {
-      ignoreRelationships: true,
-    };
-    const result = await this.atlas.get<AtlasEntityResponseDto>(
-      `/entity/uniqueAttribute/type/rdbms_instance?attr:projectId=${projectId}`,
-      params,
-      token,
-    );
-
-    if (result.entity.attributes?.erd) {
-      const erdText =
-        typeof result.entity.attributes.erd === 'string'
-          ? result.entity.attributes.erd
-          : JSON.stringify(result.entity.attributes.erd ?? '');
-      const diagramCode = erdText.replace(
-        /"FOREIGN KEY \(.*\) REFERENCES .*\(.*\) ON UPDATE CASCADE ON DELETE CASCADE"/g,
-        '""',
-      );
-      return diagramCode;
-    }
-    return '';
-  }
-
+  // TODO: needs improving
   findDbId(projectId: string) {
     //TODO: getDbId from Atlas
     return projectId;

@@ -8,7 +8,7 @@ import {
   IsOptional,
 } from 'class-validator';
 
-import { transformDateString } from 'src/common/utils/class.util';
+import { transformDateString } from 'src/utils/class.util';
 
 export class AnalysisDto {
   @IsOptional()

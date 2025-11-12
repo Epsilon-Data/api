@@ -12,7 +12,7 @@ import {
   ValidateNested,
   IsUrl,
 } from 'class-validator';
-import { parseInteger, transformDateString } from 'src/common/utils/class.util';
+import { parseInteger, transformDateString } from 'src/utils/class.util';
 
 class DatabaseDto {
   @IsOptional()
