@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
+import { customAlphabet } from 'nanoid';
 
 import {
   ArchetypeNodeDto,
@@ -12,33 +13,21 @@ import {
   ArchetypeDto,
   ArchetypeNodeType,
 } from 'src/archetype/dto';
+
 import {
   AtlasArchetypeAnalysisPermissionClassificationDto,
   AtlasArchetypeEntityDto,
   AtlasArchetypeEntityResponseDto,
   AtlasArchetypeNodeTypeName,
   AtlasArchetypeTypeName,
+  AtlasExistingNode,
   AtlasPostEntityResponseDto,
   AtlasRelatedEntityRefDto,
   AtlasSimpleClassificationDto,
   AtlasSubmitArchetypeEntityDto,
 } from 'src/atlas/dto';
 
-import { customAlphabet } from 'nanoid';
-import { DatabaseInfoDto } from 'src/connection_request/dto';
-
-type ArchetypeJobData = {
-  owner: string;
-  projectId: string;
-  archetype: ArchetypeDto;
-};
-
-type DataBrokerJobData = {
-  owner: string;
-  projectId: string;
-  requestId: string;
-  database: DatabaseInfoDto;
-};
+import { ArchetypeJobDataDto, DataBrokerJobDataDto } from './dto';
 
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
@@ -56,7 +45,7 @@ export class AtlasProcessor {
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
     const { owner, projectId, requestId, database } =
-      job.data as DataBrokerJobData;
+      job.data as DataBrokerJobDataDto;
     this.logger.log(
       `Handling 'process-data-broker' for requestId ${requestId}...`,
     );
@@ -70,7 +59,7 @@ export class AtlasProcessor {
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
-    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobDataDto;
     this.logger.log(
       `Handling 'process-add-archetype' for projectId ${projectId}...`,
     );
@@ -79,8 +68,7 @@ export class AtlasProcessor {
       this.logger.log(
         `Archetype already exists, handing handling over to 'process-add-archetype'...`,
       );
-      await this.handleUpdateArchetypeJob(job);
-      return archetype.archetypeId;
+      return await this.handleUpdateArchetypeJob(job);
     }
     try {
       //  1. create archetype_template entity
@@ -91,7 +79,6 @@ export class AtlasProcessor {
         attributes: {
           owner: owner,
           name: archetype.name,
-          // TODO: is this needed?
           projectId: projectId,
           // nanoid is used later as archetypeId in frontend
           qualifiedName: `${projectId}@${archetype.archetypeId}`,
@@ -107,11 +94,9 @@ export class AtlasProcessor {
         },
       };
       const templateResponse =
-        await this.atlas.post<AtlasPostEntityResponseDto>(
-          '/entity',
-          { entity: archetypeTemplateBody },
-          undefined,
-        );
+        await this.atlas.post<AtlasPostEntityResponseDto>('/entity', {
+          entity: archetypeTemplateBody,
+        });
 
       // 2. store real archetype template ref (Atlas GUID)
       const templateGuid = Object.values(
@@ -127,8 +112,8 @@ export class AtlasProcessor {
           archetype,
           nodes,
           columns,
-          {}, // no existing nodes should be present
-          false,
+          {}, // no existing nodes are present as this is Add
+          false, // not update
           owner,
           templateGuid,
         );
@@ -137,10 +122,7 @@ export class AtlasProcessor {
         });
       }
       // 4. update project
-      await this.prisma.project.update({
-        where: { projectId: projectId },
-        data: { lastModified: new Date() },
-      });
+      await this.updateProject(projectId);
       this.logger.log(
         `Handling 'process-add-archetype' for projectId ${projectId} DONE!`,
         `Created archetype ${archetype.archetypeId} with status ${archetype.status}`,
@@ -156,27 +138,16 @@ export class AtlasProcessor {
 
   @Process('process-update-archetype')
   async handleUpdateArchetypeJob(job: Job) {
-    const { owner, projectId, archetype } = job.data as ArchetypeJobData;
+    const { owner, projectId, archetype } = job.data as ArchetypeJobDataDto;
     this.logger.log(
       `Handling 'process-update-archetype' for archetype ${archetype.archetypeId}...`,
     );
     try {
       const updateEntities: AtlasSubmitArchetypeEntityDto[] = [];
-
-      const { columns, nodes } = archetype.nodes?.length
-        ? this.separateColumnsNodes(archetype)
-        : { columns: [], nodes: [] };
-
-      // get all the node ids
+      // separate columns from archetype_nodes
+      const { columns, nodes } = this.separateColumnsNodes(archetype);
+      // get all the node ids in update
       const nodeIds = new Set(nodes.map((n) => n.id));
-      // lookup for existing entities
-      const existingNodes: Record<
-        string,
-        {
-          guid: string;
-          classifications: AtlasArchetypeEntityDto['classifications'];
-        }
-      > = {};
 
       // check for relationships (e.g. archetype_nodes) using archetype_template qualifiedName
       const entityRes = await this.atlas.get<AtlasArchetypeEntityResponseDto>(
@@ -188,18 +159,23 @@ export class AtlasProcessor {
         },
       );
 
+      // lookup for existing entities
+      const existingNodes: Record<string, AtlasExistingNode> = {};
+
       // check if there is any existing linked entities
       if (Object.keys(entityRes?.referredEntities).length) {
         for (const key in entityRes?.referredEntities) {
           const entity = entityRes?.referredEntities[key];
+          // skip anything not a Node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
           const qualifiedName = entity.attributes.qualifiedName;
           if (
-            entity.typeName !== AtlasArchetypeTypeName.Node || //
+            entity.typeName !== AtlasArchetypeTypeName.Node ||
             entity.status !== 'ACTIVE' ||
             !nodeIds.has(qualifiedName.split('@').at(-1)!)
           )
-            continue; // skip anything not a Node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
+            continue;
 
+          // add all existing nodes and their classifications
           existingNodes[qualifiedName] = {
             guid: entity.guid,
             classifications: entity.classifications ?? [],
@@ -209,39 +185,8 @@ export class AtlasProcessor {
       // update existing nodes classifications with permissions
       // TODO: improve so not flooding the API with requests
       // TODO: improve error handling
-      if (archetype.permissions) {
-        Object.entries(existingNodes).forEach(
-          ([qualifiedName, { guid, classifications }]) => {
-            const nodeId = qualifiedName.split('@').at(-1)!;
-            const permissions =
-              this.getPermissionClassification(
-                nodeId,
-                archetype.permissions || [],
-              ) || [];
-            if (!permissions.length) return;
-
-            try {
-              // check if classification already exists for the entity
-              if (this.hasAnalysisPermClassification(guid, classifications)) {
-                void this.atlas.put<AtlasArchetypeEntityResponseDto>(
-                  `/entity/guid/${guid}/classifications`,
-                  permissions,
-                );
-              } else {
-                // create classification for existing entity
-                void this.atlas.post<AtlasArchetypeEntityResponseDto>(
-                  `/entity/guid/${guid}/classifications`,
-                  permissions,
-                );
-              }
-            } catch (err) {
-              this.logger.error(
-                `Failed to set classifications for ${guid}: ${err}`,
-              );
-            }
-          },
-        );
-      }
+      if (archetype.permissions)
+        this.updateClassifications(archetype.permissions, existingNodes);
 
       // create archetype_template entity body
       const archetypeTemplateBody: AtlasSubmitArchetypeEntityDto = {
@@ -270,7 +215,7 @@ export class AtlasProcessor {
                   },
                 })),
               }
-            : {}),
+            : { nodes: [] }),
         },
       };
       const { entities, guidAssignments } = nodes.length
@@ -280,7 +225,7 @@ export class AtlasProcessor {
             nodes,
             columns,
             existingNodes,
-            true,
+            true, // isUpdate
             owner,
           )
         : { entities: [], guidAssignments: [] };
@@ -300,19 +245,13 @@ export class AtlasProcessor {
         ];
       }
 
-      updateEntities.push(
-        archetypeTemplateBody,
-        ...(nodes.length ? entities : []),
-      );
+      updateEntities.push(archetypeTemplateBody, ...entities);
 
       await this.atlas.post<AtlasPostEntityResponseDto>('/entity/bulk', {
         entities: updateEntities,
       });
 
-      await this.prisma.project.update({
-        where: { projectId: projectId },
-        data: { lastModified: new Date() },
-      });
+      await this.updateProject(projectId);
       this.logger.log(
         `Handling 'process-update-archetype' for archetype ${archetype.archetypeId} DONE!`,
         `Updated archetype ${archetype.archetypeId} with status ${archetype.status}`,
@@ -344,14 +283,7 @@ export class AtlasProcessor {
         },
       );
 
-      await this.prisma.project.update({
-        where: {
-          projectId: projectId,
-        },
-        data: {
-          lastModified: new Date(),
-        },
-      });
+      await this.updateProject(projectId);
       this.logger.log(
         `Handling 'process-delete-archetype' for archetype ${archetypeId} DONE!`,
       );
@@ -534,40 +466,6 @@ export class AtlasProcessor {
     return classifications;
   }
 
-  private addParent(
-    archetypeId: string,
-    nodeId: string,
-    edges: ArchetypeEdgeDto[],
-  ) {
-    const parent = edges.find((e) => e.target === nodeId)?.source;
-    return parent
-      ? {
-          parent_node: {
-            typeName: AtlasArchetypeTypeName.Node,
-            uniqueAttributes: {
-              qualifiedName: `${archetypeId}@${parent}`,
-            },
-          },
-        }
-      : {};
-  }
-
-  private addColumn(
-    archetypeId: string,
-    nodeId: string,
-    columnEdges: ArchetypeEdgeDto[],
-  ) {
-    const columnGuid = columnEdges.find((e) => e.source === nodeId)?.target;
-    return parent
-      ? {
-          column: {
-            typeName: 'column',
-            guid: columnGuid,
-          },
-        }
-      : {};
-  }
-
   private separateColumnsNodes(archetype: ArchetypeDto) {
     // separate columns from actual archetype_nodes
     if (archetype.nodes) {
@@ -597,5 +495,49 @@ export class AtlasProcessor {
         c.entityGuid === guid &&
         c.entityStatus === 'ACTIVE',
     );
+  }
+
+  private updateClassifications(
+    archetypePermissions: ArchetypeNodePermissionDto[],
+    existingNodes: Record<string, AtlasExistingNode>,
+  ) {
+    Object.entries(existingNodes).forEach(
+      ([qualifiedName, { guid, classifications }]) => {
+        const nodeId = qualifiedName.split('@').at(-1)!;
+        const permissions =
+          this.getPermissionClassification(
+            nodeId,
+            archetypePermissions || [],
+          ) || [];
+        if (!permissions.length) return;
+
+        try {
+          // check if classification already exists for the entity
+          if (this.hasAnalysisPermClassification(guid, classifications)) {
+            void this.atlas.put<AtlasArchetypeEntityResponseDto>(
+              `/entity/guid/${guid}/classifications`,
+              permissions,
+            );
+          } else {
+            // create classification for existing entity
+            void this.atlas.post<AtlasArchetypeEntityResponseDto>(
+              `/entity/guid/${guid}/classifications`,
+              permissions,
+            );
+          }
+        } catch (err) {
+          this.logger.error(
+            `Failed to set classifications for ${guid}: ${err}`,
+          );
+        }
+      },
+    );
+  }
+
+  private async updateProject(projectId: string) {
+    return await this.prisma.project.update({
+      where: { projectId: projectId },
+      data: { lastModified: new Date() },
+    });
   }
 }

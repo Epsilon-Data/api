@@ -8,6 +8,11 @@ import {
   AtlasEntityResponseDto,
   AtlasSearchDslResponseDto,
 } from 'src/atlas/dto';
+import {
+  ColumnInfoDto,
+  DatabaseSummaryResponseDto,
+  DatabaseTableDto,
+} from './dto';
 
 @Injectable()
 export class DatabaseService {
@@ -17,7 +22,10 @@ export class DatabaseService {
     private atlas: AtlasService,
   ) {}
 
-  async summary(projectId: string, token?: string) {
+  async summary(
+    projectId: string,
+    token?: string,
+  ): Promise<DatabaseSummaryResponseDto> {
     const instanceQuery = this.getInstanceInfo(projectId, token);
     const tablesQuery = this.getTables(projectId, token);
 
@@ -63,7 +71,7 @@ export class DatabaseService {
     };
   }
 
-  async tables(projectId: string, token?: string) {
+  async tables(projectId: string, token?: string): Promise<DatabaseTableDto[]> {
     const tables = await this.getTables(projectId, token);
     // return if no tables
     if (tables.length === 0) return [];
@@ -98,23 +106,23 @@ export class DatabaseService {
       // )
       //   return [];
 
-      const columns: Record<string, unknown>[] = [];
+      const columns: ColumnInfoDto[] = [];
       const referred = result.referredEntities ?? {};
       for (const key in referred) {
         const entity = referred[key];
         if (entity?.status !== 'ACTIVE' || entity?.typeName !== 'rdbms_column')
           continue;
         columns.push({
-          name: entity.attributes?.name ?? entity.displayText ?? entity.guid,
-          type: entity.attributes?.data_type,
-          nullable: entity.attributes?.isNullable,
-          primary: entity.attributes?.isPrimaryKey,
+          name: (entity.attributes?.name as string) ?? entity.displayText,
+          type: entity.attributes?.data_type as string,
+          nullable: entity.attributes?.isNullable as boolean,
+          primary: entity.attributes?.isPrimaryKey as boolean,
         });
       }
 
       return [
         {
-          name: table.attributes?.name,
+          name: (table.attributes?.name as string) ?? table.displayText,
           colCount: columns.length,
           schema:
             ((
@@ -172,12 +180,8 @@ export class DatabaseService {
           continue;
         columns.push({
           id: entity.guid,
-          name:
-            (entity.attributes?.name as string) ??
-            entity.displayText ??
-            entity.guid ??
-            '',
-          table: (table.attributes?.name as string) ?? '',
+          name: (entity.attributes?.name as string) ?? entity.displayText,
+          table: table.attributes?.name as string,
         });
       }
       return columns;
