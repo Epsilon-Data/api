@@ -1,17 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class DatabaseInfoDto {
   @ApiProperty({
-    description: 'Logical database name (database)',
-    example: 'analytics_dw',
+    description: 'User assigned database name',
+    example: 'Health database',
   })
   @IsString()
   name: string;
 
   @ApiProperty({
-    description: 'Database engine/type',
-    example: 'postgres', // e.g. postgres | mysql | mssql | oracle | sqlite
+    description: 'Database engine/ file type',
+    example: 'postgres', // e.g. postgres | mysql | mssql | oracle | sqlite | CSV
   })
   @IsString()
   type: string;
@@ -58,13 +58,4 @@ export class DatabaseInfoDto {
   @IsOptional()
   @IsString()
   password?: string;
-
-  @ApiPropertyOptional({
-    description: 'Associated project identifier',
-    format: 'uuid',
-    example: '638c6f81-00c8-47f4-82ec-6b94240e757d',
-  })
-  @IsOptional()
-  @IsUUID()
-  projectId?: string;
 }

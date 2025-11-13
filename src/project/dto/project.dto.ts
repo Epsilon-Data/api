@@ -17,6 +17,7 @@ import { parseInteger, transformDateString } from 'src/utils/class.util';
 
 import { $Enums } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { DatabaseInfoDto } from 'src/connection_request/dto';
 
 export class ProjectListDto {
   @ApiProperty({
@@ -83,48 +84,6 @@ export class ProjectListDto {
   status!: $Enums.ProjectStatus;
 }
 
-export class DatabaseDto {
-  @ApiProperty({
-    description: 'Human-readable database name',
-    example: 'Research DB',
-  })
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
-  @ApiProperty({
-    description: 'Type of the datasource (e.g. database engine or file type)',
-    example: 'postgres',
-  })
-  @IsString()
-  @IsNotEmpty()
-  type!: string;
-
-  @ApiPropertyOptional({
-    description: 'Connection URL to access the database',
-    example: 'pg://user:pass@localhost:5432/mydb',
-  })
-  @IsOptional()
-  @IsString()
-  url?: string;
-
-  @ApiPropertyOptional({
-    description: 'Database username',
-    example: 'db_user',
-  })
-  @IsOptional()
-  @IsString()
-  username?: string;
-
-  @ApiPropertyOptional({
-    description: 'Database password',
-    example: '**********',
-  })
-  @IsOptional()
-  @IsString()
-  password?: string;
-}
-
 export class ConnectionDto {
   @ApiProperty({
     description: 'Incoming request identifier',
@@ -136,7 +95,8 @@ export class ConnectionDto {
   requestId: string;
 
   @ApiPropertyOptional({
-    description: 'Email of the organisation admin assigned to the project',
+    description:
+      'Email of the organisation admin assigned to the project or owner',
     example: 'admin@university.edu',
   })
   @IsOptional()
@@ -145,17 +105,17 @@ export class ConnectionDto {
 
   @ApiPropertyOptional({
     description: 'Temporary database connection details',
-    type: DatabaseDto,
+    type: DatabaseInfoDto,
   })
   @IsOptional()
   @IsObject()
   @ValidateNested()
-  @Type(() => DatabaseDto)
-  tempDbDetails?: DatabaseDto;
+  @Type(() => DatabaseInfoDto)
+  tempDbDetails?: DatabaseInfoDto;
 
   @ApiPropertyOptional({
     description: 'Miscellaneous extra information provided by the user',
-    example: 'DB accessible only after VPN activation',
+    example: 'Extra information and comments',
   })
   @IsOptional()
   @IsString()
@@ -163,73 +123,140 @@ export class ConnectionDto {
 }
 
 export class ProjectDto {
+  @ApiPropertyOptional({
+    description: 'Unique project identifier (UUID)',
+    format: 'uuid',
+    example: '6d3cffa2-43b5-48a2-ba73-50931ddf07b2',
+  })
   @IsOptional()
   @IsUUID()
-  projectId: string;
+  projectId?: string;
 
+  @ApiProperty({
+    description: 'Owner user ID (UUID)',
+    format: 'uuid',
+    example: 'user_845aedf2-44aa-49c5-92e8-8c824f2ae123',
+  })
   @IsDefined()
   @IsUUID()
   @IsNotEmpty()
   ownerId: string;
 
+  @ApiPropertyOptional({
+    description: 'Custom project identifier or slug',
+    example: 'brain-study-2025',
+  })
   @IsOptional()
   @IsString()
   customId?: string;
 
+  @ApiProperty({
+    description: 'Human-readable name of the project',
+    example: 'Brain Imaging Correlation Study',
+  })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   name: string;
 
+  @ApiProperty({
+    description: 'Project lead researcher',
+    example: 'Prof. Lead Researcher',
+  })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   lead: string;
 
+  @ApiProperty({
+    description: 'Institution where the project is based',
+    example: 'University of Edinburgh',
+  })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   university: string;
 
+  @ApiProperty({
+    description: 'Faculty or department running the project',
+    example: 'School of Informatics',
+  })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   faculty: string;
 
+  @ApiProperty({
+    description: 'Ethics approval ID provided by the institution',
+    example: 'ETH-2025-0912-A',
+  })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   ethicsId: string;
 
+  @ApiProperty({
+    description: 'Full project description',
+    example: 'Investigating correlations in large-scale MRI datasets...',
+  })
   @IsDefined()
   @IsString()
   description: string;
 
+  @ApiProperty({
+    description: 'Project start date',
+    type: String,
+    format: 'date-time',
+    example: '2025-04-01T00:00:00.000Z',
+  })
   @IsDefined()
   @IsDate()
   @Transform(({ value }) => transformDateString(value))
   startDate: Date;
 
+  @ApiProperty({
+    description: 'Project end date',
+    type: String,
+    format: 'date-time',
+    example: '2026-12-31T00:00:00.000Z',
+  })
   @IsDefined()
   @IsDate()
   @Transform(({ value }) => transformDateString(value))
   endDate: Date;
 
+  @ApiProperty({
+    description: 'List of members involved in the project',
+    example: "[{'email': 'user1@email.com' 'role': 'collaborator'}]",
+  })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
   members: string;
 
+  @ApiProperty({
+    description: 'Number of project participants',
+    example: 148,
+  })
   @IsDefined()
   @IsNumber()
   @IsNotEmpty()
   @Transform(({ value }) => parseInteger(value))
   participantsNum: number;
 
+  @ApiProperty({
+    description: 'Keywords used to identify relevant database columns',
+    isArray: true,
+    example: ['heart_rate', 'age', 'bmi'],
+  })
   @IsDefined()
   @IsString({ each: true })
   dbKeywords: string[];
 
+  @ApiProperty({
+    description: 'Connection metadata & crawling request info',
+    type: ConnectionDto,
+  })
   @IsDefined()
   @IsNotEmptyObject()
   @IsObject()

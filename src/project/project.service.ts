@@ -8,6 +8,8 @@ import { QueueService } from 'src/queue/queue.service';
 
 import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+import { v4 as uuidv4 } from 'uuid';
+
 @Injectable()
 export class ProjectService {
   private readonly logger = new Logger(ProjectService.name);
@@ -22,11 +24,6 @@ export class ProjectService {
     const projects = await this.prisma.project.findMany({
       where: {
         ownerId: userId,
-        connection: {
-          request: {
-            requestorId: userId,
-          },
-        },
       },
       select: {
         projectId: true,
@@ -162,26 +159,34 @@ export class ProjectService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       members: memberData,
       dbKeywords: dto.dbKeywords,
-      connection: {
-        create: {
-          orgAdminEmail: dto.connection.orgAdminEmail ?? user.email,
-          tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
-          request: {
-            create: {
-              requestorId: dto.ownerId,
-            },
+    };
+
+    // check if database credential request is needed
+    const createRequest = dto.connection.orgAdminEmail ? true : false;
+    const requestId = uuidv4();
+    const project = await this.prisma.project.create({
+      data: {
+        ...request,
+        connection: {
+          create: {
+            // if no orgAdminEmail provider make owner admin
+            orgAdminEmail: dto.connection.orgAdminEmail ?? user.email,
+            tempDbDetails:
+              JSON.stringify(dto.connection.tempDbDetails) ?? undefined,
+            ...(createRequest && {
+              request: {
+                create: {
+                  requestId,
+                  requestorId: dto.ownerId,
+                },
+              },
+            }),
           },
         },
       },
-    };
-
-    const project = await this.prisma.project.create({
-      data: request,
       include: {
         connection: {
-          include: {
-            request: true,
-          },
+          include: { request: true },
         },
       },
     });
@@ -198,42 +203,28 @@ export class ProjectService {
       memberEmails,
     );
 
-    if (dto.connection.additionalInfo && project.connection) {
-      await this.prisma.comment.create({
-        data: {
-          requestId: project.connection.request.requestId,
-          authorId: dto.ownerId,
-          content: dto.connection.additionalInfo,
-        },
-      });
+    if (createRequest) {
+      // create comment if additionalInfo is provided to request
+      if (dto.connection.additionalInfo) {
+        await this.prisma.comment.create({
+          data: {
+            requestId,
+            authorId: dto.ownerId,
+            content: dto.connection.additionalInfo,
+          },
+        });
+      }
+    } else {
+      // database credentials should exist so run database crawling
+      if (dto.connection.tempDbDetails?.url) {
+        await this.queue.dataBrokerJob(
+          user.username,
+          project.projectId,
+          requestId,
+          dto.connection.tempDbDetails,
+        );
+      }
     }
-
-    if (dto.connection.tempDbDetails?.url && project.connection) {
-      await this.prisma.request.update({
-        where: {
-          requestId: project.connection.requestId,
-        },
-        data: {
-          status: 'APPROVED',
-        },
-      });
-      await this.queue.dataBrokerJob(
-        user.username,
-        project.projectId,
-        project.connection.requestId,
-        dto.connection.tempDbDetails,
-      );
-    } else if (project.connection) {
-      await this.prisma.request.update({
-        where: {
-          requestId: project.connection.requestId,
-        },
-        data: {
-          status: 'PENDING',
-        },
-      });
-    }
-
     return project;
   }
 
