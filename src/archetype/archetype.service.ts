@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { $Enums } from '@prisma/client';
 import {
   ArchetypeDto,
   ArchetypeEdgeDto,
@@ -8,6 +10,7 @@ import {
   ArchetypeNodeType,
   ArchetypePermission,
   ArchetypeStatus,
+  UpdateArchetypeAttributesDto,
 } from './dto';
 import {
   AtlasArchetypeEntityResponseDto,
@@ -24,6 +27,7 @@ export class ArchetypeService {
   constructor(
     private atlas: AtlasService,
     private readonly queue: QueueService,
+    private prisma: PrismaService,
   ) {}
 
   // Queries
@@ -365,7 +369,7 @@ export class ArchetypeService {
   async updateArchetypeDetails(
     projectId: string,
     archetypeId: string,
-    attributes: unknown,
+    attributes: UpdateArchetypeAttributesDto,
     token?: string,
   ) {
     try {
@@ -382,7 +386,16 @@ export class ArchetypeService {
         },
         token,
       );
-      return;
+      if (attributes.status && attributes.status === ArchetypeStatus.PUBLISHED)
+        await this.prisma.project.update({
+          where: { projectId: projectId },
+          data: {
+            lastModified: new Date(),
+            status: $Enums.ProjectStatus.MAPPED,
+          },
+        });
+
+      return; // NO CONTENT
     } catch (error) {
       this.logger.error(`Error updating archetype details`, error);
       throw error;

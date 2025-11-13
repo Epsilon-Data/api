@@ -11,8 +11,77 @@ import {
   IsObject,
   ValidateNested,
   IsUrl,
+  IsEnum,
 } from 'class-validator';
 import { parseInteger, transformDateString } from 'src/utils/class.util';
+
+import { $Enums } from '@prisma/client';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class ProjectListDto {
+  @ApiProperty({
+    description: 'Unique project identifier (UUID or slug)',
+    example: 'proj_123abc456',
+  })
+  @IsString()
+  projectId!: string;
+
+  @ApiProperty({
+    description: 'Custom human-readable project identifier',
+    example: 'HRT-2025-001',
+  })
+  @IsString()
+  customId!: string;
+
+  @ApiProperty({
+    description: 'Project name',
+    example: 'Heart Rate Variability Study',
+  })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({
+    description: 'University associated with this project',
+    example: 'University of Oxford',
+  })
+  @IsString()
+  university!: string;
+
+  @ApiProperty({
+    description: 'Faculty or department within the university',
+    example: 'Department of Biomedical Engineering',
+  })
+  @IsString()
+  faculty!: string;
+
+  @ApiProperty({
+    description: 'Timestamp of last modification',
+    example: '2025-11-12T09:30:00.000Z',
+    type: String,
+    format: 'date-time',
+  })
+  @Type(() => Date)
+  @IsDate()
+  lastModified!: Date;
+
+  @ApiProperty({
+    description: 'Timestamp when the project was created',
+    example: '2025-10-01T14:45:00.000Z',
+    type: String,
+    format: 'date-time',
+  })
+  @Type(() => Date)
+  @IsDate()
+  createdDate!: Date;
+
+  @ApiProperty({
+    description: 'Current project lifecycle status',
+    enum: $Enums.ProjectStatus,
+    example: $Enums.ProjectStatus.ACTIVE,
+  })
+  @IsEnum($Enums.ProjectStatus)
+  status!: $Enums.ProjectStatus;
+}
 
 class DatabaseDto {
   @IsOptional()
