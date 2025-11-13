@@ -88,10 +88,10 @@ export class DockerService {
         this.logger.log(
           `Container ${instanceName} run successfully for request ${requestId}.`,
         );
-        // set project status to active (e.g. ready for mapping)
+        // set project status to READY (e.g. ready for mapping)
         await this.prisma.project.update({
           where: { projectId },
-          data: { status: 'ACTIVE' },
+          data: { status: 'READY' },
         });
       } finally {
         //  5. Run cleanup for the container instance

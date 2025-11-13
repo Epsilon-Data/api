@@ -7,6 +7,7 @@ import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
 import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
+import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 @Injectable()
 export class ProjectService {
   private readonly logger = new Logger(ProjectService.name);
@@ -135,7 +136,7 @@ export class ProjectService {
     return requestList;
   }
 
-  async createProject(owner: string, dto: ProjectDto) {
+  async createProject(user: CurrentUserInfo, dto: ProjectDto) {
     // TODO:  Why not have this as object?
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const memberData = JSON.parse(dto.members);
@@ -163,7 +164,7 @@ export class ProjectService {
       dbKeywords: dto.dbKeywords,
       connection: {
         create: {
-          orgAdminEmail: dto.connection.orgAdminEmail,
+          orgAdminEmail: dto.connection.orgAdminEmail ?? user.email,
           tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
           request: {
             create: {
@@ -217,7 +218,7 @@ export class ProjectService {
         },
       });
       await this.queue.dataBrokerJob(
-        owner,
+        user.username,
         project.projectId,
         project.connection.requestId,
         dto.connection.tempDbDetails,

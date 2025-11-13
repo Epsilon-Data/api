@@ -15,7 +15,6 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  // UseGuards,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { ProjectDto, ProjectListDto, SettingsDto } from './dto';
@@ -47,6 +46,16 @@ export class ProjectController {
     private keycloakConnect: KeycloakService,
   ) {}
 
+  @Post()
+  @ApiOperation({ summary: 'Create project' })
+  @ApiOkResponse({
+    description: 'Created project data',
+  })
+  createProject(@CurrentUser() user: CurrentUserInfo, @Body() dto: ProjectDto) {
+    // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
+    return this.projectService.createProject(user, dto);
+  }
+
   @Get('')
   @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
   @ApiOkResponse({
@@ -66,7 +75,7 @@ export class ProjectController {
     isArray: true,
   })
   async getUserSharedProjects(@Req() request: Request) {
-    // check for user resource permissions
+    // check for user resource permissions against keycloak
     // TODO: perhaps call this once and cache or make it into a helper/decorator
     const authzRequest = {
       response_mode: 'permissions',
@@ -101,16 +110,6 @@ export class ProjectController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return await this.projectService.getProjectRequests(projectId, user.email);
-  }
-
-  @Post()
-  @ApiOperation({ summary: 'Create project' })
-  @ApiOkResponse({
-    description: 'Created project data is returned',
-  })
-  createProject(@CurrentUser() user: CurrentUserInfo, @Body() dto: ProjectDto) {
-    // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
-    return this.projectService.createProject(user.username, dto);
   }
 
   @UseGuards(ResourceGuard)

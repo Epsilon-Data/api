@@ -16,7 +16,7 @@ import {
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
 import { $Enums } from '@prisma/client';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ProjectListDto {
   @ApiProperty({
@@ -77,51 +77,86 @@ export class ProjectListDto {
   @ApiProperty({
     description: 'Current project lifecycle status',
     enum: $Enums.ProjectStatus,
-    example: $Enums.ProjectStatus.ACTIVE,
+    example: $Enums.ProjectStatus.READY,
   })
   @IsEnum($Enums.ProjectStatus)
   status!: $Enums.ProjectStatus;
 }
 
-class DatabaseDto {
-  @IsOptional()
+export class DatabaseDto {
+  @ApiProperty({
+    description: 'Human-readable database name',
+    example: 'Research DB',
+  })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
-  @IsOptional()
+  @ApiProperty({
+    description: 'Type of the datasource (e.g. database engine or file type)',
+    example: 'postgres',
+  })
   @IsString()
   @IsNotEmpty()
-  type: string;
+  type!: string;
 
+  @ApiPropertyOptional({
+    description: 'Connection URL to access the database',
+    example: 'pg://user:pass@localhost:5432/mydb',
+  })
   @IsOptional()
   @IsString()
-  url: string;
+  url?: string;
 
+  @ApiPropertyOptional({
+    description: 'Database username',
+    example: 'db_user',
+  })
   @IsOptional()
   @IsString()
-  username: string;
+  username?: string;
 
+  @ApiPropertyOptional({
+    description: 'Database password',
+    example: '**********',
+  })
   @IsOptional()
   @IsString()
-  password: string;
+  password?: string;
 }
 
-class ConnectionDto {
+export class ConnectionDto {
+  @ApiProperty({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
   @IsOptional()
   @IsUUID()
   requestId: string;
 
+  @ApiPropertyOptional({
+    description: 'Email of the organisation admin assigned to the project',
+    example: 'admin@university.edu',
+  })
   @IsOptional()
   @IsString()
   orgAdminEmail?: string;
 
+  @ApiPropertyOptional({
+    description: 'Temporary database connection details',
+    type: DatabaseDto,
+  })
   @IsOptional()
   @IsObject()
   @ValidateNested()
   @Type(() => DatabaseDto)
   tempDbDetails?: DatabaseDto;
 
+  @ApiPropertyOptional({
+    description: 'Miscellaneous extra information provided by the user',
+    example: 'DB accessible only after VPN activation',
+  })
   @IsOptional()
   @IsString()
   additionalInfo?: string;
