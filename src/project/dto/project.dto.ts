@@ -19,12 +19,14 @@ import { $Enums } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DatabaseInfoDto } from 'src/connection_request/dto';
 
-export class ProjectListDto {
+export class ProjectSummaryInfoDto {
   @ApiProperty({
-    description: 'Unique project identifier (UUID or slug)',
-    example: 'proj_123abc456',
+    description: 'Unique project identifier (UUID)',
+    format: 'uuid',
+    example: '6d3cffa2-43b5-48a2-ba73-50931ddf07b2',
   })
-  @IsString()
+  @IsDefined()
+  @IsUUID()
   projectId!: string;
 
   @ApiProperty({
@@ -36,10 +38,20 @@ export class ProjectListDto {
 
   @ApiProperty({
     description: 'Project name',
-    example: 'Heart Rate Variability Study',
+    example: 'Example Health Study',
   })
   @IsString()
   name!: string;
+
+  @ApiProperty({
+    description: 'Timestamp of last modification',
+    example: '2025-11-12T09:30:00.000Z',
+    type: String,
+    format: 'date-time',
+  })
+  @Type(() => Date)
+  @IsDate()
+  lastModified!: Date;
 
   @ApiProperty({
     description: 'University associated with this project',
@@ -56,24 +68,13 @@ export class ProjectListDto {
   faculty!: string;
 
   @ApiProperty({
-    description: 'Timestamp of last modification',
-    example: '2025-11-12T09:30:00.000Z',
-    type: String,
-    format: 'date-time',
+    description: 'Project lead researcher',
+    example: 'Prof. Lead Researcher',
   })
-  @Type(() => Date)
-  @IsDate()
-  lastModified!: Date;
-
-  @ApiProperty({
-    description: 'Timestamp when the project was created',
-    example: '2025-10-01T14:45:00.000Z',
-    type: String,
-    format: 'date-time',
-  })
-  @Type(() => Date)
-  @IsDate()
-  createdDate!: Date;
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  lead: string;
 
   @ApiProperty({
     description: 'Current project lifecycle status',
@@ -92,7 +93,7 @@ export class ConnectionDto {
   })
   @IsOptional()
   @IsUUID()
-  requestId: string;
+  requestId?: string;
 
   @ApiPropertyOptional({
     description:
@@ -132,6 +133,23 @@ export class ProjectDto {
   @IsUUID()
   projectId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Current project lifecycle status',
+    enum: $Enums.ProjectStatus,
+    example: $Enums.ProjectStatus.READY,
+  })
+  @IsEnum($Enums.ProjectStatus)
+  @IsOptional()
+  status?: $Enums.ProjectStatus;
+
+  @ApiPropertyOptional({
+    description: 'Custom project identifier',
+    example: 'customid123',
+  })
+  @IsOptional()
+  @IsString()
+  customId?: string;
+
   @ApiProperty({
     description: 'Owner user ID (UUID)',
     format: 'uuid',
@@ -140,24 +158,16 @@ export class ProjectDto {
   @IsDefined()
   @IsUUID()
   @IsNotEmpty()
-  ownerId: string;
-
-  @ApiPropertyOptional({
-    description: 'Custom project identifier or slug',
-    example: 'brain-study-2025',
-  })
-  @IsOptional()
-  @IsString()
-  customId?: string;
+  ownerId!: string;
 
   @ApiProperty({
     description: 'Human-readable name of the project',
-    example: 'Brain Imaging Correlation Study',
+    example: 'Health Research Study',
   })
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiProperty({
     description: 'Project lead researcher',
@@ -166,7 +176,7 @@ export class ProjectDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  lead: string;
+  lead!: string;
 
   @ApiProperty({
     description: 'Institution where the project is based',
@@ -175,7 +185,7 @@ export class ProjectDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  university: string;
+  university!: string;
 
   @ApiProperty({
     description: 'Faculty or department running the project',
@@ -184,7 +194,7 @@ export class ProjectDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  faculty: string;
+  faculty!: string;
 
   @ApiProperty({
     description: 'Ethics approval ID provided by the institution',
@@ -193,7 +203,7 @@ export class ProjectDto {
   @IsDefined()
   @IsString()
   @IsNotEmpty()
-  ethicsId: string;
+  ethicsId!: string;
 
   @ApiProperty({
     description: 'Full project description',
@@ -201,7 +211,7 @@ export class ProjectDto {
   })
   @IsDefined()
   @IsString()
-  description: string;
+  description!: string;
 
   @ApiProperty({
     description: 'Project start date',
@@ -212,7 +222,7 @@ export class ProjectDto {
   @IsDefined()
   @IsDate()
   @Transform(({ value }) => transformDateString(value))
-  startDate: Date;
+  startDate!: Date;
 
   @ApiProperty({
     description: 'Project end date',
@@ -223,16 +233,16 @@ export class ProjectDto {
   @IsDefined()
   @IsDate()
   @Transform(({ value }) => transformDateString(value))
-  endDate: Date;
+  endDate!: Date;
 
-  @ApiProperty({
+  // FIXME: This should be JSON or string[]
+  @ApiPropertyOptional({
     description: 'List of members involved in the project',
     example: "[{'email': 'user1@email.com' 'role': 'collaborator'}]",
   })
-  @IsDefined()
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  members: string;
+  members?: string;
 
   @ApiProperty({
     description: 'Number of project participants',
@@ -242,7 +252,7 @@ export class ProjectDto {
   @IsNumber()
   @IsNotEmpty()
   @Transform(({ value }) => parseInteger(value))
-  participantsNum: number;
+  participantsNum!: number;
 
   @ApiProperty({
     description: 'Keywords used to identify relevant database columns',
@@ -262,7 +272,7 @@ export class ProjectDto {
   @IsObject()
   @ValidateNested()
   @Type(() => ConnectionDto)
-  connection: ConnectionDto;
+  connection!: ConnectionDto;
 }
 
 export class SettingsDto {

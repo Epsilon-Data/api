@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ProjectDto, ProjectListDto, SettingsDto } from './dto';
+import { ProjectDto, ProjectSummaryInfoDto, SettingsDto } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
@@ -9,6 +9,8 @@ import { QueueService } from 'src/queue/queue.service';
 import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { v4 as uuidv4 } from 'uuid';
+import { ConnectionRequestResponseDto } from 'src/connection_request/dto';
+import { AnalysisRequestResponseDto } from 'src/analysis_request/dto';
 
 @Injectable()
 export class ProjectService {
@@ -20,7 +22,7 @@ export class ProjectService {
     private readonly keycloak: KeycloakAdminService,
   ) {}
 
-  async getUserOwnedProjects(userId: string): Promise<ProjectListDto[]> {
+  async getUserOwnedProjects(userId: string): Promise<ProjectSummaryInfoDto[]> {
     const projects = await this.prisma.project.findMany({
       where: {
         ownerId: userId,
@@ -30,9 +32,9 @@ export class ProjectService {
         customId: true,
         name: true,
         lastModified: true,
-        createdDate: true,
         status: true,
         university: true,
+        lead: true,
         faculty: true,
       },
     });
@@ -41,7 +43,7 @@ export class ProjectService {
 
   async getUserSharedProjects(
     permissions: KeycloakPermissionDto[],
-  ): Promise<ProjectListDto[]> {
+  ): Promise<ProjectSummaryInfoDto[]> {
     const uuids = permissions
       .filter(
         (item) =>
@@ -59,7 +61,7 @@ export class ProjectService {
         customId: true,
         name: true,
         lastModified: true,
-        createdDate: true,
+        lead: true,
         status: true,
         university: true,
         faculty: true,
@@ -89,7 +91,10 @@ export class ProjectService {
   }
 
   async getProjectRequests(projectId: string, email: string) {
-    const requestList: { connection: unknown[]; analysis: unknown[] } = {
+    const requestList: {
+      connection: ConnectionRequestResponseDto[];
+      analysis: AnalysisRequestResponseDto[];
+    } = {
       connection: [],
       analysis: [],
     };
@@ -136,7 +141,7 @@ export class ProjectService {
   async createProject(user: CurrentUserInfo, dto: ProjectDto) {
     // TODO:  Why not have this as object?
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const memberData = JSON.parse(dto.members);
+    const memberData: unknown[] = JSON.parse(dto.members ?? '[]');
     const customId = nanoid(12);
     const packageName = dto.name
       .toLowerCase()
@@ -156,8 +161,10 @@ export class ProjectService {
       startDate: dto.startDate,
       endDate: dto.endDate,
       participantsNum: dto.participantsNum,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      members: memberData,
+
+      ...(memberData.length && {
+        members: dto.members,
+      }),
       dbKeywords: dto.dbKeywords,
     };
 
@@ -191,7 +198,7 @@ export class ProjectService {
       },
     });
 
-    const memberEmails = (memberData as unknown[]).map(
+    const memberEmails = memberData.map(
       (member: Record<string, string>) => member.email,
     );
 
@@ -225,7 +232,8 @@ export class ProjectService {
         );
       }
     }
-    return project;
+    // just return, no content
+    return;
   }
 
   async getProjectDetails(projectId: string) {

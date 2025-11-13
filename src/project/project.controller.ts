@@ -17,7 +17,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { ProjectDto, ProjectListDto, SettingsDto } from './dto';
+import { ProjectDto, ProjectSummaryInfoDto, SettingsDto } from './dto';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -48,19 +48,23 @@ export class ProjectController {
 
   @Post()
   @ApiOperation({ summary: 'Create project' })
-  @ApiOkResponse({
-    description: 'Created project data',
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'Project created successfully',
   })
-  createProject(@CurrentUser() user: CurrentUserInfo, @Body() dto: ProjectDto) {
+  async createProject(
+    @CurrentUser() user: CurrentUserInfo,
+    @Body() dto: ProjectDto,
+  ) {
     // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
-    return this.projectService.createProject(user, dto);
+    return await this.projectService.createProject(user, dto);
   }
 
   @Get('')
   @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
   @ApiOkResponse({
     description: 'List of user owner projects are returned',
-    type: ProjectListDto,
+    type: ProjectSummaryInfoDto,
     isArray: true,
   })
   async getUserOwnedProjects(@CurrentUser() user: CurrentUserInfo) {
@@ -71,7 +75,7 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get list of projects user is collaborator on' })
   @ApiOkResponse({
     description: 'List of collaborator projects are returned',
-    type: ProjectListDto,
+    type: ProjectSummaryInfoDto,
     isArray: true,
   })
   async getUserSharedProjects(@Req() request: Request) {
@@ -91,7 +95,7 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get list of all projects' })
   @ApiOkResponse({
     description: 'List of all projects',
-    type: ProjectListDto,
+    type: ProjectSummaryInfoDto,
     isArray: true,
   })
   async getAllProjects() {

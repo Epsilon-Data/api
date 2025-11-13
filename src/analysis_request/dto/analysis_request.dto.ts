@@ -1,4 +1,5 @@
-import { Transform } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,
   IsNotEmpty,
@@ -6,7 +7,9 @@ import {
   IsUUID,
   IsDate,
   IsOptional,
+  ValidateNested,
 } from 'class-validator';
+import { RequestDto } from 'src/connection_request/dto';
 
 import { transformDateString } from 'src/utils/class.util';
 
@@ -79,4 +82,24 @@ export class AnalysisDto {
   @IsString()
   @IsNotEmpty()
   projectEthicsId: string;
+}
+
+export class AnalysisRequestResponseDto {
+  @ApiProperty({
+    type: () => RequestDto,
+    nullable: true,
+    description: 'Request object',
+  })
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => RequestDto)
+  request: RequestDto;
+
+  @ApiProperty({
+    description: 'Project name',
+    example: 'Health Project',
+  })
+  @IsDefined()
+  @IsString()
+  projectName: string;
 }

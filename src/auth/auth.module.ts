@@ -46,7 +46,7 @@ export class AuthModule implements NestModule {
       .exclude(
         { path: 'health', method: RequestMethod.GET },
         { path: 'docs', method: RequestMethod.GET },
-        { path: 'docs/*path', method: RequestMethod.GET },
+        { path: 'docs/*path', method: RequestMethod.GET }, // TODO: only in dev
         { path: 'analysis/*path', method: RequestMethod.ALL },
       )
       .forRoutes('*path');

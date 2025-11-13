@@ -13,11 +13,12 @@ import {
 import { AnalysisRequestService } from './analysis_request.service';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
 import { AnalysisDto } from './dto';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 @ApiTags('Analysis Request')
+@ApiBearerAuth()
 @Controller('analysis-request')
 export class AnalysisRequestController {
   constructor(private analysisRequestService: AnalysisRequestService) {}

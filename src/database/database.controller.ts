@@ -12,6 +12,7 @@ import { DatabaseService } from './database.service';
 
 import {
   ApiAcceptedResponse,
+  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -30,6 +31,7 @@ import {
 } from './dto';
 
 @ApiTags('Database')
+@ApiBearerAuth()
 @Controller('database')
 @Resource('project')
 export class DatabaseController {
