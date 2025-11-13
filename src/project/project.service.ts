@@ -6,6 +6,7 @@ import {
   ProjectRequestsResponse,
   ProjectSummaryInfoDto,
   SettingsDto,
+  SettingsResponseDto,
 } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
@@ -303,7 +304,9 @@ export class ProjectService {
     });
   }
 
-  async getProjectSettings(projectId: string) {
+  async getProjectSettings(
+    projectId: string,
+  ): Promise<SettingsResponseDto | null> {
     const project = await this.prisma.project.findUnique({
       where: {
         projectId: projectId,
@@ -322,7 +325,7 @@ export class ProjectService {
       return {
         projectId: projectId,
         visualizations: project.visualizations,
-        cover: cover || null,
+        cover: cover ?? null,
       };
     }
     return null;

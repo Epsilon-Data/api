@@ -260,6 +260,35 @@ export class SettingsDto {
   visualizations?: VisualDto[];
 }
 
+export class SettingsResponseDto {
+  @ApiProperty({
+    description: 'Unique project identifier (UUID)',
+    format: 'uuid',
+    example: '6d3cffa2-43b5-48a2-ba73-50931ddf07b2',
+  })
+  @IsDefined()
+  @IsUUID()
+  projectId!: string;
+
+  @ApiProperty({
+    description: 'Unique project identifier (UUID)',
+    format: 'uri',
+    example: 'https://image.com/6d3cffa2-43b5-48a2-ba73-50931ddf07b2/cover.jpg',
+  })
+  @IsOptional()
+  @IsUrl()
+  cover?: string;
+
+  @ApiProperty({
+    description: 'List of members involved in the project',
+    type: Object,
+    nullable: true,
+  })
+  @IsDefined()
+  @IsJSON()
+  visualizations: Prisma.JsonValue | null;
+}
+
 class VisualDto {
   @IsDefined()
   @IsString()
@@ -414,7 +443,7 @@ export class ProjectDetailsResponseDto {
   @Transform(({ value }) => parseInteger(value))
   participantsNum!: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Keywords used to identify relevant database columns',
     isArray: true,
     example: ['heart_rate', 'age', 'bmi'],
