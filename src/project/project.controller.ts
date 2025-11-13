@@ -17,7 +17,13 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { ProjectDto, ProjectSummaryInfoDto, SettingsDto } from './dto';
+import {
+  ProjectDetailsResponseDto,
+  ProjectDto,
+  ProjectRequestsResponse,
+  ProjectSummaryInfoDto,
+  SettingsDto,
+} from './dto';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -108,6 +114,7 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get list of incoming requests' })
   @ApiOkResponse({
     description: 'List of analysis and connection requests for the projects',
+    type: ProjectRequestsResponse,
   })
   async getProjectRequests(
     @CurrentUser() user: CurrentUserInfo,
@@ -122,6 +129,7 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get project details' })
   @ApiOkResponse({
     description: 'Project details are returned',
+    type: ProjectDetailsResponseDto,
   })
   async getProjectDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,

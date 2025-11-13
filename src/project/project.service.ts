@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ProjectDto, ProjectSummaryInfoDto, SettingsDto } from './dto';
+import {
+  ProjectDetailsResponseDto,
+  ProjectDto,
+  ProjectRequestsResponse,
+  ProjectSummaryInfoDto,
+  SettingsDto,
+} from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
@@ -90,7 +96,10 @@ export class ProjectService {
     });
   }
 
-  async getProjectRequests(projectId: string, email: string) {
+  async getProjectRequests(
+    projectId: string,
+    email: string,
+  ): Promise<ProjectRequestsResponse> {
     const requestList: {
       connection: ConnectionRequestResponseDto[];
       analysis: AnalysisRequestResponseDto[];
@@ -236,8 +245,10 @@ export class ProjectService {
     return;
   }
 
-  async getProjectDetails(projectId: string) {
-    const project = await this.prisma.project.findFirst({
+  async getProjectDetails(
+    projectId: string,
+  ): Promise<ProjectDetailsResponseDto | null> {
+    return await this.prisma.project.findUnique({
       where: {
         projectId: projectId,
       },
@@ -253,8 +264,6 @@ export class ProjectService {
         },
       },
     });
-    //TODO: get archetype when project status is MAPPED
-    return project;
   }
 
   async updateProject(projectId: string, dto: ProjectDto) {
@@ -316,7 +325,7 @@ export class ProjectService {
         cover: cover || null,
       };
     }
-    return {};
+    return null;
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {

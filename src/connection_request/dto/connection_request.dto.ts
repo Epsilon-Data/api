@@ -1,9 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { $Enums } from '@prisma/client';
+import { $Enums, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsDate,
   IsEnum,
+  IsJSON,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -43,7 +46,6 @@ export class DatabaseInfoDto {
 
   @ApiPropertyOptional({
     description: 'Full connection URL (if provided, may supersede host/port)',
-    type: String,
     format: 'uri',
     example: 'postgres://user:pass@db.internal.company.local:5432/analytics_dw',
   })
@@ -69,15 +71,7 @@ export class DatabaseInfoDto {
   password?: string;
 }
 
-export class RequestDto {
-  @ApiProperty({
-    type: Date,
-    description: 'The date the request was created',
-  })
-  @IsDate()
-  @Type(() => Date)
-  createdDate: Date;
-
+export class ConnectionDto {
   @ApiPropertyOptional({
     description: 'Incoming request identifier',
     format: 'uuid',
@@ -87,6 +81,99 @@ export class RequestDto {
   @IsUUID()
   requestId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Email of the organisation admin assigned to the project or owner',
+    example: 'admin@university.edu',
+  })
+  @IsOptional()
+  @IsString()
+  orgAdminEmail?: string;
+
+  @ApiPropertyOptional({
+    description: 'Temporary database connection details',
+    type: DatabaseInfoDto,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  tempDbDetails?: DatabaseInfoDto;
+
+  @ApiPropertyOptional({
+    description: 'Miscellaneous extra information provided by the user',
+    example: 'Extra information and comments',
+  })
+  @IsOptional()
+  @IsString()
+  additionalInfo?: string;
+}
+
+export class ConnectionRequestDto {
+  @ApiPropertyOptional({
+    description: 'Connection request',
+    type: () => [RequestDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RequestDto)
+  request?: RequestDto | null;
+
+  @ApiPropertyOptional({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+    nullable: true,
+  })
+  @IsUUID()
+  requestId!: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Email of the organisation admin assigned to the project or owner',
+    example: 'admin@university.edu',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  orgAdminEmail?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Temporary database connection details',
+    type: Object,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsJSON()
+  tempDbDetails?: Prisma.JsonValue | null;
+}
+export class RequestDto {
+  @ApiProperty({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsUUID()
+  requestId!: string;
+
+  @ApiProperty({
+    type: Date,
+    description: 'The date the request was created',
+  })
+  @IsDate()
+  @Type(() => Date)
+  createdDate: Date;
+
+  @ApiPropertyOptional({
+    type: Date,
+    description: 'The date the request was last modified',
+  })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  lastModified?: Date;
+
   @ApiProperty({
     enum: $Enums.RequestStatus,
     description: 'The status of the request',
@@ -94,18 +181,76 @@ export class RequestDto {
   })
   @IsEnum($Enums.RequestStatus)
   status: $Enums.RequestStatus;
+
+  @ApiPropertyOptional({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsOptional()
+  @IsUUID()
+  requestorId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Request comments',
+    type: () => [RequestCommentDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RequestCommentDto)
+  comments?: RequestCommentDto[];
+}
+
+export class RequestCommentDto {
+  @ApiProperty({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsUUID()
+  requestId!: string;
+
+  @ApiProperty({
+    description: 'Comment identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsUUID()
+  commentId!: string;
+
+  @ApiProperty({
+    description: 'Author identifier (userId)',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e2230',
+  })
+  @IsUUID()
+  authorId!: string;
+
+  @ApiProperty({
+    type: Date,
+    description: 'The date the comment was created',
+  })
+  @IsDate()
+  @Type(() => Date)
+  createdDate: Date;
+
+  @ApiProperty({
+    description: 'Comment content',
+    example: 'This is a comment.',
+  })
+  @IsString()
+  content!: string;
 }
 
 export class RequestProjectInfoDto {
   @ApiProperty({
-    type: String,
     description: 'The name of the project',
   })
   @IsString()
   name!: string;
 
   @ApiProperty({
-    type: String,
     description: 'The ID of the project',
   })
   @IsString()
@@ -121,7 +266,7 @@ export class ConnectionRequestResponseDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => RequestDto)
-  request: RequestDto | null;
+  request?: RequestDto | null;
 
   @ApiProperty({
     type: () => RequestProjectInfoDto,
