@@ -232,6 +232,12 @@ export class ProjectService {
     } else {
       // database credentials should exist so run database crawling
       if (dto.connection.tempDbDetails?.url) {
+        await this.prisma.project.update({
+          where: { projectId: project.projectId },
+          data: {
+            status: 'CRAWLING',
+          },
+        });
         await this.queue.dataBrokerJob(
           user.username,
           project.projectId,
