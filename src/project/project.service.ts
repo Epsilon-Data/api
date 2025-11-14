@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  CreateProjectDto,
   ProjectDetailsResponseDto,
-  ProjectDto,
   ProjectRequestsResponse,
   ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
+  UpdateProjectDto,
 } from './dto';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
@@ -148,20 +149,17 @@ export class ProjectService {
     return requestList;
   }
 
-  async createProject(user: CurrentUserInfo, dto: ProjectDto) {
+  async createProject(user: CurrentUserInfo, dto: CreateProjectDto) {
     // TODO:  Why not have this as object?
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const memberData: unknown[] = JSON.parse(dto.members ?? '[]');
-    const customId = nanoid(12);
-    const packageName = dto.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
+    const { packageId, customId } = this.createIds(dto.name, dto.customId);
+    const ownerId = user.id; //using current logged in user details rather than post
 
     const request = {
-      ownerId: dto.ownerId,
-      customId: customId,
-      packageId: `${packageName}_${customId.slice(0, 6)}`,
+      ownerId,
+      customId,
+      packageId,
       name: dto.name,
       lead: dto.lead,
       university: dto.university,
@@ -194,7 +192,7 @@ export class ProjectService {
               request: {
                 create: {
                   requestId,
-                  requestorId: dto.ownerId,
+                  requestorId: ownerId,
                 },
               },
             }),
@@ -226,7 +224,7 @@ export class ProjectService {
         await this.prisma.comment.create({
           data: {
             requestId,
-            authorId: dto.ownerId,
+            authorId: ownerId,
             content: dto.connection.additionalInfo,
           },
         });
@@ -267,27 +265,53 @@ export class ProjectService {
     });
   }
 
-  async updateProject(projectId: string, dto: ProjectDto) {
-    const dbData = JSON.stringify(dto.connection.tempDbDetails);
-    // const memberData = JSON.parse(dto.members);
+  async updateProject(projectId: string, dto: UpdateProjectDto) {
+    // should not update on invalid projectId
+    if (projectId !== dto.projectId) return;
+    // TODO:  Why not have this as object?
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const memberData: unknown[] = JSON.parse(dto.members ?? '[]');
+    const data = {
+      // NOTE: can you change name as that changes package???
+      name: dto.name,
+      lead: dto.lead,
+      status: dto.status,
+      // NOTE: can you change customId as that also changes package??
+      university: dto.university,
+      faculty: dto.faculty,
+      ethicsId: dto.ethicsId,
+      description: dto.description,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      lastModified: new Date(),
+      participantsNum: dto.participantsNum,
+      ...(memberData.length && {
+        members: dto.members,
+      }),
+      dbKeywords: dto.dbKeywords,
+    };
+
+    // remove undefined fields
+    Object.keys(data).forEach(
+      (key) => data[key] === undefined && delete data[key],
+    );
+
+    // Check if connection details are updated
+    const connection =
+      dto.connection?.tempDbDetails !== undefined
+        ? {
+            connection: {
+              update: {
+                tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
+              },
+            },
+          }
+        : {};
     await this.prisma.project.update({
       where: { projectId: projectId },
       data: {
-        name: dto.name,
-        lead: dto.lead,
-        university: dto.university,
-        faculty: dto.faculty,
-        ethicsId: dto.ethicsId,
-        description: dto.description,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-        participantsNum: dto.participantsNum,
-        dbKeywords: dto.dbKeywords,
-        connection: {
-          update: {
-            tempDbDetails: dbData,
-          },
-        },
+        ...data,
+        ...connection,
       },
     });
   }
@@ -355,8 +379,19 @@ export class ProjectService {
         lastModified: new Date(),
       },
     });
-
+    // FIXME: not sure if forcing jpg is good, it should use the ext it has been uploaded
     await this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
+  }
+
+  // TODO: review this generation
+  private createIds(name: string, id?: string) {
+    const customId = id ?? nanoid(12);
+    const packageName = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const packageId = `${packageName}_${customId.slice(0, 6)}`;
+    return { packageId, customId };
   }
 }

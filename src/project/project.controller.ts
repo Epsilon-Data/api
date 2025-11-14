@@ -19,10 +19,12 @@ import {
 import { ProjectService } from './project.service';
 import {
   ProjectDetailsResponseDto,
-  ProjectDto,
+  CreateProjectDto,
   ProjectRequestsResponse,
   ProjectSummaryInfoDto,
   SettingsDto,
+  SettingsResponseDto,
+  UpdateProjectDto,
 } from './dto';
 import {
   ApiBearerAuth,
@@ -60,7 +62,7 @@ export class ProjectController {
   })
   async createProject(
     @CurrentUser() user: CurrentUserInfo,
-    @Body() dto: ProjectDto,
+    @Body() dto: CreateProjectDto,
   ) {
     // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
     return await this.projectService.createProject(user, dto);
@@ -147,7 +149,7 @@ export class ProjectController {
   })
   updateProject(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() dto: ProjectDto,
+    @Body() dto: UpdateProjectDto,
   ) {
     return this.projectService.updateProject(projectId, dto);
   }
@@ -170,6 +172,7 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get project settings' })
   @ApiOkResponse({
     description: 'Project settings are returned',
+    type: SettingsResponseDto,
   })
   async getProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -177,6 +180,23 @@ export class ProjectController {
     return await this.projectService.getProjectSettings(projectId);
   }
 
+  // TODO: need to see if this is needed
+  @UseGuards(ResourceGuard)
+  @Scopes('view, edit')
+  @Post(':projectId/settings')
+  @ApiOperation({ summary: 'Add project settings' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'Project settings are added',
+  })
+  async addProjectSettings(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: SettingsDto,
+  ) {
+    return await this.projectService.updateProjectSettings(projectId, dto);
+  }
+
+  // TODO: need to see if this is needed
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Put(':projectId/settings')
@@ -192,6 +212,7 @@ export class ProjectController {
     return await this.projectService.updateProjectSettings(projectId, dto);
   }
 
+  // TODO: this needs refactoring, is it used?
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Post(':projectId/upload-cover')
@@ -207,14 +228,4 @@ export class ProjectController {
     const result = this.projectService.uploadProjectCover(projectId, file);
     return result;
   }
-
-  // @Get(':projectId/summary')
-  // async projectSummary(@Param('projectId', ParseUUIDPipe) projectId: string) {
-  //   return await this.projectService.projectSummary(projectId);
-  // }
-
-  // @Get(':requestId')
-  // details(@Param('requestId', ParseUUIDPipe) requestId: string) {
-  //   return this.connectionRequestService.details(requestId);
-  // }
 }

@@ -18,7 +18,7 @@ import {
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
 import { $Enums, Prisma } from '@prisma/client';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   ConnectionDto,
   ConnectionRequestDto,
@@ -92,42 +92,15 @@ export class ProjectSummaryInfoDto {
   status!: $Enums.ProjectStatus;
 }
 
-export class ProjectDto {
-  @ApiPropertyOptional({
-    description: 'Unique project identifier (UUID)',
-    format: 'uuid',
-    example: '6d3cffa2-43b5-48a2-ba73-50931ddf07b2',
-  })
-  @IsOptional()
-  @IsUUID()
-  projectId?: string;
-
-  @ApiPropertyOptional({
-    description: 'Current project lifecycle status',
-    enum: $Enums.ProjectStatus,
-    example: $Enums.ProjectStatus.READY,
-  })
-  @IsEnum($Enums.ProjectStatus)
-  @IsOptional()
-  status?: $Enums.ProjectStatus;
-
+export class CreateProjectDto {
   @ApiPropertyOptional({
     description: 'Custom project identifier',
     example: 'customid123',
   })
   @IsOptional()
+  @IsNotEmpty()
   @IsString()
   customId?: string;
-
-  @ApiProperty({
-    description: 'Owner user ID (UUID)',
-    format: 'uuid',
-    example: 'user_845aedf2-44aa-49c5-92e8-8c824f2ae123',
-  })
-  @IsDefined()
-  @IsUUID()
-  @IsNotEmpty()
-  ownerId!: string;
 
   @ApiProperty({
     description: 'Human-readable name of the project',
@@ -180,6 +153,7 @@ export class ProjectDto {
   })
   @IsDefined()
   @IsString()
+  @IsNotEmpty()
   description!: string;
 
   @ApiProperty({
@@ -207,7 +181,7 @@ export class ProjectDto {
   // FIXME: This should be JSON or string[]
   @ApiPropertyOptional({
     description: 'List of members involved in the project',
-    example: "[{'email': 'user1@email.com' 'role': 'collaborator'}]",
+    example: "[{'email': 'user1@email.com', 'role': 'collaborator'}]",
   })
   @IsOptional()
   @IsString()
@@ -230,34 +204,101 @@ export class ProjectDto {
   })
   @IsDefined()
   @IsString({ each: true })
-  dbKeywords: string[];
+  dbKeywords!: string[];
 
   @ApiProperty({
     description: 'Connection metadata & crawling request info',
     type: ConnectionDto,
   })
   @IsDefined()
-  @IsNotEmptyObject()
   @IsObject()
+  @IsNotEmptyObject()
   @ValidateNested()
   @Type(() => ConnectionDto)
   connection!: ConnectionDto;
 }
 
-export class SettingsDto {
+export class UpdateProjectDto extends PartialType(CreateProjectDto) {
+  @ApiProperty({
+    description: 'Unique project identifier (UUID)',
+    format: 'uuid',
+    example: '6d3cffa2-43b5-48a2-ba73-50931ddf07b2',
+  })
   @IsDefined()
   @IsUUID()
-  @IsNotEmpty()
-  projectId: string;
+  projectId!: string;
 
+  @ApiPropertyOptional({
+    description: 'Current project lifecycle status',
+    enum: $Enums.ProjectStatus,
+    example: $Enums.ProjectStatus.PENDING,
+  })
+  @IsEnum($Enums.ProjectStatus)
+  @IsOptional()
+  status?: $Enums.ProjectStatus;
+}
+
+export class SettingsDto {
+  @ApiProperty({
+    description: 'Unique project identifier (UUID)',
+    format: 'uuid',
+    example: '6d3cffa2-43b5-48a2-ba73-50931ddf07b2',
+  })
+  @IsDefined()
+  @IsNotEmpty()
+  @IsUUID()
+  projectId!: string;
+
+  @ApiPropertyOptional({
+    description: 'Cover image file stored as binary data (Buffer)',
+    type: 'string',
+    format: 'binary',
+    nullable: true,
+    example: null,
+  })
   @IsOptional()
   cover?: Buffer;
 
+  @ApiPropertyOptional({
+    description: 'Array of visuals containing title + external link',
+    type: () => [VisualDto],
+    nullable: true,
+    example: [
+      {
+        title: 'Health conditions',
+        link: 'https://app.example.com/visuals/health-overview',
+      },
+      {
+        title: 'Demographics Breakdown',
+        link: 'https://app.example.com/demographics/breakdown',
+      },
+    ],
+  })
   @IsOptional()
-  @IsObject()
+  @IsObject({ each: true })
   @ValidateNested({ each: true })
   @Type(() => VisualDto)
   visualizations?: VisualDto[];
+}
+export class VisualDto {
+  @ApiProperty({
+    description: 'Title describing the visualization or external resource',
+    example: 'Patients demographics breakdown',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @ApiProperty({
+    description: 'External link pointing to the visualization resource',
+    format: 'uri',
+    example: 'https://app.example.com/demographics/breakdown',
+  })
+  @IsDefined()
+  @IsUrl()
+  @IsNotEmpty()
+  link!: string;
 }
 
 export class SettingsResponseDto {
@@ -287,18 +328,6 @@ export class SettingsResponseDto {
   @IsDefined()
   @IsJSON()
   visualizations: Prisma.JsonValue | null;
-}
-
-class VisualDto {
-  @IsDefined()
-  @IsString()
-  @IsNotEmpty()
-  title: string;
-
-  @IsDefined()
-  @IsUrl()
-  @IsNotEmpty()
-  link: string;
 }
 
 export class ProjectDetailsResponseDto {

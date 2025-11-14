@@ -242,8 +242,7 @@ export class RequestCommentDto {
   @IsString()
   content!: string;
 }
-
-export class RequestProjectInfoDto {
+export class ConnectionRequestProjectInfoDto {
   @ApiProperty({
     description: 'The name of the project',
   })
@@ -269,10 +268,10 @@ export class ConnectionRequestResponseDto {
   request?: RequestDto | null;
 
   @ApiProperty({
-    type: () => RequestProjectInfoDto,
+    type: () => ConnectionRequestProjectInfoDto,
     description: 'Project details',
   })
   @ValidateNested()
-  @Type(() => RequestProjectInfoDto)
-  project: RequestProjectInfoDto;
+  @Type(() => ConnectionRequestProjectInfoDto)
+  project: ConnectionRequestProjectInfoDto;
 }
