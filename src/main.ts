@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { HttpAdapterHost, NestFactory } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { AuthExceptionFilter } from './common/filters/auth.filter';
@@ -47,9 +47,7 @@ async function bootstrap() {
     );
   }
 
-  // add prisma client exception filter
-  const { httpAdapter } = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
+  app.useGlobalFilters(new PrismaClientExceptionFilter());
 
   // start api service
   await app.listen(configService.get<number>('apiPort')!);

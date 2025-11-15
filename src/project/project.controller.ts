@@ -27,8 +27,11 @@ import {
   UpdateProjectDto,
 } from './dto';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -43,6 +46,7 @@ import type { Request } from 'express';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
+import { ErrorResponseDto } from 'src/common/dto';
 
 @ApiTags('Project')
 @ApiBearerAuth()
@@ -60,6 +64,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project created successfully',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async createProject(
     @CurrentUser() user: CurrentUserInfo,
     @Body() dto: CreateProjectDto,
@@ -75,6 +82,8 @@ export class ProjectController {
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async getUserOwnedProjects(@CurrentUser() user: CurrentUserInfo) {
     return await this.projectService.getUserOwnedProjects(user.id);
   }
@@ -86,6 +95,7 @@ export class ProjectController {
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getUserSharedProjects(@Req() request: Request) {
     // check for user resource permissions against keycloak
     // TODO: perhaps call this once and cache or make it into a helper/decorator
@@ -106,6 +116,7 @@ export class ProjectController {
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getAllProjects() {
     return await this.projectService.getAllProjects();
   }
@@ -118,6 +129,7 @@ export class ProjectController {
     description: 'List of analysis and connection requests for the projects',
     type: ProjectRequestsResponse,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getProjectRequests(
     @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -133,6 +145,8 @@ export class ProjectController {
     description: 'Project details are returned',
     type: ProjectDetailsResponseDto,
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getProjectDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
@@ -162,6 +176,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project deleted',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   deleteProject(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return this.projectService.deleteProject(projectId);
   }
@@ -174,6 +191,8 @@ export class ProjectController {
     description: 'Project settings are returned',
     type: SettingsResponseDto,
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
@@ -189,6 +208,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project settings are added',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async addProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: SettingsDto,
@@ -205,6 +227,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project settings are updated',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async updateProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: SettingsDto,
@@ -220,6 +245,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project cover image is returned',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async uploadProjectCover(
     @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,

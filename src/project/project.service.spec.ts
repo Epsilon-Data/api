@@ -8,6 +8,7 @@ import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { RequestStatus } from '@prisma/client';
 import { SettingsDto } from './dto';
+import { NotFoundException } from '@nestjs/common/exceptions';
 
 // mock nanoid + uuid to make tests deterministic
 jest.mock('nanoid', () => ({
@@ -24,7 +25,7 @@ describe('ProjectService', () => {
   const prismaMock = {
     project: {
       findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -395,7 +396,7 @@ describe('ProjectService', () => {
   });
 
   describe('getProjectDetails', () => {
-    it('should delegate to prisma.project.findUnique', async () => {
+    it('should delegate to prisma.project.findUniqueOrThrow', async () => {
       const projectId = 'proj-1';
       const project = {
         projectId,
@@ -406,11 +407,13 @@ describe('ProjectService', () => {
         },
       };
 
-      (prismaMock.project.findUnique as jest.Mock).mockResolvedValue(project);
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue(
+        project,
+      );
 
       const result = await service.getProjectDetails(projectId);
 
-      expect(prismaMock.project.findUnique).toHaveBeenCalledWith({
+      expect(prismaMock.project.findUniqueOrThrow).toHaveBeenCalledWith({
         where: { projectId },
         include: {
           connection: {
@@ -510,7 +513,7 @@ describe('ProjectService', () => {
       const projectId = 'proj-1';
       const visualizations = [{ title: 'Dash', link: 'https://example.com' }];
 
-      (prismaMock.project.findUnique as jest.Mock).mockResolvedValue({
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
         visualizations,
       });
 
@@ -520,7 +523,7 @@ describe('ProjectService', () => {
 
       const result = await service.getProjectSettings(projectId);
 
-      expect(prismaMock.project.findUnique).toHaveBeenCalledWith({
+      expect(prismaMock.project.findUniqueOrThrow).toHaveBeenCalledWith({
         where: { projectId },
         select: {
           visualizations: true,
@@ -541,11 +544,15 @@ describe('ProjectService', () => {
 
     it('should return null when project does not exist', async () => {
       const projectId = 'proj-1';
-      (prismaMock.project.findUnique as jest.Mock).mockResolvedValue(null);
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Resource not found'),
+      );
 
-      const result = await service.getProjectSettings(projectId);
+      await expect(
+        service.getProjectSettings(projectId),
+      ).rejects.toBeInstanceOf(NotFoundException);
 
-      expect(result).toBeNull();
+      // expect(result).toThrow();
       expect(fileStorageMock.getFileUrl).not.toHaveBeenCalled();
     });
   });

@@ -3,7 +3,7 @@ const { env } = process;
 const trustedWebOrigins = () =>
   (
     env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN ||
-    'http://localhost:3000,http://localhost:3334'
+    'http://localhost:3000,http://localhost:3334,http://localhost:4173/'
   )
     .split(',')
     .map((origin) => origin.trim());

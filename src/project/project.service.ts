@@ -253,7 +253,7 @@ export class ProjectService {
   async getProjectDetails(
     projectId: string,
   ): Promise<ProjectDetailsResponseDto | null> {
-    return await this.prisma.project.findUnique({
+    return await this.prisma.project.findUniqueOrThrow({
       where: {
         projectId: projectId,
       },
@@ -313,7 +313,7 @@ export class ProjectService {
             },
           }
         : {};
-    await this.prisma.project.update({
+    return await this.prisma.project.update({
       where: { projectId: projectId },
       data: {
         ...data,
@@ -334,10 +334,8 @@ export class ProjectService {
     });
   }
 
-  async getProjectSettings(
-    projectId: string,
-  ): Promise<SettingsResponseDto | null> {
-    const project = await this.prisma.project.findUnique({
+  async getProjectSettings(projectId: string): Promise<SettingsResponseDto> {
+    const project = await this.prisma.project.findUniqueOrThrow({
       where: {
         projectId: projectId,
       },
@@ -345,20 +343,16 @@ export class ProjectService {
         visualizations: true,
       },
     });
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
 
-    if (project) {
-      const bucket = 'cover';
-      const key = `${projectId}/cover.jpg`;
+    const cover = await this.fileStorage.getFileUrl(bucket, key);
 
-      const cover = await this.fileStorage.getFileUrl(bucket, key);
-
-      return {
-        projectId: projectId,
-        visualizations: project.visualizations,
-        cover: cover ?? null,
-      };
-    }
-    return null;
+    return {
+      projectId: projectId,
+      visualizations: project.visualizations,
+      cover: cover ?? null,
+    };
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {
