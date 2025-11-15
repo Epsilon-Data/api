@@ -32,6 +32,19 @@ import { KeycloakService } from './keycloak/keycloak.service';
 export class AuthModule implements NestModule {
   constructor(private configService: ConfigService) {}
   configure(consumer: MiddlewareConsumer) {
+    const excludes = [
+      { path: 'health', method: RequestMethod.GET },
+      { path: 'analysis/*path', method: RequestMethod.ALL },
+    ];
+
+    // only add docs if dev
+    if (this.configService.get<boolean>('isDev')) {
+      excludes.push(
+        { path: 'docs', method: RequestMethod.GET },
+        { path: 'docs/*path', method: RequestMethod.GET },
+      );
+    }
+
     consumer
       .apply(
         // TODO: investigate this
@@ -43,12 +56,7 @@ export class AuthModule implements NestModule {
           audience: this.configService.get<string>('auth.audience'),
         }),
       )
-      .exclude(
-        { path: 'health', method: RequestMethod.GET },
-        { path: 'docs', method: RequestMethod.GET },
-        { path: 'docs/*path', method: RequestMethod.GET }, // TODO: only in dev
-        { path: 'analysis/*path', method: RequestMethod.ALL },
-      )
+      .exclude(...excludes)
       .forRoutes('*path');
   }
 
