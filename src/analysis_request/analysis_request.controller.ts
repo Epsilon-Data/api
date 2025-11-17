@@ -33,7 +33,7 @@ export class AnalysisRequestController {
 
   @Get()
   @ApiOperation({
-    summary: 'Get list of analysis requests',
+    summary: 'Get list of analysis requests sent',
   })
   @UseGuards(new ScopesGuard('api.hub.read'))
   async getList(@CurrentUser() user: CurrentUserInfo) {
