@@ -15,13 +15,23 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  // UseGuards,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { ProjectDto, ProjectListDto, SettingsDto } from './dto';
 import {
+  ProjectDetailsResponseDto,
+  CreateProjectDto,
+  ProjectRequestsResponse,
+  ProjectSummaryInfoDto,
+  SettingsDto,
+  SettingsResponseDto,
+  UpdateProjectDto,
+} from './dto';
+import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -36,6 +46,7 @@ import type { Request } from 'express';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
+import { ErrorResponseDto } from 'src/common/dto';
 
 @ApiTags('Project')
 @ApiBearerAuth()
@@ -47,13 +58,32 @@ export class ProjectController {
     private keycloakConnect: KeycloakService,
   ) {}
 
+  @Post()
+  @ApiOperation({ summary: 'Create project' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'Project created successfully',
+  })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  async createProject(
+    @CurrentUser() user: CurrentUserInfo,
+    @Body() dto: CreateProjectDto,
+  ) {
+    // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
+    return await this.projectService.createProject(user, dto);
+  }
+
   @Get('')
   @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
   @ApiOkResponse({
     description: 'List of user owner projects are returned',
-    type: ProjectListDto,
+    type: ProjectSummaryInfoDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async getUserOwnedProjects(@CurrentUser() user: CurrentUserInfo) {
     return await this.projectService.getUserOwnedProjects(user.id);
   }
@@ -62,11 +92,12 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get list of projects user is collaborator on' })
   @ApiOkResponse({
     description: 'List of collaborator projects are returned',
-    type: ProjectListDto,
+    type: ProjectSummaryInfoDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getUserSharedProjects(@Req() request: Request) {
-    // check for user resource permissions
+    // check for user resource permissions against keycloak
     // TODO: perhaps call this once and cache or make it into a helper/decorator
     const authzRequest = {
       response_mode: 'permissions',
@@ -82,9 +113,10 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get list of all projects' })
   @ApiOkResponse({
     description: 'List of all projects',
-    type: ProjectListDto,
+    type: ProjectSummaryInfoDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getAllProjects() {
     return await this.projectService.getAllProjects();
   }
@@ -95,22 +127,14 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get list of incoming requests' })
   @ApiOkResponse({
     description: 'List of analysis and connection requests for the projects',
+    type: ProjectRequestsResponse,
   })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getProjectRequests(
     @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return await this.projectService.getProjectRequests(projectId, user.email);
-  }
-
-  @Post()
-  @ApiOperation({ summary: 'Create project' })
-  @ApiOkResponse({
-    description: 'Created project data is returned',
-  })
-  createProject(@CurrentUser() user: CurrentUserInfo, @Body() dto: ProjectDto) {
-    // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
-    return this.projectService.createProject(user.username, dto);
   }
 
   @UseGuards(ResourceGuard)
@@ -119,7 +143,10 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get project details' })
   @ApiOkResponse({
     description: 'Project details are returned',
+    type: ProjectDetailsResponseDto,
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getProjectDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
@@ -136,7 +163,7 @@ export class ProjectController {
   })
   updateProject(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() dto: ProjectDto,
+    @Body() dto: UpdateProjectDto,
   ) {
     return this.projectService.updateProject(projectId, dto);
   }
@@ -149,6 +176,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project deleted',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   deleteProject(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return this.projectService.deleteProject(projectId);
   }
@@ -159,13 +189,36 @@ export class ProjectController {
   @ApiOperation({ summary: 'Get project settings' })
   @ApiOkResponse({
     description: 'Project settings are returned',
+    type: SettingsResponseDto,
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
   async getProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return await this.projectService.getProjectSettings(projectId);
   }
 
+  // TODO: need to see if this is needed
+  @UseGuards(ResourceGuard)
+  @Scopes('view, edit')
+  @Post(':projectId/settings')
+  @ApiOperation({ summary: 'Add project settings' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'Project settings are added',
+  })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
+  async addProjectSettings(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: SettingsDto,
+  ) {
+    return await this.projectService.updateProjectSettings(projectId, dto);
+  }
+
+  // TODO: need to see if this is needed
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Put(':projectId/settings')
@@ -174,6 +227,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project settings are updated',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async updateProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: SettingsDto,
@@ -181,6 +237,7 @@ export class ProjectController {
     return await this.projectService.updateProjectSettings(projectId, dto);
   }
 
+  // TODO: this needs refactoring, is it used?
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Post(':projectId/upload-cover')
@@ -188,6 +245,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project cover image is returned',
   })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiConflictResponse({ type: ErrorResponseDto })
   async uploadProjectCover(
     @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,
@@ -196,14 +256,4 @@ export class ProjectController {
     const result = this.projectService.uploadProjectCover(projectId, file);
     return result;
   }
-
-  // @Get(':projectId/summary')
-  // async projectSummary(@Param('projectId', ParseUUIDPipe) projectId: string) {
-  //   return await this.projectService.projectSummary(projectId);
-  // }
-
-  // @Get(':requestId')
-  // details(@Param('requestId', ParseUUIDPipe) requestId: string) {
-  //   return this.connectionRequestService.details(requestId);
-  // }
 }

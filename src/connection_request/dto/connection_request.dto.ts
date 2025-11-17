@@ -1,17 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { $Enums, Prisma } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsDate,
+  IsEnum,
+  IsJSON,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 
 export class DatabaseInfoDto {
   @ApiProperty({
-    description: 'Logical database name (database)',
-    example: 'analytics_dw',
+    description: 'User assigned database name',
+    example: 'Health database',
   })
   @IsString()
   name: string;
 
   @ApiProperty({
-    description: 'Database engine/type',
-    example: 'postgres', // e.g. postgres | mysql | mssql | oracle | sqlite
+    description: 'Database engine/ file type',
+    example: 'postgres', // e.g. postgres | mysql | mssql | oracle | sqlite | CSV
   })
   @IsString()
   type: string;
@@ -34,7 +46,6 @@ export class DatabaseInfoDto {
 
   @ApiPropertyOptional({
     description: 'Full connection URL (if provided, may supersede host/port)',
-    type: String,
     format: 'uri',
     example: 'postgres://user:pass@db.internal.company.local:5432/analytics_dw',
   })
@@ -58,13 +69,209 @@ export class DatabaseInfoDto {
   @IsOptional()
   @IsString()
   password?: string;
+}
 
+export class ConnectionDto {
   @ApiPropertyOptional({
-    description: 'Associated project identifier',
+    description: 'Incoming request identifier',
     format: 'uuid',
-    example: '638c6f81-00c8-47f4-82ec-6b94240e757d',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
   })
   @IsOptional()
   @IsUUID()
-  projectId?: string;
+  requestId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Email of the organisation admin assigned to the project or owner',
+    example: 'admin@university.edu',
+  })
+  @IsOptional()
+  @IsString()
+  orgAdminEmail?: string;
+
+  @ApiPropertyOptional({
+    description: 'Temporary database connection details',
+    type: DatabaseInfoDto,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  tempDbDetails?: DatabaseInfoDto;
+
+  @ApiPropertyOptional({
+    description: 'Miscellaneous extra information provided by the user',
+    example: 'Extra information and comments',
+  })
+  @IsOptional()
+  @IsString()
+  additionalInfo?: string;
+}
+
+export class ConnectionRequestDto {
+  @ApiPropertyOptional({
+    description: 'Connection request',
+    type: () => [RequestDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RequestDto)
+  request?: RequestDto | null;
+
+  @ApiPropertyOptional({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+    nullable: true,
+  })
+  @IsUUID()
+  requestId!: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Email of the organisation admin assigned to the project or owner',
+    example: 'admin@university.edu',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  orgAdminEmail?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Temporary database connection details',
+    type: Object,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsJSON()
+  tempDbDetails?: Prisma.JsonValue | null;
+}
+export class RequestDto {
+  @ApiProperty({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsUUID()
+  requestId!: string;
+
+  @ApiProperty({
+    type: Date,
+    description: 'The date the request was created',
+  })
+  @IsDate()
+  @Type(() => Date)
+  createdDate: Date;
+
+  @ApiPropertyOptional({
+    type: Date,
+    description: 'The date the request was last modified',
+  })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  lastModified?: Date;
+
+  @ApiProperty({
+    enum: $Enums.RequestStatus,
+    description: 'The status of the request',
+    example: $Enums.RequestStatus.PENDING,
+  })
+  @IsEnum($Enums.RequestStatus)
+  status: $Enums.RequestStatus;
+
+  @ApiPropertyOptional({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsOptional()
+  @IsUUID()
+  requestorId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Request comments',
+    type: () => [RequestCommentDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RequestCommentDto)
+  comments?: RequestCommentDto[];
+}
+
+export class RequestCommentDto {
+  @ApiProperty({
+    description: 'Incoming request identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsUUID()
+  requestId!: string;
+
+  @ApiProperty({
+    description: 'Comment identifier',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
+  })
+  @IsUUID()
+  commentId!: string;
+
+  @ApiProperty({
+    description: 'Author identifier (userId)',
+    format: 'uuid',
+    example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e2230',
+  })
+  @IsUUID()
+  authorId!: string;
+
+  @ApiProperty({
+    type: Date,
+    description: 'The date the comment was created',
+  })
+  @IsDate()
+  @Type(() => Date)
+  createdDate: Date;
+
+  @ApiProperty({
+    description: 'Comment content',
+    example: 'This is a comment.',
+  })
+  @IsString()
+  content!: string;
+}
+export class ConnectionRequestProjectInfoDto {
+  @ApiProperty({
+    description: 'The name of the project',
+  })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({
+    description: 'The ID of the project',
+  })
+  @IsString()
+  projectId!: string;
+}
+
+export class ConnectionRequestResponseDto {
+  @ApiPropertyOptional({
+    type: () => RequestDto,
+    nullable: true,
+    description: 'Request object, null if no request exists',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RequestDto)
+  request?: RequestDto | null;
+
+  @ApiProperty({
+    type: () => ConnectionRequestProjectInfoDto,
+    description: 'Project details',
+  })
+  @ValidateNested()
+  @Type(() => ConnectionRequestProjectInfoDto)
+  project: ConnectionRequestProjectInfoDto;
 }

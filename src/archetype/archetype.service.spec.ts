@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ArchetypeService } from './archetype.service';
@@ -530,7 +531,10 @@ describe('ArchetypeService', () => {
       const projectId = '638c6f81-00c8-47f4-82ec-6b94240e757d';
       const archetypeId = 'Xa7BAIWZCA8u';
       const token = 'test-token';
-      const attributes = { name: 'New Name', status: 'PUBLISHED' };
+      const attributes = {
+        name: 'New Name',
+        status: ArchetypeStatus.PUBLISHED,
+      };
 
       atlas.put.mockResolvedValueOnce({});
 
@@ -564,7 +568,7 @@ describe('ArchetypeService', () => {
     it('logs and rethrows when Atlas PUT fails', async () => {
       const projectId = 'p';
       const archetypeId = 'a';
-      const attributes = { status: 'DRAFT' };
+      const attributes = { status: ArchetypeStatus.DRAFT };
       const err = new Error('Atlas PUT failed');
       atlas.put.mockRejectedValueOnce(err);
 

@@ -11,6 +11,7 @@ import {
 import { ConnectionRequestService } from './connection_request.service';
 import { DatabaseInfoDto } from './dto';
 import {
+  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -26,6 +27,7 @@ import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 // import { ScopesGuard } from 'src/common/guards/scopes.guard';
 
 @ApiTags('Connection Request')
+@ApiBearerAuth()
 // @Resource('project')
 @Controller('connection-request')
 export class ConnectionRequestController {

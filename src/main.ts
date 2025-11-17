@@ -1,6 +1,7 @@
-import { HttpAdapterHost, NestFactory } from '@nestjs/core';
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { AuthExceptionFilter } from './common/filters/auth.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
@@ -18,7 +19,17 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AuthExceptionFilter());
 
-  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false, // TODO: should we not allow?
+      transform: true,
+      disableErrorMessages: false,
+      exceptionFactory: (errors) => {
+        return new BadRequestException(errors);
+      },
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Epsilon API')
@@ -27,16 +38,16 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup(
-    `${configService.get<string>('apiBaseUrl')}/docs`,
-    app,
-    document,
-  );
+  if (configService.get<boolean>('isDev')) {
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup(
+      `${configService.get<string>('apiBaseUrl')}/docs`,
+      app,
+      document,
+    );
+  }
 
-  // add prisma client exception filter
-  const { httpAdapter } = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
+  app.useGlobalFilters(new PrismaClientExceptionFilter());
 
   // start api service
   await app.listen(configService.get<number>('apiPort')!);

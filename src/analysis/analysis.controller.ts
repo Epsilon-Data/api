@@ -7,7 +7,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { ProjectService } from 'src/project/project.service';
@@ -16,6 +16,7 @@ import { ArchetypeService } from 'src/archetype/archetype.service';
 import type { Request } from 'express';
 
 @Controller('analysis')
+@ApiBearerAuth()
 export class AnalysisController {
   constructor(
     private readonly archetypeService: ArchetypeService,

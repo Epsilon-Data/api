@@ -1,12 +1,13 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { NotificationDto } from './dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 @ApiTags('Notification')
+@ApiBearerAuth()
 @Controller('notification')
 export class NotificationController {
   constructor(private notificationService: NotificationService) {}
