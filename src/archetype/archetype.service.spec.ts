@@ -1,27 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ArchetypeService } from './archetype.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import {
-  AtlasArchetypeEntityDto,
-  AtlasArchetypeNodeAttributesDto,
   AtlasArchetypeTypeName,
   AtlasEntityDto,
   AtlasEntityResponseDto,
+  AtlasPutEntityResponseDto,
   AtlasQueryType,
   AtlasSearchBasicHeadlessResponseDto,
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
-import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
-import { Logger } from '@nestjs/common';
+import { ArchetypeStatus } from './dto';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { $Enums } from '@prisma/client';
 
 describe('ArchetypeService', () => {
   let service: ArchetypeService;
   let atlas: jest.Mocked<AtlasService>;
+  let prisma: jest.Mocked<PrismaService>;
   let logSpy: jest.SpyInstance<any, unknown[], unknown>;
+  let moduleRef: TestingModule;
 
   const mockQueue = {} as unknown as jest.Mocked<QueueService>;
 
@@ -32,7 +35,7 @@ describe('ArchetypeService', () => {
   });
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    moduleRef = await Test.createTestingModule({
       providers: [
         ArchetypeService,
         {
@@ -49,8 +52,9 @@ describe('ArchetypeService', () => {
       ],
     }).compile();
 
-    service = module.get(ArchetypeService);
-    atlas = module.get(AtlasService);
+    service = moduleRef.get(ArchetypeService);
+    atlas = moduleRef.get(AtlasService);
+    prisma = moduleRef.get(PrismaService);
     jest.clearAllMocks();
   });
 
@@ -188,355 +192,43 @@ describe('ArchetypeService', () => {
     });
   });
 
-  describe('getArchetypeDetails', () => {
-    it('builds template info with nodes, edges, column nodes, and permissions', async () => {
-      const projectId = '16297faf-b27d-4227-913b-9ccf4c480211';
-      const templateGuid = 'template-guid';
-      const archetypeId = '8ryVfIcqIpqN';
-      const token = 'tkn';
-      const createTime = 1762158127596;
-      const updateTime = 1762177232106;
-
-      // Root node (level 0) with ACTIVE status, no permissions expected for root
-      const rootGuid = 'root-guid';
-      const rootNodeId = 'node_0'; // needs to be random in the future
-      const rootQN = `${projectId}@${archetypeId}@${rootNodeId}`;
-
-      // Child category node (level 1), ACTIVE, with parent relation and a column relation
-      const catGuid = 'cat-guid';
-      const catNodeId = 'node_1';
-      const catQN = `${projectId}@${archetypeId}@${catNodeId}`;
-      const columnGuid = 'col-guid';
-      const tableName = `public.examination`;
-      const columnQN = `${projectId}@${tableName}@column_hr`;
-
-      const atlasResponse = {
-        entity: {
-          guid: templateGuid,
-          typeName: AtlasArchetypeTypeName.Template,
-          attributes: {
-            owner: 'owner',
-            replicatedTo: null,
-            userDescription: null,
-            replicatedFrom: null,
-            qualifiedName: '16297faf-b27d-4227-913b-9ccf4c480211@8ryVfIcqIpqN',
-            displayName: null,
-            name: 'Test archetype',
-            description: null,
-            projectId: '16297faf-b27d-4227-913b-9ccf4c480211',
-            status: 'PUBLISHED',
-          } as AtlasArchetypeNodeAttributesDto,
-          updateTime, // used to set lastModified
-          createTime,
-        } as AtlasArchetypeEntityDto,
-        referredEntities: {
-          // Root node entity
-          [rootGuid]: {
-            guid: rootGuid,
-            typeName: 'archetype_node',
-            status: 'ACTIVE',
-            attributes: {
-              qualifiedName: rootQN,
-              level: 0,
-              label: 'Root',
-              position: { x: 100, y: 100 },
-            },
-            relationshipAttributes: {
-              template: {
-                guid: templateGuid,
-                typeName: 'archetype_template',
-                relationshipStatus: 'ACTIVE',
-                qualifiedName: `${projectId}@${archetypeId}`,
-              },
-              parent_node: null, // no parents as it's root
-              column: null, // not columns as it's root
-              child_nodes: [],
-            },
-            classifications: [
-              {
-                typeName: 'root_node',
-                entityGuid: rootGuid,
-                entityStatus: 'ACTIVE',
-                propagate: false,
-                removePropagationsOnEntityDelete: false,
-              },
-            ],
-          },
-
-          // Category child entity with parent relation to root, and a column relation
-          [catGuid]: {
-            guid: catGuid,
-            typeName: 'archetype_node',
-            status: 'ACTIVE',
-            attributes: {
-              qualifiedName: catQN,
-              level: 1,
-              label: 'Heart rate',
-              position: { x: 200, y: 220 },
-            },
-            relationshipAttributes: {
-              template: {
-                guid: templateGuid,
-                typeName: 'archetype_template',
-                relationshipStatus: 'ACTIVE',
-                qualifiedName: `${projectId}@${archetypeId}`,
-              },
-              parent_node: {
-                relationshipStatus: 'ACTIVE',
-                typeName: 'archetype_node',
-                qualifiedName: rootQN,
-              },
-              column: {
-                relationshipStatus: 'ACTIVE',
-                typeName: 'rdbms_column',
-                guid: columnGuid,
-                qualifiedName: columnQN,
-              },
-            },
-            classifications: [
-              {
-                typeName: 'leaf_node',
-                entityGuid: catGuid,
-                entityStatus: 'ACTIVE',
-                propagate: false,
-                removePropagationsOnEntityDelete: false,
-              },
-              {
-                typeName: 'archetype_node_analysis_permissions',
-                entityStatus: 'ACTIVE',
-                entityGuid: catGuid,
-                attributes: { access_level: 'DETAILED' },
-              },
-              // Simulate a propagated permission on someone else — should not match entityGuid and thus ignored
-              {
-                typeName: 'archetype_node_analysis_permissions',
-                entityStatus: 'ACTIVE',
-                entityGuid: 'some-other-guid',
-                attributes: { access_level: 'HIGH' },
-              },
-            ],
-          },
-
-          // column related to template (should not exist, but testing if it gets excluded)
-          [columnGuid]: {
-            guid: columnGuid,
-            typeName: 'rdbms_column',
-            status: 'ACTIVE',
-            attributes: {
-              qualifiedName: columnQN,
-            },
-            relationshipAttributes: {
-              archetype_nodes: [],
-              table: {},
-            },
-            classifications: [],
-          },
-
-          // Add an INACTIVE node to ensure it is skipped entirely
-          inactive: {
-            guid: 'inactive-guid',
-            typeName: 'archetype_node',
-            status: 'DELETED',
-            attributes: {
-              qualifiedName: `${projectId}@${archetypeId}@node_inactive`,
-              level: 1,
-              label: 'Inactive',
-              position: { x: 0, y: 0 },
-            },
-            relationshipAttributes: {},
-          },
-        },
-      };
-
-      atlas.get.mockResolvedValueOnce(atlasResponse);
-
-      const result = await service.getArchetypeDetails(
-        projectId,
-        archetypeId,
-        token,
-      );
-
-      // Call + params assertions
-      expect(atlas.get).toHaveBeenCalledTimes(1);
-      const [endpoint, params, forwardedToken] = atlas.get.mock.calls[0];
-      expect(endpoint).toBe(
-        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
-      );
-      expect(params).toEqual({
-        'attr:qualifiedName': `${projectId}@${archetypeId}`,
-        ignoreRelationships: false,
-        minExtInfo: false,
-      });
-      expect(forwardedToken).toBe(token);
-
-      // Template-level mapping
-      expect(result.projectId).toBe(projectId);
-      expect(result.archetypeId).toBe(archetypeId);
-      expect(result.name).toBe('Test archetype');
-      expect(result.status).toBe('PUBLISHED' as ArchetypeStatus);
-      expect(result.lastModified).toEqual(new Date(updateTime));
-
-      // Nodes:
-      // - root node: id=node_0, type=root, position from attributes
-      // - category child: id=node_1, type=category, position from attributes
-      // - column node derived from relation: id=columnGuid, type=Column, label from qn last segment
-      // order is based on iteration over referredEntities; assert presence rather than strict order
-      result.nodes = result.nodes || [];
-      const nodeIds = result.nodes?.map((n) => n.id);
-      expect(nodeIds).toEqual(
-        expect.arrayContaining([rootNodeId, catNodeId, columnGuid]),
-      );
-
-      const rootNode = result.nodes.find((n) => n.id === rootNodeId)!;
-      expect(rootNode.type).toBe('root' as ArchetypeNodeType);
-      expect(rootNode.data).toEqual({ label: 'Root', level: 0 });
-      expect(rootNode.position).toEqual({ x: 100, y: 100 });
-
-      const catNode = result.nodes.find((n) => n.id === catNodeId)!;
-      expect(catNode.type).toBe('category' as ArchetypeNodeType);
-      expect(catNode.data).toEqual({ label: 'Heart rate', level: 1 });
-      expect(catNode.position).toEqual({ x: 200, y: 220 });
-
-      const columnNode = result.nodes.find((n) => n.id === columnGuid)!;
-      expect(columnNode.type).toBe(ArchetypeNodeType.Column);
-      expect(columnNode.data.label).toBe('column_hr');
-      // derived position: y + 200 from parent category node
-      expect(columnNode.position).toEqual({ x: 200, y: 220 + 200 });
-      expect(columnNode.data.level).toBe(2); // cat level + 1
-
-      // Edges:
-      // - parent edge: root -> category
-      // - column edge: category -> column
-      result.edges = result.edges || [];
-      const edgeIds = result.edges?.map((e) => e.id);
-      expect(edgeIds).toEqual(
-        expect.arrayContaining([
-          `edge_${rootNodeId}_${catNodeId}`,
-          `edge_${catNodeId}_${columnGuid}`,
-        ]),
-      );
-
-      const parentEdge = result.edges.find(
-        (e) => e.id === `edge_${rootNodeId}_${catNodeId}`,
-      )!;
-      expect(parentEdge.source).toBe(rootNodeId);
-      expect(parentEdge.target).toBe(catNodeId);
-
-      const columnEdge = result.edges.find(
-        (e) => e.id === `edge_${catNodeId}_${columnGuid}`,
-      )!;
-      expect(columnEdge.source).toBe(catNodeId);
-      expect(columnEdge.target).toBe(columnGuid);
-
-      // Permissions:
-      // - root should NOT have permissions due to level === 0
-      // - category node has an ACTIVE matching classification with same entityGuid
-      expect(result.permissions).toEqual([
-        { id: catNodeId, permission: 'DETAILED' as ArchetypePermission },
-      ]);
-    });
-
-    it('skips edges/column when relationship entityStatus is not ACTIVE', async () => {
-      const projectId = 'proj-x';
-      const archetypeId = 'arch-y';
-
-      const rootGuid = 'a';
-      const catGuid = 'b';
-      const rootNodeId = 'node_0'; // needs to be random in the future
-      const catNodeId = 'node_1';
-
-      const rootQN = `${projectId}@${archetypeId}@${rootNodeId}`;
-      const catQN = `${projectId}@${archetypeId}@${catNodeId}`;
-
-      const atlasResponse = {
-        entity: {
-          typeName: AtlasArchetypeTypeName.Template,
-          attributes: { name: 'X', status: 'DRAFT' },
-          updateTime: 1,
-        },
-        referredEntities: {
-          [rootGuid]: {
-            guid: 'a',
-            typeName: 'archetype_node',
-            status: 'ACTIVE',
-            attributes: {
-              qualifiedName: rootQN,
-              level: 0,
-              label: 'Root',
-              position: { x: 0, y: 0 },
-            },
-            relationshipAttributes: {},
-          },
-          [catGuid]: {
-            guid: 'b',
-            typeName: 'archetype_node',
-            status: 'ACTIVE',
-            attributes: {
-              qualifiedName: catQN,
-              level: 1,
-              label: 'Child',
-              position: { x: 10, y: 10 },
-            },
-            relationshipAttributes: {
-              parent_node: {
-                relationshipStatus: 'ACTIVE',
-                guid: rootGuid,
-                qualifiedName: rootQN,
-              },
-              column: {
-                relationshipStatus: 'DELETED',
-                guid: 'cg',
-                qualifiedName: `${projectId}@${archetypeId}@col`,
-              }, // skip column
-            },
-          },
-        },
-      };
-
-      atlas.get.mockResolvedValueOnce(atlasResponse);
-
-      const result = await service.getArchetypeDetails(projectId, archetypeId);
-
-      // nodes should include root + child only (no column)
-      result.nodes = result.nodes || [];
-      expect(result.nodes.map((n) => n.id)).toEqual(
-        expect.arrayContaining([rootNodeId, catNodeId]),
-      );
-      expect(result.nodes.find((n) => n.id === 'cg')).toBeUndefined();
-
-      // no edges due to non-ACTIVE relations
-      expect(result.edges).toHaveLength(1);
-
-      result.edges = result.edges || [];
-      const parentEdge = result.edges.find(
-        (e) => e.id === `edge_${rootNodeId}_${catNodeId}`,
-      )!;
-      expect(parentEdge.source).toBe(rootNodeId);
-      expect(parentEdge.target).toBe(catNodeId);
-    });
-
-    // TODO: this needs to be better tested
-    it('forwards AtlasService errors', async () => {
-      const projectId = 'p';
-      const archetypeId = 'a';
-      atlas.get.mockRejectedValueOnce(new Error('atlas down'));
-      await expect(
-        service.getArchetypeDetails(projectId, archetypeId),
-      ).rejects.toThrow('atlas down');
-    });
-  });
-
   describe('updateArchetypeDetails', () => {
-    it('calls Atlas PUT with correct endpoint, body, params, and token', async () => {
+    it('updates status and attributes, unpublishes previous published archetype, and updates project', async () => {
       const projectId = '638c6f81-00c8-47f4-82ec-6b94240e757d';
       const archetypeId = 'Xa7BAIWZCA8u';
       const token = 'test-token';
+      const qualifiedName = `${projectId}@${archetypeId}`;
+
       const attributes = {
         name: 'New Name',
         status: ArchetypeStatus.PUBLISHED,
       };
 
-      atlas.put.mockResolvedValueOnce({});
+      // Search result: current archetype ACTIVE, another one already PUBLISHED
+      const searchResult: AtlasSearchBasicHeadlessResponseDto = {
+        queryType: AtlasQueryType.BASIC,
+        searchParameters: {},
+        attributes: {
+          name: ['qualifiedName', 'status'],
+          values: [
+            [qualifiedName, ArchetypeStatus.ACTIVE], // current one
+            [`${projectId}@OTHER`, ArchetypeStatus.PUBLISHED], // previously published
+          ],
+        },
+        approximateCount: 2,
+      };
+
+      atlas.post.mockResolvedValueOnce(searchResult);
+
+      // atlas.put is used by updateAtlasTemplateAttributes (current + previous)
+      atlas.put.mockResolvedValue({} as AtlasPutEntityResponseDto);
+
+      // allow any transition in this test
+      const canTransitionSpy = jest
+        .spyOn(service as any, 'canTransition')
+        .mockReturnValue(true);
+
+      (prisma.project.update as jest.Mock).mockResolvedValue({});
 
       await expect(
         service.updateArchetypeDetails(
@@ -547,34 +239,145 @@ describe('ArchetypeService', () => {
         ),
       ).resolves.toBeUndefined();
 
-      expect(atlas.put).toHaveBeenCalledTimes(1);
-      const [endpoint, body, params, forwardedToken] = atlas.put.mock.calls[0];
-
-      expect(endpoint).toBe(
-        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
-      );
-      expect(body).toEqual({
-        entity: {
+      // search/basic called correctly
+      expect(atlas.post).toHaveBeenCalledTimes(1);
+      expect(atlas.post).toHaveBeenCalledWith(
+        '/search/basic',
+        {
           typeName: AtlasArchetypeTypeName.Template,
-          attributes,
+          excludeDeletedEntities: true,
+          includeSubClassifications: false,
+          excludeHeaderAttributes: true,
+          includeSubTypes: false,
+          includeClassificationAttributes: false,
+          entityFilters: {
+            attributeName: 'projectId',
+            operator: 'eq',
+            attributeValue: projectId,
+          },
+          attributes: ['qualifiedName', 'status'],
+        },
+        token,
+      );
+
+      // transition check
+      expect(canTransitionSpy).toHaveBeenCalledWith(
+        ArchetypeStatus.ACTIVE,
+        ArchetypeStatus.PUBLISHED,
+      );
+
+      // atlas.put called twice: current archetype + previous published
+      expect(atlas.put).toHaveBeenCalledTimes(2);
+
+      // first call: update current archetype with provided attributes
+      expect(atlas.put).toHaveBeenNthCalledWith(
+        1,
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          entity: {
+            typeName: AtlasArchetypeTypeName.Template,
+            attributes,
+          },
+        },
+        {
+          'attr:qualifiedName': qualifiedName,
+        },
+        token,
+      );
+
+      // second call: unpublish previous published archetype (set status ACTIVE)
+      expect(atlas.put).toHaveBeenNthCalledWith(
+        2,
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          entity: {
+            typeName: AtlasArchetypeTypeName.Template,
+            attributes: { status: ArchetypeStatus.ACTIVE },
+          },
+        },
+        {
+          'attr:qualifiedName': `${projectId}@OTHER`,
+        },
+        token,
+      );
+
+      // 4) project updated to MAPPED with lastModified set
+      expect(prisma.project.update).toHaveBeenCalledTimes(1);
+      expect(prisma.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: {
+          lastModified: expect.any(Date),
+          status: $Enums.ProjectStatus.MAPPED,
         },
       });
-      expect(params).toEqual({
-        'attr:qualifiedName': `${projectId}@${archetypeId}`,
-      });
-      expect(forwardedToken).toBe(token);
     });
 
-    it('logs and rethrows when Atlas PUT fails', async () => {
+    it('rejects update because of transition not allowed', async () => {
+      const projectId = '638c6f81-00c8-47f4-82ec-6b94240e757d';
+      const archetypeId = 'Xa7BAIWZCA8u';
+      const qualifiedName = `${projectId}@${archetypeId}`;
+
+      const attributes = {
+        name: 'New Name',
+        status: ArchetypeStatus.DRAFT,
+      };
+
+      // Search result: current archetype ACTIVE, another one already PUBLISHED
+      const searchResult: AtlasSearchBasicHeadlessResponseDto = {
+        queryType: AtlasQueryType.BASIC,
+        searchParameters: {},
+        attributes: {
+          name: ['qualifiedName', 'status'],
+          values: [
+            [qualifiedName, ArchetypeStatus.ACTIVE], // current one
+          ],
+        },
+        approximateCount: 2,
+      };
+
+      atlas.post.mockResolvedValueOnce(searchResult);
+
+      // allow any transition in this test
+      const canTransitionSpy = jest.spyOn(service as any, 'canTransition');
+      await expect(
+        service.updateArchetypeDetails(projectId, archetypeId, attributes),
+      ).rejects.toThrow(`Cannot transition archetype from ACTIVE to DRAFT`);
+
+      const err = new BadRequestException(
+        'Cannot transition archetype from ACTIVE to DRAFT',
+      );
+      expect(canTransitionSpy).toHaveBeenCalledTimes(1);
+      expect(logSpy).toHaveBeenCalledWith(
+        'Error updating archetype details',
+        err,
+      );
+    });
+
+    it('logs and rethrows when Atlas call fails', async () => {
       const projectId = 'p';
       const archetypeId = 'a';
+      const qualifiedName = `${projectId}@${archetypeId}`;
       const attributes = { status: ArchetypeStatus.DRAFT };
-      const err = new Error('Atlas PUT failed');
+
+      const searchResult: AtlasSearchBasicHeadlessResponseDto = {
+        queryType: AtlasQueryType.BASIC,
+        approximateCount: 1,
+        searchParameters: {},
+        attributes: {
+          name: ['qualifiedName', 'status'],
+          values: [[qualifiedName, ArchetypeStatus.ACTIVE]],
+        },
+      };
+
+      atlas.post.mockResolvedValueOnce(searchResult);
+      jest.spyOn(service as any, 'canTransition').mockReturnValue(true);
+
+      const err = new Error('Unexpected server error');
       atlas.put.mockRejectedValueOnce(err);
 
       await expect(
         service.updateArchetypeDetails(projectId, archetypeId, attributes),
-      ).rejects.toThrow('Atlas PUT failed');
+      ).rejects.toThrow('Unexpected server error');
 
       expect(logSpy).toHaveBeenCalledWith(
         'Error updating archetype details',

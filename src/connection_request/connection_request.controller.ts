@@ -1,19 +1,24 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
-  HttpException,
-  HttpStatus,
+  InternalServerErrorException,
   Param,
   Post,
+  ServiceUnavailableException,
+  UnauthorizedException,
   // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
 import { DatabaseInfoDto } from './dto';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -49,19 +54,53 @@ export class ConnectionRequestController {
     description: 'Connection test successful',
   })
   @ApiUnauthorizedResponse({
-    description: 'Wrong credentials',
+    description: 'Wrong credentials (e.g. 28P01)',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid database / config (e.g. DB does not exist)',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Database host unreachable / connection refused',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
   })
   async testConnection(@Body() databaseDto: DatabaseInfoDto) {
     try {
       return await this.connectionRequestService.testConnection(databaseDto);
-    } catch (error) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          error: `Wrong credentials error: ${error}`,
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        typeof error.code === 'string'
+      ) {
+        const code = error.code;
+        switch (code) {
+          case '28P01':
+            // invalid_password
+            throw new UnauthorizedException('Wrong credentials or database');
+
+          case '3D000':
+            // invalid_catalog_name – database does not exist
+            throw new BadRequestException('Database does not exist');
+
+          case 'ECONNREFUSED':
+            // Node.js connection refused (e.g. host:port not reachable)
+            throw new ServiceUnavailableException(
+              'Could not connect to the database host',
+            );
+
+          case 'ENOTFOUND':
+            // DNS / host not found
+            throw new ServiceUnavailableException(
+              'Database host name could not be resolved',
+            );
+        }
+      }
+
+      // handle rest - no code or an unknown code
+      throw new InternalServerErrorException('Unexpected database error');
     }
   }
 

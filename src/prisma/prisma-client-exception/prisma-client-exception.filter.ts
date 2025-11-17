@@ -79,6 +79,7 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
 
     const status = mapped.getStatus();
     const body = mapped.getResponse();
+    console.log(mapped);
 
     response.status(status).json(body);
   }
