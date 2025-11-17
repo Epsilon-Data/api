@@ -132,5 +132,7 @@ enum ProjectStatus {
 
 enum RequestStatus {
   PENDING
+  REVISION
+  REJECTED
   APPROVED
 }
