@@ -28,17 +28,36 @@ export class AnalysisRequestService {
       },
       select: {
         requestId: true,
-        projectName: true,
+        project: {
+          select: {
+            projectId: true,
+            name: true,
+            university: true,
+          },
+        },
         request: {
           select: {
             status: true,
             createdDate: true,
+            lastModified: true,
           },
         },
       },
     });
 
-    return requestList;
+    const formatted = requestList.map((request) => {
+      return {
+        requestId: request.requestId,
+        projectId: request.project.projectId,
+        projectName: request.project.name,
+        projectUniversity: request.project.university,
+        status: request.request.status,
+        createdDate: request.request.createdDate,
+        lastModified: request.request.lastModified,
+      };
+    });
+
+    return formatted;
   }
 
   async createRequest(dto: AnalysisDto) {
