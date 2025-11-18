@@ -133,7 +133,12 @@
       "@nestjs/core",
       "@prisma/client",
       "simple-git-hooks"
-    ]
+    ],
+    "overrides": {
+      "js-yaml@<3.14.2": ">=3.14.2",
+      "js-yaml@>=4.0.0 <4.1.1": ">=4.1.1",
+      "glob@>=10.3.7 <=11.0.3": ">=11.1.0"
+    }
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged",
