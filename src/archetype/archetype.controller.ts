@@ -78,6 +78,18 @@ export class ArchetypeController {
     );
   }
 
+  @Get(':projectId/published')
+  @ApiOperation({ summary: 'Get project published archetype details' })
+  @ApiOkResponse({
+    description: 'Archetypes details returned',
+    type: ArchetypeDto,
+  })
+  async getPublishedArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.archetypeService.getPublishedArchetype(projectId);
+  }
+
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Post(':projectId')

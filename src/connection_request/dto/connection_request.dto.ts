@@ -3,9 +3,12 @@ import { $Enums, Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDate,
+  IsDefined,
   IsEnum,
   IsJSON,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
@@ -15,7 +18,7 @@ import {
 
 export class DatabaseInfoDto {
   @ApiProperty({
-    description: 'User assigned database name',
+    description: 'User assigned database name', // not logical name, that is in url
     example: 'Health database',
   })
   @IsString()
@@ -69,6 +72,80 @@ export class DatabaseInfoDto {
   @IsOptional()
   @IsString()
   password?: string;
+}
+export class DatabaseTestDto {
+  @ApiProperty({
+    description: 'Logical database name', // not logical name, that is in url
+    example: 'health_db',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @ApiProperty({
+    description: 'Database engine/ file type',
+    example: 'postgres', // e.g. postgres | mysql | mssql | oracle | sqlite | CSV
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  type!: string;
+
+  @ApiProperty({
+    description: 'Hostname or IP address of the database server',
+    example: 'db.internal.company.local',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  host!: string;
+
+  @ApiProperty({
+    description: 'Port the database listens on (as string)',
+    example: '5432',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  port!: string;
+
+  @ApiProperty({
+    description: 'Database username',
+    writeOnly: true,
+    example: 'db_admin',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  username!: string;
+
+  @ApiProperty({
+    description: 'Database password (write-only; never returned)',
+    writeOnly: true,
+    example: '**********',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  password!: string;
+
+  @ApiPropertyOptional({
+    description: 'SSL connection enabled',
+    example: 'false',
+  })
+  @IsOptional()
+  @IsBoolean()
+  ssl!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Full connection URL (if provided, may supersede host/port)',
+    format: 'uri',
+    example: 'postgres://user:pass@db.internal.company.local:5432/analytics_dw',
+  })
+  @IsOptional()
+  @IsString()
+  url?: string;
 }
 
 export class ConnectionDto {
@@ -127,7 +204,8 @@ export class ConnectionRequestDto {
     nullable: true,
   })
   @IsUUID()
-  requestId!: string | null;
+  @IsOptional()
+  requestId?: string | null;
 
   @ApiPropertyOptional({
     description:

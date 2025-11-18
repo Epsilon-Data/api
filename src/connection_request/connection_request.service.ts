@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { DatabaseInfoDto } from './dto';
+import { DatabaseTestDto } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { QueueService } from 'src/queue/queue.service';
 // import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
@@ -44,15 +44,15 @@ export class ConnectionRequestService {
     return requestList;
   }
 
-  async testConnection(databaseDto: DatabaseInfoDto) {
+  async testConnection(database: DatabaseTestDto) {
     const connectionData = {
-      driver: databaseDto.type,
-      port: parseInt(databaseDto.port || ''),
-      host: databaseDto.host,
-      user: databaseDto.username,
-      password: databaseDto.password,
-      database: databaseDto.name,
-      ssl: false,
+      driver: database.type,
+      port: parseInt(database.port || ''),
+      host: database.host,
+      user: database.username,
+      password: database.password,
+      database: database.name,
+      ssl: database.ssl ?? false,
     };
     return await testConnection(connectionData);
   }

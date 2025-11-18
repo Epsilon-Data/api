@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateProjectDto,
@@ -17,8 +22,12 @@ import { QueueService } from 'src/queue/queue.service';
 import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { v4 as uuidv4 } from 'uuid';
-import { ConnectionRequestResponseDto } from 'src/connection_request/dto';
+import {
+  ConnectionRequestResponseDto,
+  DatabaseInfoDto,
+} from 'src/connection_request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis_request/dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProjectService {
@@ -152,7 +161,7 @@ export class ProjectService {
   async createProject(user: CurrentUserInfo, dto: CreateProjectDto) {
     // TODO:  Why not have this as object?
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const memberData: unknown[] = JSON.parse(dto.members ?? '[]');
+    const memberData: Prisma.JsonArray = JSON.parse(dto.members ?? '[]');
     const { packageId, customId } = this.createIds(dto.name, dto.customId);
     const ownerId = user.id; //using current logged in user details rather than post
 
@@ -179,6 +188,10 @@ export class ProjectService {
     // check if database credential request is needed
     const createRequest = dto.connection.orgAdminEmail ? true : false;
     const requestId = uuidv4();
+    // check if any DB temp details
+    const tempDbDetails = dto.connection.tempDbDetails
+      ? (dto.connection.tempDbDetails as unknown as Prisma.JsonObject)
+      : undefined;
     const project = await this.prisma.project.create({
       data: {
         ...request,
@@ -186,8 +199,7 @@ export class ProjectService {
           create: {
             // if no orgAdminEmail provider make owner admin
             orgAdminEmail: dto.connection.orgAdminEmail ?? user.email,
-            tempDbDetails:
-              JSON.stringify(dto.connection.tempDbDetails) ?? undefined,
+            tempDbDetails,
             ...(createRequest && {
               request: {
                 create: {
@@ -252,7 +264,7 @@ export class ProjectService {
 
   async getProjectDetails(
     projectId: string,
-  ): Promise<ProjectDetailsResponseDto | null> {
+  ): Promise<ProjectDetailsResponseDto> {
     return await this.prisma.project.findUniqueOrThrow({
       where: {
         projectId: projectId,
@@ -271,9 +283,78 @@ export class ProjectService {
     });
   }
 
+  async getProjectPublicDetails(
+    projectId: string,
+  ): Promise<ProjectDetailsResponseDto> {
+    const projectInfo = await this.prisma.project.findUniqueOrThrow({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        projectId: true,
+        status: true,
+        customId: true,
+        ownerId: true,
+        name: true,
+        lead: true,
+        university: true,
+        faculty: true,
+        ethicsId: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+        participantsNum: true,
+        members: true, // TODO: these need to be names not emails
+        lastModified: true,
+        dbKeywords: true,
+        createdDate: true,
+        connection: {
+          select: {
+            tempDbDetails: true, // TODO: need to move database and nature out from there
+          },
+        },
+      },
+    });
+    if (!projectInfo) {
+      // Nest will automatically turn this into a 404 JSON response
+      throw new NotFoundException(`Project with ID '${projectId}' not found`);
+    }
+    // TODO: get member names from keycloak
+    // const members = projectInfo.members as string[];
+    // if (members.length)
+
+    const { name, type } =
+      projectInfo.connection?.tempDbDetails &&
+      typeof projectInfo.connection?.tempDbDetails === 'object'
+        ? (projectInfo.connection?.tempDbDetails as Partial<DatabaseInfoDto>)
+        : {};
+    return {
+      projectId: projectInfo.projectId,
+      status: projectInfo.status,
+      customId: projectInfo.customId,
+      ownerId: projectInfo.ownerId,
+      name: projectInfo.name,
+      lead: projectInfo.lead,
+      university: projectInfo.university,
+      faculty: projectInfo.faculty,
+      ethicsId: projectInfo.ethicsId,
+      description: projectInfo.description,
+      startDate: projectInfo.startDate,
+      endDate: projectInfo.endDate,
+      participantsNum: projectInfo.participantsNum,
+      dbKeywords: projectInfo.dbKeywords,
+      members: projectInfo.members ?? [], // if no members return []
+      // TODO: need to fix these things
+      connection: {
+        tempDbDetails: { name, type },
+      },
+    };
+  }
+
   async updateProject(projectId: string, dto: UpdateProjectDto) {
     // should not update on invalid projectId
-    if (projectId !== dto.projectId) return;
+    if (projectId !== dto.projectId)
+      throw new BadRequestException(`Update projectIds do not match`);
     // TODO:  Why not have this as object?
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const memberData: unknown[] = JSON.parse(dto.members ?? '[]');
@@ -308,7 +389,8 @@ export class ProjectService {
         ? {
             connection: {
               update: {
-                tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
+                tempDbDetails: dto.connection
+                  .tempDbDetails as unknown as Prisma.JsonObject,
               },
             },
           }
@@ -356,17 +438,22 @@ export class ProjectService {
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {
-    await this.prisma.project.update({
-      where: {
-        projectId: projectId,
-      },
-      data: {
-        visualizations: JSON.stringify(dto.visualizations),
-      },
-    });
+    if (projectId !== dto.projectId)
+      throw new BadRequestException(`Update projectIds do not match`);
+    if (dto.visualizations) {
+      // nothing to update
+      await this.prisma.project.update({
+        where: {
+          projectId: projectId,
+        },
+        data: {
+          visualizations: dto.visualizations as unknown as Prisma.JsonArray,
+        },
+      });
 
-    // TODO: check this
-    await this.fileStorage.deleteFile('cover', `${projectId}`);
+      // TODO: check this
+      await this.fileStorage.deleteFile('cover', `${projectId}`);
+    }
     return projectId;
   }
 

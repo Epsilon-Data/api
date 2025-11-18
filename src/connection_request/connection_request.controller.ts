@@ -11,7 +11,7 @@ import {
   // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection_request.service';
-import { DatabaseInfoDto } from './dto';
+import { DatabaseTestDto } from './dto';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -65,9 +65,9 @@ export class ConnectionRequestController {
   @ApiInternalServerErrorResponse({
     description: 'Unexpected database error',
   })
-  async testConnection(@Body() databaseDto: DatabaseInfoDto) {
+  async testConnection(@Body() database: DatabaseTestDto) {
     try {
-      return await this.connectionRequestService.testConnection(databaseDto);
+      return await this.connectionRequestService.testConnection(database);
     } catch (error: unknown) {
       if (
         typeof error === 'object' &&
