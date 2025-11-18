@@ -29,14 +29,14 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
 
     let mapped: HttpException;
 
-    // 1️⃣ Handle validation errors (schema / query misuse)
+    // handle validation errors (schema / query misuse)
     if (exception instanceof Prisma.PrismaClientValidationError) {
       // You can parse the message if you want something prettier
       mapped = new BadRequestException(
         'Invalid request data for database operation',
       );
     }
-    // 2️⃣ Handle known request errors via code
+    // handle known request errors via code
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2025': {

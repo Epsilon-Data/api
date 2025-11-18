@@ -1,9 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { $Enums } from '@prisma/client';
 import {
+  ALLOWED_TRANSITIONS,
   ArchetypeDto,
   ArchetypeEdgeDto,
   ArchetypeNodeDto,
@@ -335,68 +341,132 @@ export class ArchetypeService {
     return {};
   }
 
-  private initJsonObject() {
-    const type = 'object';
-    const properties: Record<string, object> = {};
-    return { type, properties };
-  }
-
-  private atlasTypeToJSONType(dataType: string): string {
-    switch (dataType) {
-      case 'string':
-      case 'date':
-        return 'string';
-      case 'int':
-      case 'integer':
-        return 'integer';
-      case 'long':
-      case 'float':
-      case 'double':
-      case 'short':
-        return 'number';
-      case 'boolean':
-        return 'boolean';
-      case 'array<string>':
-      case 'list<string>':
-        return 'array';
-      // You can expand this for nested object types too
-      default:
-        return 'object'; // fallback for unknown types
-    }
-  }
-
   // Commands
   async updateArchetypeDetails(
     projectId: string,
     archetypeId: string,
     attributes: UpdateArchetypeAttributesDto,
     token?: string,
-  ) {
-    // TODO: perhaps also add check if archetype state can change from one to another
+  ): Promise<void> {
+    const qualifiedName = `${projectId}@${archetypeId}`;
+
     try {
-      await this.atlas.put<AtlasPutEntityResponseDto>(
-        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
-        {
-          entity: {
-            typeName: AtlasArchetypeTypeName.Template,
-            attributes, // updated attributes
-          },
+      // no status change: just update attributes and return
+      if (!attributes.status) {
+        await this.updateAtlasTemplateAttributes(
+          qualifiedName,
+          attributes,
+          token,
+        );
+        return;
+      }
+
+      const body = {
+        typeName: AtlasArchetypeTypeName.Template,
+        excludeDeletedEntities: true,
+        includeSubClassifications: false,
+        excludeHeaderAttributes: true,
+        includeSubTypes: false,
+        includeClassificationAttributes: false,
+        entityFilters: {
+          attributeName: 'projectId',
+          operator: 'eq',
+          attributeValue: projectId,
         },
-        {
-          'attr:qualifiedName': `${projectId}@${archetypeId}`,
-        },
+        attributes: ['qualifiedName', 'status'], // keep this aligned with index usage below
+      };
+
+      // get all project archetypes
+      const searchResult =
+        await this.atlas.post<AtlasSearchBasicHeadlessResponseDto>(
+          '/search/basic',
+          body,
+          token,
+        );
+
+      // check if any archetypes exist for project
+      const rows = searchResult.attributes.values;
+      if (!rows.length) {
+        // this should not happen
+        this.logger.warn(
+          `No archetype templates found for project ${projectId} when updating ${qualifiedName}`,
+        );
+        throw new NotFoundException(
+          `No archetype templates found for project ${projectId}`,
+        );
+      }
+
+      // check for current status of this archetype
+      const currentRow = rows.find(
+        (v) => Array.isArray(v) && v[0] === qualifiedName,
+      );
+      const currentStatus = currentRow?.[1] as ArchetypeStatus | undefined;
+      if (!currentStatus) {
+        // should not happen
+        this.logger.warn(
+          `Archetype ${qualifiedName} not found in Atlas when updating details`,
+        );
+        throw new NotFoundException(`Archetype ${qualifiedName} not found`);
+      }
+
+      // check for allowed status change
+      const nextStatus = attributes.status;
+      if (!this.canTransition(currentStatus, nextStatus)) {
+        throw new BadRequestException(
+          `Cannot transition archetype from ${currentStatus} to ${nextStatus}`,
+        );
+      }
+      // apply status + attribute change to this archetype
+      await this.updateAtlasTemplateAttributes(
+        qualifiedName,
+        attributes,
         token,
       );
-      if (attributes.status && attributes.status === ArchetypeStatus.PUBLISHED)
-        await this.prisma.project.update({
-          where: { projectId: projectId },
-          data: {
-            lastModified: new Date(),
-            status: $Enums.ProjectStatus.MAPPED,
-          },
-        });
 
-      return; // NO CONTENT
+      // check: if publishing, unpublish any previously published archetype
+      const previouslyPublishedRow = rows.find(
+        (v) =>
+          Array.isArray(v) &&
+          v[1] === (ArchetypeStatus.PUBLISHED as string) &&
+          v[0] !== qualifiedName, // make sure it's NOT this one
+      );
+      const previousPublishedQualifiedName = previouslyPublishedRow?.[0];
+      if (
+        nextStatus === ArchetypeStatus.PUBLISHED &&
+        previousPublishedQualifiedName
+      ) {
+        // unpublish the previous one
+        await this.updateAtlasTemplateAttributes(
+          previousPublishedQualifiedName,
+          { status: ArchetypeStatus.ACTIVE } as UpdateArchetypeAttributesDto,
+          token,
+        );
+      }
+
+      // update project status + lastModified based on new state
+      // did the project end up with *any* published archetype after this change
+      const hadOtherPublishedBefore =
+        rows.some(
+          (v) =>
+            Array.isArray(v) &&
+            v[1] === (ArchetypeStatus.PUBLISHED as string) &&
+            v[0] !== qualifiedName,
+        ) && currentStatus !== ArchetypeStatus.PUBLISHED;
+
+      const projectNowHasPublished =
+        nextStatus === ArchetypeStatus.PUBLISHED || hadOtherPublishedBefore;
+
+      const newProjectStatus = projectNowHasPublished
+        ? $Enums.ProjectStatus.MAPPED
+        : $Enums.ProjectStatus.READY;
+
+      await this.prisma.project.update({
+        where: { projectId },
+        data: {
+          lastModified: new Date(),
+          status: newProjectStatus,
+        },
+      });
     } catch (error) {
       this.logger.error(`Error updating archetype details`, error);
       throw error;
@@ -428,5 +498,59 @@ export class ArchetypeService {
       archetypeId,
       archetype,
     );
+  }
+
+  // private methods
+  private async updateAtlasTemplateAttributes(
+    qualifiedName: string,
+    attributes: UpdateArchetypeAttributesDto,
+    token?: string,
+  ): Promise<void> {
+    await this.atlas.put<AtlasPutEntityResponseDto>(
+      `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+      {
+        entity: {
+          typeName: AtlasArchetypeTypeName.Template,
+          attributes,
+        },
+      },
+      {
+        'attr:qualifiedName': qualifiedName,
+      },
+      token,
+    );
+  }
+  private canTransition(current: string, next: string): boolean {
+    return ALLOWED_TRANSITIONS[current]?.includes(next) ?? false;
+  }
+
+  private initJsonObject() {
+    const type = 'object';
+    const properties: Record<string, object> = {};
+    return { type, properties };
+  }
+
+  private atlasTypeToJSONType(dataType: string): string {
+    switch (dataType) {
+      case 'string':
+      case 'date':
+        return 'string';
+      case 'int':
+      case 'integer':
+        return 'integer';
+      case 'long':
+      case 'float':
+      case 'double':
+      case 'short':
+        return 'number';
+      case 'boolean':
+        return 'boolean';
+      case 'array<string>':
+      case 'list<string>':
+        return 'array';
+      // You can expand this for nested object types too
+      default:
+        return 'object'; // fallback for unknown types
+    }
   }
 }

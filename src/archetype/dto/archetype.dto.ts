@@ -20,6 +20,12 @@ import {
 } from 'class-validator';
 import { transformDateString } from 'src/utils/class.util';
 
+export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ['ACTIVE'],
+  ACTIVE: ['PUBLISHED'],
+  PUBLISHED: ['ACTIVE', 'DRAFT'],
+};
+
 export enum ArchetypeStatus {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',

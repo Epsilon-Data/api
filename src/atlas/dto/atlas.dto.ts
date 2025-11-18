@@ -295,9 +295,9 @@ export class AtlasEntityDto<
   @IsString({ each: true })
   labels!: string[];
 
-  @IsOptional()
+  @IsDefined()
   @IsObject()
-  attributes?: Attributes;
+  attributes!: Attributes;
 
   @IsOptional()
   @IsObject()
@@ -316,9 +316,9 @@ export class AtlasSubmitArchetypeEntityDto {
   @IsString()
   status?: string = 'ACTIVE';
 
-  @IsOptional()
+  @IsDefined()
   @IsObject()
-  attributes?: Record<string, unknown>;
+  attributes!: Record<string, unknown>;
 
   @IsOptional()
   @IsObject()
@@ -349,7 +349,7 @@ export class AtlasArchetypeEntityDto extends AtlasEntityDto<
   @IsEnum(AtlasArchetypeTypeName)
   declare typeName: AtlasArchetypeTypeName;
 
-  @IsOptional()
+  @IsDefined()
   @ValidateNested()
   @Type(() => AtlasArchetypeNodeAttributesDto)
   declare attributes: AtlasArchetypeNodeAttributesDto;
@@ -453,9 +453,11 @@ export class AtlasBulkEntityResponseDto {
 }
 
 export class AtlasArchetypeEntityResponseDto {
+  @IsDefined()
   @IsObject()
   referredEntities!: Record<string, AtlasArchetypeEntityDto>;
 
+  @IsDefined()
   @ValidateNested()
   @Type(() => AtlasArchetypeEntityDto)
   entity!: AtlasArchetypeEntityDto;

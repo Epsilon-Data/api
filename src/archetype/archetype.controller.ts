@@ -22,8 +22,11 @@ import {
 import { Request } from 'express';
 import {
   ApiAcceptedResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiInternalServerErrorResponse,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -124,6 +127,15 @@ export class ArchetypeController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({
     description: 'Archetype details updated',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid / missing attributes',
+  })
+  @ApiNotFoundResponse({
+    description: 'Archetype / project not found',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
   })
   updateArchetypeDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
