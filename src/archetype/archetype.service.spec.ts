@@ -17,7 +17,6 @@ import {
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
 import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
-import { BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { $Enums } from '@prisma/client';
 
@@ -25,16 +24,11 @@ describe('ArchetypeService', () => {
   let service: ArchetypeService;
   let atlas: jest.Mocked<AtlasService>;
   let prisma: jest.Mocked<PrismaService>;
-  let logSpy: jest.SpyInstance<any, unknown[], unknown>;
   let moduleRef: TestingModule;
 
   const mockQueue = {} as unknown as jest.Mocked<QueueService>;
 
-  beforeAll(() => {
-    logSpy = jest
-      .spyOn(Logger.prototype as any, 'error')
-      .mockImplementation(() => {});
-  });
+  beforeAll(() => {});
 
   beforeEach(async () => {
     moduleRef = await Test.createTestingModule({
@@ -924,15 +918,7 @@ describe('ArchetypeService', () => {
       await expect(
         service.updateArchetypeDetails(projectId, archetypeId, attributes),
       ).rejects.toThrow(`Cannot transition archetype from ACTIVE to DRAFT`);
-
-      const err = new BadRequestException(
-        'Cannot transition archetype from ACTIVE to DRAFT',
-      );
       expect(canTransitionSpy).toHaveBeenCalledTimes(1);
-      expect(logSpy).toHaveBeenCalledWith(
-        'Error updating archetype details',
-        err,
-      );
     });
 
     it('logs and rethrows when Atlas call fails', async () => {
@@ -960,11 +946,6 @@ describe('ArchetypeService', () => {
       await expect(
         service.updateArchetypeDetails(projectId, archetypeId, attributes),
       ).rejects.toThrow('Unexpected server error');
-
-      expect(logSpy).toHaveBeenCalledWith(
-        'Error updating archetype details',
-        err,
-      );
     });
   });
 
@@ -1159,21 +1140,6 @@ describe('ArchetypeService', () => {
       const res = await service.getAnalysisArchetype(projectId);
       expect(res).toEqual({});
       expect(atlas.get).not.toHaveBeenCalled();
-    });
-
-    it('logs and rethrows on unexpected errors', async () => {
-      const projectId = 'oops';
-      const err = new Error('boom');
-
-      atlas.post.mockRejectedValueOnce(err);
-
-      await expect(service.getAnalysisArchetype(projectId)).rejects.toThrow(
-        'boom',
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        'Error getting Analysis Archetype structure',
-        err,
-      );
     });
   });
 

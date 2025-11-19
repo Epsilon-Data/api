@@ -2,11 +2,13 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
-import { AuthExceptionFilter } from './common/filters/auth.filter';
+import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 import { ConfigService } from '@nestjs/config';
-import { PrismaClientExceptionFilter } from './prisma/prisma-client-exception/prisma-client-exception.filter';
+import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
+import { AtlasExceptionFilter } from './common/filters/atlas-exception.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,8 +19,14 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useGlobalFilters(new AuthExceptionFilter());
+  app.useGlobalFilters(
+    new AuthExceptionFilter(),
+    new AtlasExceptionFilter(),
+    new PrismaClientExceptionFilter(),
+    new HttpExceptionFilter(),
+  );
 
+  // controller validations
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -31,23 +39,20 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('Epsilon API')
-    .setDescription('API documentation')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-
   if (configService.get<boolean>('isDev')) {
-    const document = SwaggerModule.createDocument(app, config);
+    const documentConfig = new DocumentBuilder()
+      .setTitle('Epsilon API')
+      .setDescription('API documentation')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, documentConfig);
     SwaggerModule.setup(
       `${configService.get<string>('apiBaseUrl')}/docs`,
       app,
       document,
     );
   }
-
-  app.useGlobalFilters(new PrismaClientExceptionFilter());
 
   // start api service
   await app.listen(configService.get<number>('apiPort')!);

@@ -6,7 +6,7 @@ import { AnalysisDto } from './dto';
 export class AnalysisRequestService {
   constructor(private prisma: PrismaService) {}
   async getDetails(requestId: string) {
-    const request = await this.prisma.analysis.findUnique({
+    const request = await this.prisma.analysis.findUniqueOrThrow({
       where: {
         requestId: requestId,
       },
