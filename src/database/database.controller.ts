@@ -12,10 +12,14 @@ import { DatabaseService } from './database.service';
 
 import {
   ApiAcceptedResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from 'src/common/decorators/user.decorator';
@@ -29,6 +33,7 @@ import {
   DatabaseTableDto,
   TableColumnRefDto,
 } from './dto';
+import { GenericErrorResponseDto } from 'src/common/dto';
 
 @ApiTags('Database')
 @ApiBearerAuth()
@@ -46,6 +51,36 @@ export class DatabaseController {
     type: DatabaseSummaryResponseDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({
+    description: 'Invalid request to metadata service',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 400,
+      message: 'Invalid request to metadata service',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Project database or underlying Atlas entity not found',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 404,
+      message: 'Requested resource could not be found',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Upstream Atlas / metadata service error',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 500,
+      message: 'Metadata service is currently unavailable',
+      error: 'MetadataServiceError',
+    },
+  })
   async summary(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.databaseSourceService.summary(projectId);
   }
@@ -59,6 +94,36 @@ export class DatabaseController {
     type: DatabaseTableDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({
+    description: 'Invalid request to metadata service',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 400,
+      message: 'Invalid request to metadata service',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Project database tables or underlying Atlas entity not found',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 404,
+      message: 'Requested resource could not be found',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Upstream Atlas / metadata service error',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 500,
+      message: 'Metadata service is currently unavailable',
+      error: 'MetadataServiceError',
+    },
+  })
   async tables(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.databaseSourceService.tables(projectId);
   }
@@ -71,6 +136,37 @@ export class DatabaseController {
     description: 'Database columns details returned',
     type: TableColumnRefDto,
     isArray: true,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request to metadata service',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 400,
+      message: 'Invalid request to metadata service',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Project database columns or underlying Atlas entity not found',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 404,
+      message: 'Requested resource could not be found',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Upstream Atlas / metadata service error',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 500,
+      message: 'Metadata service is currently unavailable',
+      error: 'MetadataServiceError',
+    },
   })
   async columns(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.databaseSourceService.columns(projectId);

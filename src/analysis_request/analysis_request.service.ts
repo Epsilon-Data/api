@@ -5,8 +5,9 @@ import { AnalysisDto } from './dto';
 @Injectable()
 export class AnalysisRequestService {
   constructor(private prisma: PrismaService) {}
+
   async getDetails(requestId: string) {
-    const request = await this.prisma.analysis.findUniqueOrThrow({
+    return await this.prisma.analysis.findUniqueOrThrow({
       where: {
         requestId: requestId,
       },
@@ -15,8 +16,6 @@ export class AnalysisRequestService {
         project: true,
       },
     });
-
-    return request;
   }
 
   async getList(userId: string) {

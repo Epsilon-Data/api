@@ -30,11 +30,13 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
+  ApiInternalServerErrorResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { coverOptions } from 'src/utils/options.util';
@@ -46,7 +48,7 @@ import type { Request } from 'express';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
-import { ErrorResponseDto } from 'src/common/dto';
+import { GenericErrorResponseDto } from 'src/common/dto';
 
 @ApiTags('Project')
 @ApiBearerAuth()
@@ -64,9 +66,45 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project created successfully',
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
-  @ApiConflictResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'Database constraint conflict (e.g. unique violation)',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 409,
+          message: 'Conflict while performing database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async createProject(
     @CurrentUser() user: CurrentUserInfo,
     @Body() dto: CreateProjectDto,
@@ -82,8 +120,32 @@ export class ProjectController {
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
-  @ApiConflictResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async getUserOwnedProjects(@CurrentUser() user: CurrentUserInfo) {
     return await this.projectService.getUserOwnedProjects(user.id);
   }
@@ -95,7 +157,32 @@ export class ProjectController {
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async getUserSharedProjects(@Req() request: Request) {
     // check for user resource permissions against keycloak
     // TODO: perhaps call this once and cache or make it into a helper/decorator
@@ -116,7 +203,32 @@ export class ProjectController {
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async getAllProjects() {
     return await this.projectService.getAllProjects();
   }
@@ -129,7 +241,45 @@ export class ProjectController {
     description: 'List of analysis and connection requests for the projects',
     type: ProjectRequestsResponse,
   })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Project not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async getProjectRequests(
     @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -145,8 +295,45 @@ export class ProjectController {
     description: 'Project details are returned',
     type: ProjectDetailsResponseDto,
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Project not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async getProjectDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
@@ -159,8 +346,45 @@ export class ProjectController {
     description: 'Project details are returned',
     type: ProjectDetailsResponseDto,
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Project not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async getProjectPublicDetails(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
@@ -190,9 +414,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project deleted',
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
-  @ApiConflictResponse({ type: ErrorResponseDto })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  @ApiBadRequestResponse({ type: GenericErrorResponseDto })
+  @ApiConflictResponse({ type: GenericErrorResponseDto })
   deleteProject(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return this.projectService.deleteProject(projectId);
   }
@@ -205,8 +429,8 @@ export class ProjectController {
     description: 'Project settings are returned',
     type: SettingsResponseDto,
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  @ApiBadRequestResponse({ type: GenericErrorResponseDto })
   async getProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
@@ -222,9 +446,9 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project settings are added',
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
-  @ApiConflictResponse({ type: ErrorResponseDto })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  @ApiBadRequestResponse({ type: GenericErrorResponseDto })
+  @ApiConflictResponse({ type: GenericErrorResponseDto })
   async addProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: SettingsDto,
@@ -241,9 +465,45 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project settings are updated',
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
-  @ApiConflictResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'Database constraint conflict (e.g. unique violation)',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 409,
+          message: 'Conflict while performing database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async updateProjectSettings(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: SettingsDto,
@@ -259,9 +519,45 @@ export class ProjectController {
   @ApiNoContentResponse({
     description: 'Project cover image is returned',
   })
-  @ApiNotFoundResponse({ type: ErrorResponseDto })
-  @ApiBadRequestResponse({ type: ErrorResponseDto })
-  @ApiConflictResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'Database constraint conflict (e.g. unique violation)',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 409,
+          message: 'Conflict while performing database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async uploadProjectCover(
     @UploadedFile(new ParseFilePipe())
     file: Express.Multer.File,

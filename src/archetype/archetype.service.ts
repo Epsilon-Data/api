@@ -493,8 +493,8 @@ export class ArchetypeService {
       );
 
     // check if any archetypes exist for project
-    const rows = searchResult.attributes.values;
-    if (!rows.length) {
+    const values = searchResult.attributes.values;
+    if (!values.length) {
       // this should not happen
       this.logger.warn(
         `No archetype templates found for project ${projectId} when updating ${qualifiedName}`,
@@ -505,7 +505,7 @@ export class ArchetypeService {
     }
 
     // check for current status of this archetype
-    const currentRow = rows.find(
+    const currentRow = values.find(
       (v) => Array.isArray(v) && v[0] === qualifiedName,
     );
     const currentStatus = currentRow?.[1] as ArchetypeStatus | undefined;
@@ -528,7 +528,7 @@ export class ArchetypeService {
     await this.updateAtlasTemplateAttributes(qualifiedName, attributes, token);
 
     // check: if publishing, unpublish any previously published archetype
-    const previouslyPublishedRow = rows.find(
+    const previouslyPublishedRow = values.find(
       (v) =>
         Array.isArray(v) &&
         v[1] === (ArchetypeStatus.PUBLISHED as string) &&
@@ -550,7 +550,7 @@ export class ArchetypeService {
     // update project status + lastModified based on new state
     // did the project end up with *any* published archetype after this change
     const hadOtherPublishedBefore =
-      rows.some(
+      values.some(
         (v) =>
           Array.isArray(v) &&
           v[1] === (ArchetypeStatus.PUBLISHED as string) &&
@@ -583,6 +583,10 @@ export class ArchetypeService {
     projectId: string,
     archetype: ArchetypeDto,
   ) {
+    if (projectId !== archetype.projectId)
+      throw new BadRequestException(
+        `ProjectId and Archetype projectId mismatch`,
+      );
     return await this.queue.addArchetypeJob(username, projectId, archetype);
   }
 
@@ -592,6 +596,10 @@ export class ArchetypeService {
     archetypeId: string,
     archetype: ArchetypeDto,
   ) {
+    if (projectId !== archetype.projectId)
+      throw new BadRequestException(
+        `ProjectId and Archetype projectId mismatch`,
+      );
     return await this.queue.updateArchetypeJob(
       username,
       projectId,

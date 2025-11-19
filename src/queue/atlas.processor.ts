@@ -293,6 +293,7 @@ export class AtlasProcessor {
     }
   }
 
+  // private methods
   private archetypeTemplateToAtlasEntities(
     projectId: string,
     archetype: ArchetypeDto,
