@@ -180,7 +180,7 @@ export class CreateProjectDto {
 
   // FIXME: This should be JSON or string[]
   @ApiPropertyOptional({
-    description: 'List of members involved in the project',
+    description: 'List of members and roles involved in the project',
     example: "[{'email': 'user1@email.com', 'role': 'collaborator'}]",
   })
   @IsOptional()
@@ -321,7 +321,7 @@ export class SettingsResponseDto {
   cover?: string;
 
   @ApiProperty({
-    description: 'List of members involved in the project',
+    description: 'List of visualisations for the project',
     type: Object,
     nullable: true,
   })
@@ -453,8 +453,7 @@ export class ProjectDetailsResponseDto {
   endDate!: Date;
 
   @ApiPropertyOptional({
-    description: 'List of members involved in the project',
-    example: "[{'email': 'user1@email.com' 'role': 'collaborator'}]",
+    description: 'Database connection details',
     type: Object,
     nullable: true,
   })
@@ -480,6 +479,16 @@ export class ProjectDetailsResponseDto {
   @IsDefined()
   @IsString({ each: true })
   dbKeywords: string[];
+
+  @ApiPropertyOptional({
+    description: 'List of team member names',
+    type: Object,
+    nullable: true,
+    example: ['John Smith', 'Jane Doe'],
+  })
+  @IsOptional()
+  @IsJSON()
+  members: Prisma.JsonValue | null;
 }
 
 export class ProjectRequestsResponse {

@@ -153,6 +153,20 @@ export class ProjectController {
     return await this.projectService.getProjectDetails(projectId);
   }
 
+  @Get(':projectId/public')
+  @ApiOperation({ summary: 'Get project public details' })
+  @ApiOkResponse({
+    description: 'Project details are returned',
+    type: ProjectDetailsResponseDto,
+  })
+  @ApiNotFoundResponse({ type: ErrorResponseDto })
+  @ApiBadRequestResponse({ type: ErrorResponseDto })
+  async getProjectPublicDetails(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.projectService.getProjectPublicDetails(projectId);
+  }
+
   @UseGuards(ResourceGuard)
   @Scopes('view, edit')
   @Put(':projectId')

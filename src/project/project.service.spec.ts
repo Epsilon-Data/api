@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { FileStorageService } from 'src/file_storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
-import { RequestStatus } from '@prisma/client';
+import { Prisma, RequestStatus } from '@prisma/client';
 import { SettingsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
 
@@ -476,7 +476,7 @@ describe('ProjectService', () => {
           dbKeywords: dto.dbKeywords,
           connection: {
             update: {
-              tempDbDetails: JSON.stringify(dto.connection.tempDbDetails),
+              tempDbDetails: dto.connection.tempDbDetails,
             },
           },
         },
@@ -511,7 +511,9 @@ describe('ProjectService', () => {
   describe('getProjectSettings', () => {
     it('should return settings with cover URL when project exists', async () => {
       const projectId = 'proj-1';
-      const visualizations = [{ title: 'Dash', link: 'https://example.com' }];
+      const visualizations = [
+        { title: 'Dash', link: 'https://example.com' },
+      ] as Prisma.Array;
 
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
         visualizations,
@@ -579,7 +581,7 @@ describe('ProjectService', () => {
       expect(prismaMock.project.update).toHaveBeenCalledWith({
         where: { projectId },
         data: {
-          visualizations: JSON.stringify(dto.visualizations),
+          visualizations: dto.visualizations,
         },
       });
 

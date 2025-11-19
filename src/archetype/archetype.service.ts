@@ -221,6 +221,136 @@ export class ArchetypeService {
     }
   }
 
+  async getPublishedArchetype(projectId: string, token?: string) {
+    try {
+      // get ID of PUBLISHED archetype
+      const body = {
+        typeName: AtlasArchetypeTypeName.Template,
+        excludeDeletedEntities: true,
+        includeSubClassifications: false,
+        excludeHeaderAttributes: true,
+        includeSubTypes: false,
+        entityFilters: {
+          condition: 'AND',
+          criterion: [
+            {
+              attributeName: 'projectId',
+              operator: 'eq',
+              attributeValue: `${projectId}`,
+            },
+            {
+              attributeName: 'status',
+              operator: 'eq',
+              attributeValue: 'PUBLISHED', // should only be one PUBLISHED per project
+            },
+          ],
+        },
+        attributes: ['name', '__guid'],
+      };
+
+      const res = await this.atlas.post<AtlasSearchBasicHeadlessResponseDto>(
+        '/search/basic',
+        body,
+        token,
+      );
+      const values = res.attributes.values ?? [];
+      if (!values.length) {
+        // this should not happen
+        this.logger.warn(
+          `No published archetype templates found for project ${projectId}`,
+        );
+        throw new NotFoundException(
+          `No archetype templates found for project ${projectId}`,
+        );
+      }
+
+      const templateGuid = values[0][1];
+      const templateName = values[0][0];
+
+      const entityRes = await this.atlas.get<AtlasArchetypeEntityResponseDto>(
+        `/entity/guid/${templateGuid}`,
+        undefined,
+        token,
+      );
+      const templateInfo: ArchetypeDto = {
+        projectId: projectId,
+        archetypeId: entityRes.entity?.attributes.qualifiedName
+          .split('@')
+          .at(-1),
+        name: templateName,
+        status: entityRes.entity?.attributes?.status as ArchetypeStatus,
+        nodes: [],
+        edges: [],
+        lastModified: new Date(entityRes.entity?.updateTime),
+      };
+
+      // add all archetype_nodes, should always exist
+      if (entityRes?.referredEntities) {
+        for (const key in entityRes?.referredEntities) {
+          const entity = entityRes.referredEntities[key];
+          const isAllowedEntity =
+            // check if active and node
+            entity.status === 'ACTIVE' &&
+            entity.typeName === AtlasArchetypeTypeName.Node &&
+            // Level-0 nodes are always allowed
+            (entity.attributes?.level === 0 ||
+              // Otherwise, require a valid permission classification
+              (entity.classifications?.some(
+                (c) =>
+                  c.typeName === 'archetype_node_analysis_permissions' &&
+                  c.entityStatus === 'ACTIVE' &&
+                  c.attributes?.access_level !== ArchetypePermission.NONE &&
+                  c.entityGuid === entity.guid,
+              ) ??
+                false));
+
+          if (!isAllowedEntity) continue;
+
+          const nodeId = entity.attributes.qualifiedName.split('@').at(-1)!;
+
+          // add node itself
+          const node: ArchetypeNodeDto = {
+            id: nodeId, // NOTE: Maybe use GUID
+            data: {
+              label: entity.attributes.label!,
+              level: entity.attributes.level!,
+            },
+            position: entity.attributes.position!,
+            type: (entity.attributes?.level === 0
+              ? 'root'
+              : 'category') as ArchetypeNodeType,
+          };
+          templateInfo.nodes!.push(node);
+
+          // add edge if parent exists
+          if (entity.relationshipAttributes?.parent_node) {
+            // skip if relationship is inactive
+            if (
+              entity.relationshipAttributes?.parent_node?.relationshipStatus !==
+              'ACTIVE'
+            )
+              continue;
+
+            const parentNodeId =
+              entity.relationshipAttributes.parent_node.qualifiedName
+                .split('@')
+                .at(-1)!; // NOTE: Maybe use GUID
+            const edge: ArchetypeEdgeDto = {
+              id: `edge_${parentNodeId}_${nodeId}`, // NOTE: maybe use relationship GUID here
+              source: parentNodeId,
+              target: nodeId,
+            };
+            templateInfo.edges!.push(edge);
+          }
+        }
+      }
+      return templateInfo;
+    } catch (error) {
+      this.logger.error(`Error getting archetype details`, error);
+      throw error;
+    }
+  }
+
   async getAnalysisArchetype(projectId: string, token?: string) {
     // get ID of PUBLISHED archetype
     const body = {
