@@ -92,6 +92,48 @@ export class ArchetypeController {
     return await this.archetypeService.fetchArchetypes(projectId);
   }
 
+  @Get(':projectId/published')
+  @ApiOperation({ summary: 'Get project published archetype details' })
+  @ApiOkResponse({
+    description: 'Archetypes details returned',
+    type: ArchetypeDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request to metadata service',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 400,
+      message: 'Invalid request to metadata service',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Archetype or underlying Atlas entity not found',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 404,
+      message: 'Requested resource could not be found',
+      error: 'MetadataServiceError',
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Upstream Atlas / metadata service error',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 500,
+      message: 'Metadata service is currently unavailable',
+      error: 'MetadataServiceError',
+    },
+  })
+  async getPublishedArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.archetypeService.getPublishedArchetype(projectId);
+  }
+
   @UseGuards(ResourceGuard)
   @Scopes('view')
   @Get(':projectId/:archetypeId')
@@ -138,48 +180,6 @@ export class ArchetypeController {
       projectId,
       archetypeId,
     );
-  }
-
-  @Get(':projectId/published')
-  @ApiOperation({ summary: 'Get project published archetype details' })
-  @ApiOkResponse({
-    description: 'Archetypes details returned',
-    type: ArchetypeDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Invalid request to metadata service',
-    type: GenericErrorResponseDto,
-    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
-    example: {
-      statusCode: 400,
-      message: 'Invalid request to metadata service',
-      error: 'MetadataServiceError',
-    },
-  })
-  @ApiNotFoundResponse({
-    description: 'Archetype or underlying Atlas entity not found',
-    type: GenericErrorResponseDto,
-    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
-    example: {
-      statusCode: 404,
-      message: 'Requested resource could not be found',
-      error: 'MetadataServiceError',
-    },
-  })
-  @ApiInternalServerErrorResponse({
-    description: 'Upstream Atlas / metadata service error',
-    type: GenericErrorResponseDto,
-    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
-    example: {
-      statusCode: 500,
-      message: 'Metadata service is currently unavailable',
-      error: 'MetadataServiceError',
-    },
-  })
-  async getPublishedArchetype(
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-  ) {
-    return await this.archetypeService.getPublishedArchetype(projectId);
   }
 
   @UseGuards(ResourceGuard)
