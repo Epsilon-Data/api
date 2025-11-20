@@ -1,180 +1,245 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// src/atlas/atlas.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from '@nestjs/common';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
+
 import { AtlasService } from './atlas.service';
 
 jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+const createAxiosResponse = <T>(data: T): AxiosResponse<T> => ({
+  data,
+  status: 200,
+  statusText: 'OK',
+  headers: {},
+  config: {} as any,
+});
 
 describe('AtlasService', () => {
   let service: AtlasService;
-  let configService: jest.Mocked<ConfigService>;
-  let logSpy: jest.SpyInstance<any, unknown[], unknown>;
+  let configService: ConfigService;
+  let axiosMock: jest.Mocked<typeof axios>;
 
-  const ATLAS_URI = 'http://atlas.local:21000';
-  const ATLAS_PASSWORD = 'supersecret';
+  const atlasUri = 'http://atlas:21000';
+  const adminUsername = 'admin';
+  const adminPassword = 'supersecret';
 
-  beforeAll(() => {
-    logSpy = jest
-      .spyOn(Logger.prototype as any, 'error')
-      .mockImplementation(() => {});
-  });
-
-  beforeEach(async () => {
-    configService = {
-      get: jest.fn((key: string) => {
-        if (key === 'atlas.uri') return ATLAS_URI;
-        if (key === 'atlas.adminPassword') return ATLAS_PASSWORD;
-        return undefined;
-      }),
-    } as unknown as jest.Mocked<ConfigService>;
-
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AtlasService,
-        { provide: ConfigService, useValue: configService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              switch (key) {
+                case 'atlas.uri':
+                  return atlasUri;
+                case 'atlas.adminPassword':
+                  return adminPassword;
+                case 'atlas.adminUsername':
+                  return adminUsername;
+                default:
+                  return undefined;
+              }
+            }),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AtlasService>(AtlasService);
+    configService = module.get<ConfigService>(ConfigService);
+    axiosMock = axios as jest.Mocked<typeof axios>;
+  });
+
+  beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('Initialization', () => {
-    it('should be defined and configure baseUrl', () => {
-      expect(service).toBeDefined();
-      const header = service.createBasicAuthHeader();
-      const expected = Buffer.from(`admin:${ATLAS_PASSWORD}`).toString(
-        'base64',
-      );
-      expect(header).toBe(`Basic ${expected}`);
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+    expect(configService).toBeDefined();
+  });
+
+  describe('get', () => {
+    it('should perform GET with correct URL, params and Basic auth header', async () => {
+      const endpoint = '/entity/guid/123';
+      const params = { verbose: true };
+      const expectedUrl = `${atlasUri}/api/atlas/v2${endpoint}`;
+
+      const data = { id: '123', name: 'entity' };
+      const response = createAxiosResponse(data);
+
+      axiosMock.get.mockResolvedValueOnce(response);
+
+      const result = await service.get<typeof data>(endpoint, params);
+
+      // auth header is Basic base64("admin:password")
+      const expectedAuthHeader =
+        'Basic ' +
+        Buffer.from(`${adminUsername}:${adminPassword}`).toString('base64');
+
+      expect(axiosMock.get).toHaveBeenCalledWith(expectedUrl, {
+        params,
+        headers: { Authorization: expectedAuthHeader },
+      });
+      expect(result).toEqual(data);
+    });
+
+    it('should propagate errors from axios.get', async () => {
+      const endpoint = '/entity/guid/404';
+      const error = new Error('Request failed');
+      axiosMock.get.mockRejectedValueOnce(error);
+
+      await expect(service.get(endpoint)).rejects.toBe(error);
     });
   });
 
-  describe('Auth header helpers', () => {
-    it('createBasicAuthHeader encodes admin:password', () => {
-      const token = Buffer.from(`admin:${ATLAS_PASSWORD}`).toString('base64');
-      expect(service.createBasicAuthHeader()).toBe(`Basic ${token}`);
-    });
+  describe('post', () => {
+    it('should perform POST with correct URL, body, params and Basic auth header', async () => {
+      const endpoint = '/entity';
+      const body = { name: 'new entity' };
+      const params = { update: false };
+      const expectedUrl = `${atlasUri}/api/atlas/v2${endpoint}`;
 
-    it('createBearerAuthHeader encodes token in base64', () => {
-      const token = 'my.jwt.token';
-      const encoded = Buffer.from(token).toString('base64');
-      expect(service.createBearerAuthHeader(token)).toBe(`Bearer ${encoded}`);
-    });
-  });
+      const data = { guid: 'abc', ...body };
+      const response = createAxiosResponse(data);
 
-  describe('HTTP methods', () => {
-    const endpoint = '/entity/guid/123';
-    const params = { verbose: true };
-    const body = { foo: 'bar' };
+      axiosMock.post.mockResolvedValueOnce(response);
 
-    it('GET uses Basic auth by default', async () => {
-      mockedAxios.get.mockResolvedValueOnce({ data: { ok: true } });
-      const result = await service.get(endpoint, params);
-      expect(result).toEqual({ ok: true });
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        `${ATLAS_URI}/api/atlas/v2${endpoint}`,
-        {
-          params,
-          headers: { Authorization: service.createBasicAuthHeader() },
-        },
-      );
-    });
-
-    it('POST returns response data', async () => {
-      mockedAxios.post.mockResolvedValueOnce({ data: { id: 1 } });
-      const result = await service.post(endpoint, body);
-      expect(result).toEqual({ id: 1 });
-      expect(mockedAxios.post).toHaveBeenCalledWith(
-        `${ATLAS_URI}/api/atlas/v2${endpoint}`,
+      const result = await service.post<typeof data>(
+        endpoint,
         body,
-        {
-          params: undefined,
-          headers: { Authorization: service.createBasicAuthHeader() },
-        },
+        undefined,
+        params,
       );
+
+      const expectedAuthHeader =
+        'Basic ' +
+        Buffer.from(`${adminUsername}:${adminPassword}`).toString('base64');
+
+      expect(axiosMock.post).toHaveBeenCalledWith(expectedUrl, body, {
+        params,
+        headers: { Authorization: expectedAuthHeader },
+      });
+      expect(result).toEqual(data);
     });
 
-    it('PUT returns response data', async () => {
-      mockedAxios.put.mockResolvedValueOnce({ data: { updated: true } });
-      const result = await service.put(endpoint, body, params);
-      expect(result).toEqual({ updated: true });
-      expect(mockedAxios.put).toHaveBeenCalledWith(
-        `${ATLAS_URI}/api/atlas/v2${endpoint}`,
-        body,
-        {
-          params,
-          headers: {
-            Authorization: service.createBasicAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-    });
+    it('should propagate errors from axios.post', async () => {
+      const endpoint = '/entity';
+      const body = { name: 'broken' };
+      const error = new Error('POST failed');
 
-    it('DELETE returns response data', async () => {
-      mockedAxios.delete.mockResolvedValueOnce({ data: { deleted: true } });
-      const result = await service.delete(endpoint);
-      expect(result).toEqual({ deleted: true });
-      expect(mockedAxios.delete).toHaveBeenCalledWith(
-        `${ATLAS_URI}/api/atlas/v2${endpoint}`,
-        {
-          params: undefined,
-          headers: { Authorization: service.createBasicAuthHeader() },
-        },
-      );
+      axiosMock.post.mockRejectedValueOnce(error);
+
+      await expect(service.post(endpoint, body)).rejects.toBe(error);
     });
   });
 
-  describe('Error handling', () => {
-    const endpoint = '/fail';
+  describe('put', () => {
+    it('should perform PUT with correct URL, body, params, Basic auth and Content-Type', async () => {
+      const endpoint = '/entity/guid/123';
+      const body = { name: 'updated entity' };
+      const params = { partialUpdate: true };
+      const expectedUrl = `${atlasUri}/api/atlas/v2${endpoint}`;
 
-    it('logs and rethrows GET errors', async () => {
-      const err = new Error('boom');
-      mockedAxios.get.mockRejectedValueOnce(err);
-      await expect(service.get(endpoint)).rejects.toThrow('boom');
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `GET request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: boom`,
-        ),
-      );
+      const data = { guid: '123', ...body };
+      const response = createAxiosResponse(data);
+
+      axiosMock.put.mockResolvedValueOnce(response);
+
+      const result = await service.put<typeof data>(endpoint, body, params);
+
+      const expectedAuthHeader =
+        'Basic ' +
+        Buffer.from(`${adminUsername}:${adminPassword}`).toString('base64');
+
+      expect(axiosMock.put).toHaveBeenCalledWith(expectedUrl, body, {
+        params,
+        headers: {
+          Authorization: expectedAuthHeader,
+          'Content-Type': 'application/json',
+        },
+      });
+      expect(result).toEqual(data);
     });
 
-    it('logs and rethrows POST errors', async () => {
-      const err = new Error('bad post');
-      mockedAxios.post.mockRejectedValueOnce(err);
-      await expect(service.post(endpoint, {})).rejects.toThrow('bad post');
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `POST request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: bad post`,
-        ),
-      );
+    it('should propagate errors from axios.put', async () => {
+      const endpoint = '/entity/guid/123';
+      const body = { name: 'fail' };
+      const error = new Error('PUT failed');
+
+      axiosMock.put.mockRejectedValueOnce(error);
+
+      await expect(service.put(endpoint, body)).rejects.toBe(error);
+    });
+  });
+
+  describe('delete', () => {
+    it('should perform DELETE with correct URL, params and Basic auth header', async () => {
+      const endpoint = '/entity/guid/123';
+      const params = { purge: true };
+      const expectedUrl = `${atlasUri}/api/atlas/v2${endpoint}`;
+
+      const data = { deleted: true };
+      const response = createAxiosResponse(data);
+
+      axiosMock.delete.mockResolvedValueOnce(response);
+
+      const result = await service.delete<typeof data>(endpoint, params);
+
+      const expectedAuthHeader =
+        'Basic ' +
+        Buffer.from(`${adminUsername}:${adminPassword}`).toString('base64');
+
+      expect(axiosMock.delete).toHaveBeenCalledWith(expectedUrl, {
+        params,
+        headers: { Authorization: expectedAuthHeader },
+      });
+      expect(result).toEqual(data);
     });
 
-    it('logs and rethrows PUT errors', async () => {
-      const err = new Error('bad put');
-      mockedAxios.put.mockRejectedValueOnce(err);
-      await expect(service.put(endpoint, {})).rejects.toThrow('bad put');
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `PUT request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: bad put`,
-        ),
-      );
-    });
+    it('should propagate errors from axios.delete', async () => {
+      const endpoint = '/entity/guid/123';
+      const error = new Error('DELETE failed');
 
-    it('logs and rethrows DELETE errors', async () => {
-      const err = new Error('bad delete');
-      mockedAxios.delete.mockRejectedValueOnce(err);
-      await expect(service.delete(endpoint)).rejects.toThrow('bad delete');
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `DELETE request to ${ATLAS_URI}/api/atlas/v2${endpoint} failed: Error: bad delete`,
-        ),
-      );
+      axiosMock.delete.mockRejectedValueOnce(error);
+
+      await expect(service.delete(endpoint)).rejects.toBe(error);
+    });
+  });
+
+  describe('Bearer auth behaviour (when basicAuth is false)', () => {
+    it('should use Bearer auth header when token is provided and basicAuth is false', async () => {
+      const endpoint = '/entity/guid/123';
+      const token = 'my-access-token';
+      const expectedUrl = `${atlasUri}/api/atlas/v2${endpoint}`;
+
+      // flip the private flag for this test
+      (service as any).basicAuth = false;
+
+      const data = { id: '123' };
+      const response = createAxiosResponse(data);
+
+      axiosMock.get.mockResolvedValueOnce(response);
+
+      const result = await service.get<typeof data>(endpoint, undefined, token);
+
+      const expectedBearerHeader =
+        'Bearer ' + Buffer.from(token).toString('base64');
+
+      expect(axiosMock.get).toHaveBeenCalledWith(expectedUrl, {
+        params: undefined,
+        headers: { Authorization: expectedBearerHeader },
+      });
+      expect(result).toEqual(data);
+
+      // reset for other tests
+      (service as any).basicAuth = true;
     });
   });
 });

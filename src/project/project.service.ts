@@ -39,8 +39,9 @@ export class ProjectService {
     private readonly keycloak: KeycloakAdminService,
   ) {}
 
+  // Queries
   async getUserOwnedProjects(userId: string): Promise<ProjectSummaryInfoDto[]> {
-    const projects = await this.prisma.project.findMany({
+    return await this.prisma.project.findMany({
       where: {
         ownerId: userId,
       },
@@ -55,7 +56,6 @@ export class ProjectService {
         faculty: true,
       },
     });
-    return projects;
   }
 
   async getUserSharedProjects(
@@ -67,7 +67,7 @@ export class ProjectService {
           item.scopes.includes('view') && !item.scopes.includes('delete'),
       )
       .map((item) => item.rsname.split(':').at(1)!);
-    const projects = await this.prisma.project.findMany({
+    return await this.prisma.project.findMany({
       where: {
         projectId: {
           in: uuids, // find all projects associated
@@ -84,8 +84,6 @@ export class ProjectService {
         faculty: true,
       },
     });
-
-    return projects;
   }
 
   async getAllProjects() {
@@ -158,6 +156,117 @@ export class ProjectService {
     return requestList;
   }
 
+  async getProjectDetails(
+    projectId: string,
+  ): Promise<ProjectDetailsResponseDto> {
+    return await this.prisma.project.findUniqueOrThrow({
+      where: {
+        projectId: projectId,
+      },
+      include: {
+        connection: {
+          include: {
+            request: {
+              include: {
+                comments: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getProjectPublicDetails(
+    projectId: string,
+  ): Promise<ProjectDetailsResponseDto> {
+    const projectInfo = await this.prisma.project.findUniqueOrThrow({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        projectId: true,
+        status: true,
+        customId: true,
+        ownerId: true,
+        name: true,
+        lead: true,
+        university: true,
+        faculty: true,
+        ethicsId: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+        participantsNum: true,
+        members: true, // TODO: these need to be names not emails
+        lastModified: true,
+        dbKeywords: true,
+        createdDate: true,
+        connection: {
+          select: {
+            tempDbDetails: true, // TODO: need to move database and nature out from there
+          },
+        },
+      },
+    });
+    if (!projectInfo) {
+      // Nest will automatically turn this into a 404 JSON response
+      throw new NotFoundException(`Project with ID '${projectId}' not found`);
+    }
+    // TODO: get member names from keycloak
+    // const members = projectInfo.members as string[];
+    // if (members.length)
+
+    const { name, type } =
+      projectInfo.connection?.tempDbDetails &&
+      typeof projectInfo.connection?.tempDbDetails === 'object'
+        ? (projectInfo.connection?.tempDbDetails as Partial<DatabaseInfoDto>)
+        : {};
+    return {
+      projectId: projectInfo.projectId,
+      status: projectInfo.status,
+      customId: projectInfo.customId,
+      ownerId: projectInfo.ownerId,
+      name: projectInfo.name,
+      lead: projectInfo.lead,
+      university: projectInfo.university,
+      faculty: projectInfo.faculty,
+      ethicsId: projectInfo.ethicsId,
+      description: projectInfo.description,
+      startDate: projectInfo.startDate,
+      endDate: projectInfo.endDate,
+      participantsNum: projectInfo.participantsNum,
+      dbKeywords: projectInfo.dbKeywords,
+      members: projectInfo.members ?? [], // if no members return []
+      // TODO: need to fix these things
+      connection: {
+        tempDbDetails: { name, type },
+      },
+    };
+  }
+
+  async getProjectSettings(projectId: string): Promise<SettingsResponseDto> {
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        visualizations: true,
+      },
+    });
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
+
+    const cover = await this.fileStorage.getFileUrl(bucket, key);
+
+    return {
+      projectId: projectId,
+      visualizations: project.visualizations,
+      cover: cover ?? null,
+    };
+  }
+
+  // Commands
   async createProject(user: CurrentUserInfo, dto: CreateProjectDto) {
     // TODO:  Why not have this as object?
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -262,95 +371,6 @@ export class ProjectService {
     return;
   }
 
-  async getProjectDetails(
-    projectId: string,
-  ): Promise<ProjectDetailsResponseDto> {
-    return await this.prisma.project.findUniqueOrThrow({
-      where: {
-        projectId: projectId,
-      },
-      include: {
-        connection: {
-          include: {
-            request: {
-              include: {
-                comments: true,
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  async getProjectPublicDetails(
-    projectId: string,
-  ): Promise<ProjectDetailsResponseDto> {
-    const projectInfo = await this.prisma.project.findUniqueOrThrow({
-      where: {
-        projectId: projectId,
-      },
-      select: {
-        projectId: true,
-        status: true,
-        customId: true,
-        ownerId: true,
-        name: true,
-        lead: true,
-        university: true,
-        faculty: true,
-        ethicsId: true,
-        description: true,
-        startDate: true,
-        endDate: true,
-        participantsNum: true,
-        members: true, // TODO: these need to be names not emails
-        lastModified: true,
-        dbKeywords: true,
-        createdDate: true,
-        connection: {
-          select: {
-            tempDbDetails: true, // TODO: need to move database and nature out from there
-          },
-        },
-      },
-    });
-    if (!projectInfo) {
-      // Nest will automatically turn this into a 404 JSON response
-      throw new NotFoundException(`Project with ID '${projectId}' not found`);
-    }
-    // TODO: get member names from keycloak
-    // const members = projectInfo.members as string[];
-    // if (members.length)
-
-    const { name, type } =
-      projectInfo.connection?.tempDbDetails &&
-      typeof projectInfo.connection?.tempDbDetails === 'object'
-        ? (projectInfo.connection?.tempDbDetails as Partial<DatabaseInfoDto>)
-        : {};
-    return {
-      projectId: projectInfo.projectId,
-      status: projectInfo.status,
-      customId: projectInfo.customId,
-      ownerId: projectInfo.ownerId,
-      name: projectInfo.name,
-      lead: projectInfo.lead,
-      university: projectInfo.university,
-      faculty: projectInfo.faculty,
-      ethicsId: projectInfo.ethicsId,
-      description: projectInfo.description,
-      startDate: projectInfo.startDate,
-      endDate: projectInfo.endDate,
-      participantsNum: projectInfo.participantsNum,
-      dbKeywords: projectInfo.dbKeywords,
-      members: projectInfo.members ?? [], // if no members return []
-      // TODO: need to fix these things
-      connection: {
-        tempDbDetails: { name, type },
-      },
-    };
-  }
-
   async updateProject(projectId: string, dto: UpdateProjectDto) {
     // should not update on invalid projectId
     if (projectId !== dto.projectId)
@@ -414,27 +434,6 @@ export class ProjectService {
         analysis: true,
       },
     });
-  }
-
-  async getProjectSettings(projectId: string): Promise<SettingsResponseDto> {
-    const project = await this.prisma.project.findUniqueOrThrow({
-      where: {
-        projectId: projectId,
-      },
-      select: {
-        visualizations: true,
-      },
-    });
-    const bucket = 'cover';
-    const key = `${projectId}/cover.jpg`;
-
-    const cover = await this.fileStorage.getFileUrl(bucket, key);
-
-    return {
-      projectId: projectId,
-      visualizations: project.visualizations,
-      cover: cover ?? null,
-    };
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {

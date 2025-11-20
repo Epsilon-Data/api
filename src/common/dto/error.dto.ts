@@ -1,25 +1,33 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString, IsArray, ValidateIf } from 'class-validator';
 
-export class ErrorResponseDto {
-  @ApiProperty({ example: 404 })
+export class GenericErrorResponseDto {
+  @ApiProperty({
+    description: 'HTTP status code',
+    example: 400,
+  })
   @IsNumber()
   statusCode!: number;
 
   @ApiProperty({
-    example: 'Resource not found',
-    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+    description:
+      'Error message. In some cases this can be an array of messages (e.g. validation errors).',
+    example: 'Invalid request data for database operation',
   })
   // When message is a string
-  @ValidateIf((o: ErrorResponseDto) => typeof o.message === 'string')
+  @ValidateIf((o: GenericErrorResponseDto) => typeof o.message === 'string')
   @IsString()
   // When message is an array of strings
-  @ValidateIf((o: ErrorResponseDto) => Array.isArray(o.message))
+  @ValidateIf((o: GenericErrorResponseDto) => Array.isArray(o.message))
   @IsArray()
   @IsString({ each: true })
   message!: string | string[];
 
-  @ApiProperty({ example: 'Not Found' })
+  @ApiProperty({
+    description:
+      'High-level error type or source identifier (e.g. MetadataServiceError, DatabaseError, BadRequestException)',
+    example: 'DatabaseError',
+  })
   @IsString()
   error!: string;
 }

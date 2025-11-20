@@ -14,12 +14,12 @@ export class AtlasService {
     this.password = config.get<string>('atlas.adminPassword')!;
   }
 
-  createBasicAuthHeader(): string {
+  private createBasicAuthHeader(): string {
     const token = Buffer.from(`admin:${this.password}`).toString('base64');
     return `Basic ${token}`;
   }
 
-  createBearerAuthHeader(token: string): string {
+  private createBearerAuthHeader(token: string): string {
     const tokenString = Buffer.from(token).toString('base64');
     return `Bearer ${tokenString}`;
   }
@@ -31,16 +31,12 @@ export class AtlasService {
         ? this.createBearerAuthHeader(token)
         : this.createBasicAuthHeader();
 
-    try {
-      const response: AxiosResponse<T> = await axios.get(url, {
-        params,
-        headers: { Authorization: authHeader },
-      });
-      return response.data;
-    } catch (error) {
-      this.logger.error(`GET request to ${url} failed: ${error}`);
-      throw error;
-    }
+    const response: AxiosResponse<T> = await axios.get(url, {
+      params,
+      headers: { Authorization: authHeader },
+    });
+
+    return response.data;
   }
 
   async post<T>(
@@ -55,16 +51,12 @@ export class AtlasService {
         ? this.createBearerAuthHeader(token)
         : this.createBasicAuthHeader();
 
-    try {
-      const response: AxiosResponse<T> = await axios.post(url, body, {
-        params,
-        headers: { Authorization: authHeader },
-      });
-      return response.data;
-    } catch (error) {
-      this.logger.error(`POST request to ${url} failed: ${error}`);
-      throw error;
-    }
+    const response: AxiosResponse<T> = await axios.post(url, body, {
+      params,
+      headers: { Authorization: authHeader },
+    });
+
+    return response.data;
   }
 
   async put<T>(
@@ -78,19 +70,16 @@ export class AtlasService {
       token && !this.basicAuth
         ? this.createBearerAuthHeader(token)
         : this.createBasicAuthHeader();
-    try {
-      const response: AxiosResponse<T> = await axios.put(url, body, {
-        params,
-        headers: {
-          Authorization: authHeader,
-          'Content-Type': 'application/json',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      this.logger.error(`PUT request to ${url} failed: ${error}`);
-      throw error;
-    }
+
+    const response: AxiosResponse<T> = await axios.put(url, body, {
+      params,
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
   }
 
   async delete<T>(
@@ -104,15 +93,11 @@ export class AtlasService {
         ? this.createBearerAuthHeader(token)
         : this.createBasicAuthHeader();
 
-    try {
-      const response: AxiosResponse<T> = await axios.delete(url, {
-        params,
-        headers: { Authorization: authHeader },
-      });
-      return response.data;
-    } catch (error) {
-      this.logger.error(`DELETE request to ${url} failed: ${error}`);
-      throw error;
-    }
+    const response: AxiosResponse<T> = await axios.delete(url, {
+      params,
+      headers: { Authorization: authHeader },
+    });
+
+    return response.data;
   }
 }
