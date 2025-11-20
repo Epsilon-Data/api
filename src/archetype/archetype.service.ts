@@ -19,6 +19,8 @@ import {
   UpdateArchetypeAttributesDto,
 } from './dto';
 import {
+  AtlasArchetypeEntityClassificationDto,
+  AtlasArchetypeEntityDto,
   AtlasArchetypeEntityResponseDto,
   AtlasArchetypeTypeName,
   AtlasEntityResponseDto,
@@ -277,20 +279,9 @@ export class ArchetypeService {
       for (const key in entityRes?.referredEntities) {
         const entity = entityRes.referredEntities[key];
         const isAllowedEntity =
-          // check if active and node
           entity.status === 'ACTIVE' &&
           entity.typeName === AtlasArchetypeTypeName.Node &&
-          // Level-0 nodes are always allowed
-          (entity.attributes?.level === 0 ||
-            // Otherwise, require a valid permission classification
-            (entity.classifications?.some(
-              (c) =>
-                c.typeName === 'archetype_node_analysis_permissions' &&
-                c.entityStatus === 'ACTIVE' &&
-                c.attributes?.access_level !== ArchetypePermission.NONE &&
-                c.entityGuid === entity.guid,
-            ) ??
-              false));
+          this.isEntityAllowedByPermissions(entity);
 
         if (!isAllowedEntity) continue;
 
@@ -660,5 +651,74 @@ export class ArchetypeService {
       default:
         return 'object'; // fallback for unknown types
     }
+  }
+
+  private isEntityAllowedByPermissions(entity: AtlasArchetypeEntityDto) {
+    // Level-0 → always allowed
+    if (entity.attributes?.level === 0) return true;
+
+    let isActiveBranchNode = false;
+    const perms: AtlasArchetypeEntityClassificationDto[] = [];
+
+    // classification scanning
+    for (const c of entity.classifications ?? []) {
+      if (c.entityStatus !== 'ACTIVE') continue;
+
+      switch (c.typeName) {
+        case 'branch_node':
+          isActiveBranchNode = true;
+          break;
+
+        case 'archetype_node_analysis_permissions':
+          perms.push(c);
+          break;
+      }
+    }
+
+    // No permission classifications → allow only for ACTIVE branch nodes
+    if (perms.length === 0) {
+      return isActiveBranchNode;
+    }
+
+    // split explicit and inherited permissions
+    const { explicitPerms, inheritedPerms } = perms.reduce(
+      (acc, c) => {
+        if (c.entityGuid === entity.guid) {
+          acc.explicitPerms.push(c);
+        } else {
+          acc.inheritedPerms.push(c);
+        }
+        return acc;
+      },
+      { explicitPerms: [] as typeof perms, inheritedPerms: [] as typeof perms },
+    );
+
+    const hasExplicitDeny = explicitPerms.some(
+      (c) => c.attributes?.access_level === ArchetypePermission.NONE,
+    );
+    const hasExplicitGrant = explicitPerms.some(
+      (c) => c.attributes?.access_level !== ArchetypePermission.NONE,
+    );
+    const hasInheritedDeny = inheritedPerms.some(
+      (c) => c.attributes?.access_level === ArchetypePermission.NONE,
+    );
+
+    // explicit NONE on this node → always deny
+    if (hasExplicitDeny) {
+      return false;
+    }
+
+    // explicit non-NONE permission → allow even if inherited is NONE
+    if (hasExplicitGrant) {
+      return true;
+    }
+
+    // no explicit perms, but inherited NONE exists → deny
+    if (hasInheritedDeny) {
+      return false;
+    }
+
+    // permissions exist, none are NONE → allow
+    return true;
   }
 }
