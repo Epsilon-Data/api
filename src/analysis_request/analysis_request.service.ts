@@ -1,24 +1,66 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AnalysisDto } from './dto';
+import {
+  AnalysisDto,
+  AnalysisRequestDetailsResponseDto,
+  AnalysisRequestSummaryInfoDto,
+} from './dto';
+import { Prisma } from '@prisma/client';
+import { ProjectMember } from 'src/project/dto';
 
 @Injectable()
 export class AnalysisRequestService {
   constructor(private prisma: PrismaService) {}
 
-  async getDetails(requestId: string) {
-    return await this.prisma.analysis.findUniqueOrThrow({
+  async getDetails(
+    userId: string,
+    requestId: string,
+  ): Promise<AnalysisRequestDetailsResponseDto> {
+    const result = await this.prisma.analysis.findUniqueOrThrow({
       where: {
         requestId: requestId,
+        request: {
+          requestorId: userId,
+        },
       },
       include: {
         request: true,
         project: true,
       },
     });
+
+    const projectMembers =
+      result.projectMembers as Prisma.JsonArray | null as ProjectMember[];
+
+    // original project
+    const project = result.project;
+    const members =
+      project.members as Prisma.JsonArray | null as ProjectMember[];
+
+    return {
+      requestId: result.requestId,
+      projectId: result.projectId,
+      requestorName: result.requestorName,
+      requestorOrgName: result.requestorOrgName,
+      requestorEmail: result.requestorEmail,
+      requestorPosition: result.requestorPosition,
+      projectName: result.projectName,
+      projectStartDate: result.projectStartDate,
+      projectEndDate: result.projectEndDate,
+      projectDescription: result.projectDescription,
+      projectObjective: result.projectObjective,
+      projectOutcome: result.projectOutcome,
+      projectMembers,
+      projectEthicsId: '7sjsi9-dsaa',
+      request: result.request,
+      project: {
+        ...project,
+        members,
+      },
+    };
   }
 
-  async getList(userId: string) {
+  async getList(userId: string): Promise<AnalysisRequestSummaryInfoDto[]> {
     const requestList = await this.prisma.analysis.findMany({
       where: {
         request: {
@@ -59,7 +101,7 @@ export class AnalysisRequestService {
     return formatted;
   }
 
-  async createRequest(dto: AnalysisDto) {
+  async createRequest(userId: string, dto: AnalysisDto) {
     const request = {
       requestorName: dto.requestorName,
       requestorEmail: dto.requestorEmail,
@@ -71,11 +113,11 @@ export class AnalysisRequestService {
       projectDescription: dto.projectDescription,
       projectObjective: dto.projectObjective,
       projectOutcome: dto.projectOutcome,
-      projectMembers: dto.projectMembers,
+      projectMembers: dto.projectMembers as unknown as Prisma.JsonArray,
       projectEthicsId: dto.projectEthicsId,
       request: {
         create: {
-          requestorId: dto.requestorId,
+          requestorId: userId,
         },
       },
       project: {
@@ -85,10 +127,12 @@ export class AnalysisRequestService {
       },
     };
 
-    return await this.prisma.analysis.create({
+    await this.prisma.analysis.create({
       data: request,
       include: { request: true, project: true },
     });
+
+    return;
   }
 
   async approve(requestId: string) {
@@ -100,9 +144,14 @@ export class AnalysisRequestService {
     });
   }
 
-  async update(requestId: string, dto: AnalysisDto) {
+  async update(userId: string, requestId: string, dto: AnalysisDto) {
     return await this.prisma.analysis.update({
-      where: { requestId: requestId },
+      where: {
+        requestId: requestId,
+        request: {
+          requestorId: userId,
+        },
+      },
       data: {
         projectName: dto.projectName,
         projectStartDate: dto.projectStartDate,
@@ -110,17 +159,26 @@ export class AnalysisRequestService {
         projectDescription: dto.projectDescription,
         projectObjective: dto.projectObjective,
         projectOutcome: dto.projectOutcome,
-        projectMembers: dto.projectMembers,
+        projectMembers: dto.projectMembers as unknown as Prisma.JsonArray,
         projectEthicsId: dto.projectEthicsId,
       },
     });
   }
 
-  async delete(requestId: string) {
-    return await this.prisma.request.delete({
+  async delete(userId: string, requestId: string) {
+    const req = await this.prisma.request.findFirst({
       where: {
         requestId: requestId,
+        requestorId: userId,
       },
+    });
+
+    if (!req) {
+      throw new NotFoundException('Request not found or not owned by user');
+    }
+
+    return await this.prisma.request.delete({
+      where: { requestId: requestId },
     });
   }
 }

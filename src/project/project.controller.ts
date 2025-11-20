@@ -113,10 +113,10 @@ export class ProjectController {
     return await this.projectService.createProject(user, dto);
   }
 
-  @Get('')
+  @Get()
   @ApiOperation({ summary: 'Get list of projects owned by logged in user' })
   @ApiOkResponse({
-    description: 'List of user owner projects are returned',
+    description: 'List of user owned projects are returned',
     type: ProjectSummaryInfoDto,
     isArray: true,
   })
