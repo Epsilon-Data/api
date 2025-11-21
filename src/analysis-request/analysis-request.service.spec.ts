@@ -20,6 +20,10 @@ describe('AnalysisRequestService', () => {
       findFirst: jest.Mock;
       delete: jest.Mock;
     };
+    comment: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+    };
   };
 
   beforeEach(async () => {
@@ -34,6 +38,10 @@ describe('AnalysisRequestService', () => {
         update: jest.fn(),
         findFirst: jest.fn(),
         delete: jest.fn(),
+      },
+      comment: {
+        create: jest.fn(),
+        findMany: jest.fn(),
       },
     };
 
@@ -421,6 +429,68 @@ describe('AnalysisRequestService', () => {
       });
 
       expect(result).toEqual(deleted);
+    });
+  });
+
+  describe('createComment', () => {
+    it('should create a comment and not return content', async () => {
+      const userId = 'user-1';
+      const requestId = 'req-123';
+      const dto = {
+        requestId: requestId,
+        authorId: userId,
+        authorName: 'Alice',
+        content: 'Looks good to me.',
+        createdDate: new Date('2025-03-01T10:00:00.000Z'),
+      };
+
+      prisma.comment.create.mockResolvedValue({});
+
+      const result = await service.createComment(userId, requestId, dto);
+
+      expect(prisma.comment.create).toHaveBeenCalledWith({
+        data: {
+          requestId,
+          authorId: userId,
+          authorName: dto.authorName,
+          content: dto.content,
+          createdDate: dto.createdDate,
+        },
+      });
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getComments', () => {
+    it('should return all comments for a request owned by the user', async () => {
+      const userId = 'user-1';
+      const requestId = 'req-123';
+      const comments = [
+        {
+          authorName: 'User 1',
+          content: 'First comment',
+          createdDate: new Date(),
+        },
+        {
+          authorName: 'User 2',
+          content: 'Second comment',
+          createdDate: new Date(),
+        },
+      ];
+
+      prisma.comment.findMany.mockResolvedValue(comments);
+
+      const result = await service.getComments(userId, requestId);
+
+      expect(prisma.comment.findMany).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          request: {
+            requestorId: userId,
+          },
+        },
+      });
+      expect(result).toEqual(comments);
     });
   });
 });
