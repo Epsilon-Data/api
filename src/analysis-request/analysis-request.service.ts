@@ -25,7 +25,11 @@ export class AnalysisRequestService {
         },
       },
       include: {
-        request: true,
+        request: {
+          include: {
+            comments: true,
+          },
+        },
         project: true,
       },
     });
