@@ -237,7 +237,7 @@ export class ProjectService {
       endDate: projectInfo.endDate,
       participantsNum: projectInfo.participantsNum,
       dbKeywords: projectInfo.dbKeywords,
-      members: projectInfo.members ?? [], // if no members return []
+      members: projectInfo.members,
       // TODO: need to fix these things
       connection: {
         tempDbDetails: { name, type },
@@ -268,12 +268,12 @@ export class ProjectService {
 
   // Commands
   async createProject(user: CurrentUserInfo, dto: CreateProjectDto) {
-    // TODO:  Why not have this as object?
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const memberData: Prisma.JsonArray = JSON.parse(dto.members ?? '[]');
     const { packageId, customId } = this.createIds(dto.name, dto.customId);
     const ownerId = user.id; //using current logged in user details rather than post
-
+    // check if members are added
+    const members = dto.members
+      ? (dto.members as unknown as Prisma.JsonArray)
+      : undefined;
     const request = {
       ownerId,
       customId,
@@ -288,8 +288,8 @@ export class ProjectService {
       endDate: dto.endDate,
       participantsNum: dto.participantsNum,
 
-      ...(memberData.length && {
-        members: dto.members,
+      ...(members && {
+        members,
       }),
       dbKeywords: dto.dbKeywords,
     };
@@ -327,16 +327,14 @@ export class ProjectService {
       },
     });
 
-    const memberEmails = memberData.map(
-      (member: Record<string, string>) => member.email,
-    );
+    const memberEmails = dto.members.flatMap((m) => (m.email ? [m.email] : []));
 
     // add keycloak resource
     // TODO: better error handling
     void this.keycloak.newResource(
       project.projectId,
       project.ownerId,
-      memberEmails,
+      memberEmails.length ? memberEmails : undefined,
     );
 
     if (createRequest) {
@@ -375,9 +373,9 @@ export class ProjectService {
     // should not update on invalid projectId
     if (projectId !== dto.projectId)
       throw new BadRequestException(`Update projectIds do not match`);
-    // TODO:  Why not have this as object?
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const memberData: unknown[] = JSON.parse(dto.members ?? '[]');
+    const members = dto.members
+      ? (dto.members as unknown as Prisma.JsonArray)
+      : undefined;
     const data = {
       // NOTE: can you change name as that changes package???
       name: dto.name,
@@ -392,8 +390,8 @@ export class ProjectService {
       endDate: dto.endDate,
       lastModified: new Date(),
       participantsNum: dto.participantsNum,
-      ...(memberData.length && {
-        members: dto.members,
+      ...(members && {
+        members,
       }),
       dbKeywords: dto.dbKeywords,
     };

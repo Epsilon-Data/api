@@ -316,9 +316,7 @@ describe('ProjectService', () => {
         startDate: new Date(),
         endDate: new Date(),
         participantsNum: 10,
-        members: JSON.stringify([
-          { email: 'member1@example.com', role: 'collaborator' },
-        ]),
+        members: [{ email: 'member1@example.com', role: 'collaborator' }],
         dbKeywords: ['keyword1', 'keyword2'],
         connection: {
           orgAdminEmail: 'admin@example.com',
@@ -363,9 +361,7 @@ describe('ProjectService', () => {
         startDate: new Date(),
         endDate: new Date(),
         participantsNum: 10,
-        members: JSON.stringify([
-          { email: 'member1@example.com', role: 'collaborator' },
-        ]),
+        members: [{ email: 'member1@example.com', role: 'collaborator' }],
         dbKeywords: ['keyword1', 'keyword2'],
         connection: {
           tempDbDetails: {

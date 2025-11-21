@@ -92,6 +92,12 @@ export class ProjectSummaryInfoDto {
   status!: $Enums.ProjectStatus;
 }
 
+export class ProjectMember {
+  email?: string;
+  role?: string;
+  name?: string;
+}
+
 export class CreateProjectDto {
   @ApiPropertyOptional({
     description: 'Custom project identifier',
@@ -178,14 +184,16 @@ export class CreateProjectDto {
   @Transform(({ value }) => transformDateString(value))
   endDate!: Date;
 
-  // FIXME: This should be JSON or string[]
   @ApiPropertyOptional({
     description: 'List of members and roles involved in the project',
     example: "[{'email': 'user1@email.com', 'role': 'collaborator'}]",
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  members?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProjectMember)
+  members!: ProjectMember[];
 
   @ApiProperty({
     description: 'Number of project participants',
