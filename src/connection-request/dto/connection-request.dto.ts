@@ -306,6 +306,14 @@ export class RequestCommentDto {
   authorId!: string;
 
   @ApiProperty({
+    description: 'Name of the author of the comment',
+    example: 'Data Owner User',
+  })
+  @IsDefined()
+  @IsString()
+  authorName!: string;
+
+  @ApiProperty({
     type: Date,
     description: 'The date the comment was created',
   })

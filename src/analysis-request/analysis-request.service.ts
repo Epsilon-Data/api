@@ -200,6 +200,7 @@ export class AnalysisRequestService {
     const data = {
       requestId: requestId,
       authorId: userId,
+      authorName: dto.authorName,
       content: dto.content,
       createdDate: dto.createdDate,
     };
@@ -209,7 +210,10 @@ export class AnalysisRequestService {
     return;
   }
 
-  async getComments(userId: string, requestId: string) {
+  async getComments(
+    userId: string,
+    requestId: string,
+  ): Promise<RequestCommentDto[]> {
     return await this.prisma.comment.findMany({
       where: {
         requestId: requestId,
