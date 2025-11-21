@@ -14,6 +14,7 @@ import {
   IsEnum,
   IsJSON,
   IsArray,
+  IsEmail,
 } from 'class-validator';
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
@@ -23,8 +24,34 @@ import {
   ConnectionDto,
   ConnectionRequestDto,
   ConnectionRequestResponseDto,
-} from 'src/connection_request/dto';
-import { AnalysisRequestResponseDto } from 'src/analysis_request/dto';
+} from 'src/connection-request/dto';
+import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
+
+export class ProjectMember {
+  @ApiPropertyOptional({
+    description: 'Email address of the project member',
+    example: 'user@example.org',
+  })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Role of the member within the project',
+    example: 'collaborator',
+  })
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @ApiPropertyOptional({
+    description: 'Full name of the member',
+    example: 'Jane Doe',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+}
 
 export class ProjectSummaryInfoDto {
   @ApiProperty({
@@ -91,13 +118,6 @@ export class ProjectSummaryInfoDto {
   @IsEnum($Enums.ProjectStatus)
   status!: $Enums.ProjectStatus;
 }
-
-export class ProjectMember {
-  email?: string;
-  role?: string;
-  name?: string;
-}
-
 export class CreateProjectDto {
   @ApiPropertyOptional({
     description: 'Custom project identifier',

@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsDefined, IsString, ValidateNested } from 'class-validator';
 import { ArchetypeDto } from 'src/archetype/dto';
-import { DatabaseInfoDto } from 'src/connection_request/dto';
+import { DatabaseInfoDto } from 'src/connection-request/dto';
 
 export class ArchetypeJobDataDto {
   @IsString()

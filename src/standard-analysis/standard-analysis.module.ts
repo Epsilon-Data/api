@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { StandardAnalysisService } from './standard_analysis.service';
+import { StandardAnalysisService } from './standard-analysis.service';
 
 @Global()
 @Module({

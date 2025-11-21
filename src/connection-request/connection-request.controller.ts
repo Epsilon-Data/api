@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
   // UseGuards,
 } from '@nestjs/common';
-import { ConnectionRequestService } from './connection_request.service';
+import { ConnectionRequestService } from './connection-request.service';
 import { DatabaseTestDto } from './dto';
 import {
   ApiBadRequestResponse,

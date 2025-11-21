@@ -12,8 +12,9 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
-import { AnalysisRequestService } from './analysis_request.service';
+import { AnalysisRequestService } from './analysis-request.service';
 import {
+  AnalysisDecisionDto,
   AnalysisDto,
   AnalysisRequestDetailsResponseDto,
   AnalysisRequestSummaryInfoDto,
@@ -239,8 +240,11 @@ export class AnalysisRequestController {
       },
     },
   })
-  approve(@Param('requestId', ParseUUIDPipe) requestId: string) {
-    return this.analysisRequestService.approve(requestId);
+  approve(
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() dto: AnalysisDecisionDto,
+  ) {
+    return this.analysisRequestService.approve(requestId, dto);
   }
 
   @Put(':requestId')
