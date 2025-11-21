@@ -457,7 +457,10 @@ export class AnalysisRequestController {
       },
     },
   })
-  async getComments(@Param('requestId', ParseUUIDPipe) requestId: string) {
-    return await this.analysisRequestService.getComments(requestId);
+  async getComments(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+  ) {
+    return await this.analysisRequestService.getComments(user.id, requestId);
   }
 }

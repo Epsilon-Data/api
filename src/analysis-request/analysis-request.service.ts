@@ -209,10 +209,13 @@ export class AnalysisRequestService {
     return;
   }
 
-  async getComments(requestId: string) {
+  async getComments(userId: string, requestId: string) {
     return await this.prisma.comment.findMany({
       where: {
         requestId: requestId,
+        request: {
+          requestorId: userId,
+        },
       },
     });
   }
