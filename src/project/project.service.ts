@@ -14,7 +14,7 @@ import {
   SettingsResponseDto,
   UpdateProjectDto,
 } from './dto';
-import { FileStorageService } from 'src/file_storage/file_storage.service';
+import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
@@ -25,8 +25,8 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   ConnectionRequestResponseDto,
   DatabaseInfoDto,
-} from 'src/connection_request/dto';
-import { AnalysisRequestResponseDto } from 'src/analysis_request/dto';
+} from 'src/connection-request/dto';
+import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()

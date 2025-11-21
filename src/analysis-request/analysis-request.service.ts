@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  AnalysisDecisionDto,
   AnalysisDto,
   AnalysisRequestDetailsResponseDto,
   AnalysisRequestSummaryInfoDto,
 } from './dto';
-import { Prisma } from '@prisma/client';
+import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
 
 @Injectable()
@@ -51,7 +52,7 @@ export class AnalysisRequestService {
       projectObjective: result.projectObjective,
       projectOutcome: result.projectOutcome,
       projectMembers,
-      projectEthicsId: '7sjsi9-dsaa',
+      projectEthicsId: result.projectEthicsId,
       request: result.request,
       project: {
         ...project,
@@ -132,14 +133,17 @@ export class AnalysisRequestService {
       include: { request: true, project: true },
     });
 
-    return;
+    return; // no content return
   }
 
-  async approve(requestId: string) {
+  async approve(requestId: string, dto: AnalysisDecisionDto) {
+    const status = dto.isApproved
+      ? $Enums.RequestStatus.APPROVED
+      : $Enums.RequestStatus.REJECTED;
     return await this.prisma.request.update({
       where: { requestId: requestId },
       data: {
-        status: 'APPROVED',
+        status,
       },
     });
   }
@@ -166,6 +170,7 @@ export class AnalysisRequestService {
   }
 
   async delete(userId: string, requestId: string) {
+    // also cascades to delete the analysis project
     const req = await this.prisma.request.findFirst({
       where: {
         requestId: requestId,

@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseInfoDto } from 'src/connection_request/dto';
+import { DatabaseInfoDto } from 'src/connection-request/dto';
 import Docker, { Container } from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';

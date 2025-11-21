@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { ArchetypeDto } from 'src/archetype/dto';
-import { DatabaseInfoDto } from 'src/connection_request/dto';
+import { DatabaseInfoDto } from 'src/connection-request/dto';
 
 @Injectable()
 export class QueueService {

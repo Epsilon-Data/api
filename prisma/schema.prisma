@@ -52,8 +52,8 @@ model Analysis {
   projectOutcome     String   @db.Text
   projectMembers     Json?    @db.Json
   projectEthicsId    String   @db.Text
-  request            Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_request_id")
-  project            Project  @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_project_id")
+  request            Request  @relation(fields: [requestId], references: [requestId], onDelete: Cascade, onUpdate: NoAction, map: "fk_analysis_request_id")
+  project            Project  @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_analysis_project_id")
 }
 
 model Project {

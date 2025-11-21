@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { AnalysisRequestService } from './analysis_request.service';
-import { AnalysisRequestController } from './analysis_request.controller';
+import { AnalysisRequestService } from './analysis-request.service';
+import { AnalysisRequestController } from './analysis-request.controller';
 
 @Module({
   providers: [AnalysisRequestService],

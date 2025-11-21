@@ -11,8 +11,9 @@ import {
   ValidateNested,
   IsArray,
   IsEnum,
+  IsBoolean,
 } from 'class-validator';
-import { RequestDto } from 'src/connection_request/dto';
+import { RequestDto } from 'src/connection-request/dto';
 import { ProjectMember, UpdateProjectDto } from 'src/project/dto';
 
 import { transformDateString } from 'src/utils/class.util';
@@ -25,7 +26,7 @@ export class AnalysisDto {
   })
   @IsOptional()
   @IsUUID()
-  requestId!: string;
+  requestId?: string;
 
   @ApiProperty({
     description: 'ID of the project',
@@ -253,4 +254,14 @@ export class AnalysisRequestDetailsResponseDto extends AnalysisDto {
   @ValidateNested()
   @Type(() => UpdateProjectDto)
   project?: UpdateProjectDto | null;
+}
+
+export class AnalysisDecisionDto {
+  @ApiProperty({
+    description: 'Approval decision for the analysis request',
+    example: true,
+  })
+  @IsDefined()
+  @IsBoolean()
+  isApproved!: boolean;
 }
