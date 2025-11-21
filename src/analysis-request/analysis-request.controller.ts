@@ -37,7 +37,7 @@ import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
 import { GenericErrorResponseDto } from 'src/common/dto';
-import { RequestCommentDto } from 'src/connection_request/dto';
+import { RequestCommentDto } from 'src/common/dto';
 
 @ApiTags('Analysis Request')
 @ApiBearerAuth()

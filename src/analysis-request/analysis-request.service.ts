@@ -8,7 +8,7 @@ import {
 } from './dto';
 import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
-import { RequestCommentDto } from 'src/connection_request/dto';
+import { RequestCommentDto } from 'src/common/dto';
 
 @Injectable()
 export class AnalysisRequestService {
