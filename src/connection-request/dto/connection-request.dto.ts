@@ -287,6 +287,7 @@ export class RequestCommentDto {
     example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
   })
   @IsUUID()
+  @IsOptional()
   requestId!: string;
 
   @ApiProperty({
@@ -295,6 +296,7 @@ export class RequestCommentDto {
     example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
   })
   @IsUUID()
+  @IsOptional()
   commentId!: string;
 
   @ApiProperty({
