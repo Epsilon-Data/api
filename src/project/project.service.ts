@@ -344,7 +344,7 @@ export class ProjectService {
           data: {
             requestId,
             authorId: ownerId,
-            authorName: user.username,
+            authorName: `${user.given_name} ${user.family_name}`,
             content: dto.connection.additionalInfo,
           },
         });

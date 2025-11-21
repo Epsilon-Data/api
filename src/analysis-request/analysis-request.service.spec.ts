@@ -55,7 +55,7 @@ describe('AnalysisRequestService', () => {
   });
 
   describe('getDetails', () => {
-    it('should return mapped details including project and request', async () => {
+    it('should return mapped details including project, request and comments', async () => {
       const userId = 'user-1';
       const requestId = 'req-1';
 
@@ -88,6 +88,16 @@ describe('AnalysisRequestService', () => {
           status: $Enums.RequestStatus.PENDING,
           createdDate: new Date('2025-01-10T00:00:00.000Z'),
           lastModified: new Date('2025-01-11T00:00:00.000Z'),
+          comments: [
+            {
+              requestId,
+              commentId: 'comment-1',
+              authorId: 'user-1',
+              authorName: 'User 1',
+              content: 'Comment 1',
+              createdDate: new Date('2025-01-10T00:00:00.000Z'),
+            },
+          ],
         },
         project: {
           projectId: 'proj-1',
@@ -109,7 +119,11 @@ describe('AnalysisRequestService', () => {
           },
         },
         include: {
-          request: true,
+          request: {
+            include: {
+              comments: true,
+            },
+          },
           project: true,
         },
       });

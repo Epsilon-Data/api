@@ -287,7 +287,6 @@ export class RequestCommentDto {
     example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
   })
   @IsUUID()
-  @IsOptional()
   requestId!: string;
 
   @ApiProperty({
@@ -297,7 +296,7 @@ export class RequestCommentDto {
   })
   @IsUUID()
   @IsOptional()
-  commentId!: string;
+  commentId?: string;
 
   @ApiProperty({
     description: 'Author identifier (userId)',
@@ -309,7 +308,7 @@ export class RequestCommentDto {
 
   @ApiProperty({
     description: 'Name of the author of the comment',
-    example: 'Data Owner User',
+    example: 'Owner User',
   })
   @IsDefined()
   @IsString()
