@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -15,7 +16,7 @@ import {
   UpdateProjectDto,
 } from './dto';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
@@ -28,15 +29,19 @@ import {
 } from 'src/connection-request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
 import { Prisma } from '@prisma/client';
+import { Credentials } from '@epsilon-data/keycloak-admin-client';
+import type { AdminModuleConfig } from 'src/admin/config.interface';
+import { ADMIN_CONFIG } from 'src/admin/config.interface';
 
 @Injectable()
 export class ProjectService {
   private readonly logger = new Logger(ProjectService.name);
   constructor(
+    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     private prisma: PrismaService,
     private queue: QueueService,
     private fileStorage: FileStorageService,
-    private readonly keycloak: KeycloakAdminService,
+    private readonly keycloakAdminService: KeycloakAdminService,
   ) {}
 
   // Queries
@@ -331,7 +336,13 @@ export class ProjectService {
 
     // add keycloak resource
     // TODO: better error handling
-    void this.keycloak.newResource(
+    const credentials: Credentials = {
+      grantType: 'client_credentials',
+      clientId: this.config.clientId,
+      clientSecret: this.config.clientSecret,
+    };
+    await this.keycloakAdminService.auth(credentials);
+    void this.keycloakAdminService.newResource(
       project.projectId,
       project.ownerId,
       memberEmails.length ? memberEmails : undefined,

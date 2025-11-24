@@ -112,19 +112,15 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
     // Log all prisma error details to console
     this.logger.error(
       `Prisma error (${status}) ${request.method} ${request.url}`,
-      JSON.stringify(
-        {
-          prismaErrorName: exception.name,
-          prismaErrorMessage: (exception as Error).message,
-          prismaErrorCode: (exception as Prisma.PrismaClientKnownRequestError)
-            .code,
-          prismaErrorMeta: (exception as Prisma.PrismaClientKnownRequestError)
-            .meta,
-          stack: (exception as Error).stack,
-        },
-        null,
-        2,
-      ),
+      {
+        prismaErrorName: exception.name,
+        prismaErrorMessage: (exception as Error).message,
+        prismaErrorCode: (exception as Prisma.PrismaClientKnownRequestError)
+          .code,
+        prismaErrorMeta: (exception as Prisma.PrismaClientKnownRequestError)
+          .meta,
+        stack: (exception as Error).stack,
+      } as unknown as string,
     );
 
     // Generic body for frontend

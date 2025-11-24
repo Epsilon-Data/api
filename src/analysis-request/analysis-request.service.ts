@@ -9,7 +9,7 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 
 @Injectable()
 export class AnalysisRequestService {

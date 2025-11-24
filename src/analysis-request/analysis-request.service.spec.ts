@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { $Enums } from '@prisma/client';
 import { AnalysisDecisionDto, AnalysisDto } from './dto';
 import { ProjectMember } from 'src/project/dto';

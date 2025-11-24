@@ -34,7 +34,7 @@ export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     const excludes = [
       { path: 'health', method: RequestMethod.GET },
-      { path: 'analysis/*path', method: RequestMethod.ALL },
+      { path: 'analysis/auth', method: RequestMethod.ALL },
     ];
 
     // only add docs if dev

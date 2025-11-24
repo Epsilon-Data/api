@@ -1,6 +1,6 @@
 import { DynamicModule, Global, Module, Provider } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { KeycloakAdminService } from './keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from './keycloak/keycloak-admin.service';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import {
@@ -12,7 +12,7 @@ import {
 } from './config.interface';
 import { AdminController } from './admin.controller';
 import {
-  Credentials,
+  // Credentials,
   KeycloakAdminClient,
 } from '@epsilon-data/keycloak-admin-client';
 
@@ -95,20 +95,20 @@ export class AdminModule {
         provide: ADMIN_CONFIG,
       },
       {
-        useFactory: async (config: AdminModuleConfig) => {
-          const credentials: Credentials = {
-            grantType: 'client_credentials',
-            clientId: config.clientId,
-            clientSecret: config.clientSecret,
-          };
+        useFactory: (config: AdminModuleConfig) => {
+          // const credentials: Credentials = {
+          //   grantType: 'client_credentials',
+          //   clientId: config.clientId,
+          //   clientSecret: config.clientSecret,
+          // };
           const kcAdminClient = new KeycloakAdminClient({
             baseUrl: config.issuerBaseURL,
             realmName: config.realm,
           });
           // init keycloak admin client
           // TODO: improve this
-          void (await kcAdminClient.auth(credentials));
-          setInterval(() => void kcAdminClient.auth(credentials), 58 * 1000);
+          // void (await kcAdminClient.auth(credentials));
+          // setInterval(() => void kcAdminClient.auth(credentials), 58 * 1000);
           return kcAdminClient;
         },
         inject: [ADMIN_CONFIG],

@@ -7,6 +7,7 @@ import {
   ResourceRepresentation,
   ClientScopeRepresentation,
   ClientRepresentation,
+  Credentials,
 } from '@epsilon-data/keycloak-admin-client';
 import { ADMIN_CONFIG, KEYCLOAK_ADMIN_INSTANCE } from '../config.interface';
 
@@ -130,6 +131,7 @@ export class KeycloakAdminService {
   private readonly logger = new Logger('KeycloakAdminService');
   // TODO: get client for resource service
   // private client
+  // private kcAdminClient: KeycloakAdminClient;
 
   constructor(
     @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
@@ -137,6 +139,10 @@ export class KeycloakAdminService {
     private kcAdminClient: KeycloakAdminClient,
     private configService: ConfigService,
   ) {}
+
+  async auth(credentials: Credentials) {
+    return await this.kcAdminClient.auth(credentials);
+  }
 
   async createUser(user: UserRepresentation) {
     try {
@@ -732,24 +738,20 @@ export class KeycloakAdminService {
     }
   }
 
+  // TODO: perhaps change from doing the auth for each operation
   async getAccessToken(login: LoginDto): Promise<{
     access_token: string;
     expires_in?: number;
   }> {
-    try {
-      await this.kcAdminClient.auth({
-        grantType: 'password',
-        clientId: this.configService.get<string>('sdk.clientId')!,
-        username: login.username,
-        password: login.password,
-      });
+    await this.auth({
+      grantType: 'password',
+      clientId: this.configService.get<string>('sdk.clientId')!,
+      username: login.username,
+      password: login.password,
+    });
 
-      const token = await this.kcAdminClient.getAccessToken();
-      return { access_token: token || '' };
-    } catch (error) {
-      this.logger.error('Error getting access token', error);
-      throw error;
-    }
+    const token = await this.kcAdminClient.getAccessToken();
+    return { access_token: token || '' };
   }
 
   //FIXME: not working properly
