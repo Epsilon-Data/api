@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 import { $Enums } from '@prisma/client';
 import { AnalysisDecisionDto, AnalysisDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
@@ -25,6 +26,9 @@ describe('AnalysisRequestService', () => {
       findMany: jest.Mock;
     };
   };
+  const keycloakMock = {
+    addUserToUserPolicy: jest.fn(),
+  } as unknown as KeycloakAdminService;
 
   beforeEach(async () => {
     prisma = {
@@ -52,6 +56,7 @@ describe('AnalysisRequestService', () => {
           provide: PrismaService,
           useValue: prisma,
         },
+        { provide: KeycloakAdminService, useValue: keycloakMock },
       ],
     }).compile();
 
@@ -305,12 +310,13 @@ describe('AnalysisRequestService', () => {
   describe('approve', () => {
     it('should set status APPROVED when isApproved is true', async () => {
       const requestId = 'req-1';
+      const projectId = '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230';
       const dto: AnalysisDecisionDto = { isApproved: true };
 
       const updated = { requestId, status: $Enums.RequestStatus.APPROVED };
       prisma.request.update.mockResolvedValue(updated);
 
-      const result = await service.approve(requestId, dto);
+      await service.approve(requestId, projectId, dto);
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
@@ -318,17 +324,17 @@ describe('AnalysisRequestService', () => {
           status: $Enums.RequestStatus.APPROVED,
         },
       });
-      expect(result).toEqual(updated);
     });
 
     it('should set status REJECTED when isApproved is false', async () => {
       const requestId = 'req-1';
+      const projectId = '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230';
       const dto: AnalysisDecisionDto = { isApproved: false };
 
       const updated = { requestId, status: $Enums.RequestStatus.REJECTED };
       prisma.request.update.mockResolvedValue(updated);
 
-      const result = await service.approve(requestId, dto);
+      await service.approve(requestId, projectId, dto);
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
@@ -336,7 +342,6 @@ describe('AnalysisRequestService', () => {
           status: $Enums.RequestStatus.REJECTED,
         },
       });
-      expect(result).toEqual(updated);
     });
   });
 

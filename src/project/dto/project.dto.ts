@@ -83,8 +83,9 @@ export class ProjectSummaryInfoDto {
     type: String,
     format: 'date-time',
   })
-  @Type(() => Date)
   @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
   lastModified!: Date;
 
   @ApiProperty({
