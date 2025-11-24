@@ -531,6 +531,23 @@ export class KeycloakAdminService {
         policies: [`${groupPolicyPrefix}${id}`],
       });
 
+      // create analysis policy
+      await this.createPolicy(client, 'user', {
+        name: `${analysisPolicyPrefix}${id}`,
+        decisionStrategy: DecisionStrategy.UNANIMOUS,
+        logic: Logic.POSITIVE,
+      });
+
+      // create analysis permission
+      await this.createPermission(client, 'scope', {
+        name: `${analysisPermissionPrefix}${id}`,
+        decisionStrategy: DecisionStrategy.UNANIMOUS,
+        logic: Logic.POSITIVE,
+        resources: [`${resourcePrefix}${id}`],
+        scopes: analysisPermissions,
+        policies: [`${analysisPolicyPrefix}${id}`],
+      });
+
       // invite collaborators and add them to the group
       // TODO: improve this
       if (collaborators) {
@@ -589,23 +606,6 @@ export class KeycloakAdminService {
           scopes: custodianPermissions,
           policies: [`${custodianPolicyPrefix}${id}`],
         });
-
-        // create analysis policy
-        await this.createPolicy(client, 'user', {
-          name: `${analysisPolicyPrefix}${id}`,
-          decisionStrategy: DecisionStrategy.UNANIMOUS,
-          logic: Logic.POSITIVE,
-        });
-
-        // create analysis permission
-        await this.createPermission(client, 'scope', {
-          name: `${analysisPermissionPrefix}${id}`,
-          decisionStrategy: DecisionStrategy.UNANIMOUS,
-          logic: Logic.POSITIVE,
-          resources: [`${resourcePrefix}${id}`],
-          scopes: analysisPermissions,
-          policies: [`${analysisPolicyPrefix}${id}`],
-        });
       }
     } catch (error) {
       this.logger.error(`Error creating resource`, error);
@@ -642,7 +642,7 @@ export class KeycloakAdminService {
     policyType: string,
     policy: PolicyRepresentation,
   ) {
-    this.logger.debug(`Creating ${policyType} policy...`);
+    this.logger.debug(`Creating ${policy.name} policy...`);
     try {
       return this.kcAdminClient.clients.createPolicy(
         {
@@ -717,9 +717,9 @@ export class KeycloakAdminService {
     permissionType: string,
     policy: PolicyRepresentation,
   ) {
-    this.logger.debug(`Creating ${permissionType} permission...`);
+    this.logger.debug(`Creating ${policy.name} permission...`);
     try {
-      return this.kcAdminClient.clients.createPolicy(
+      return this.kcAdminClient.clients.createPermission(
         {
           id: client.id!,
           type: permissionType,
