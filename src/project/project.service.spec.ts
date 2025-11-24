@@ -301,6 +301,8 @@ describe('ProjectService', () => {
     const user = {
       email: 'owner@example.com',
       username: 'owner-user',
+      given_name: 'Owner',
+      family_name: 'User',
       id: 'user1',
     };
 
@@ -343,6 +345,7 @@ describe('ProjectService', () => {
         data: {
           requestId: 'mocked-request-id',
           authorId: user.id,
+          authorName: `${user.given_name} ${user.family_name}`,
           content: dto.connection.additionalInfo,
         },
       });

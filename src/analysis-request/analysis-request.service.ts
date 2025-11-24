@@ -8,6 +8,7 @@ import {
 } from './dto';
 import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
+import { RequestCommentDto } from 'src/common/dto';
 
 @Injectable()
 export class AnalysisRequestService {
@@ -25,7 +26,11 @@ export class AnalysisRequestService {
         },
       },
       include: {
-        request: true,
+        request: {
+          include: {
+            comments: true,
+          },
+        },
         project: true,
       },
     });
@@ -184,6 +189,38 @@ export class AnalysisRequestService {
 
     return await this.prisma.request.delete({
       where: { requestId: requestId },
+    });
+  }
+
+  async createComment(
+    userId: string,
+    requestId: string,
+    dto: RequestCommentDto,
+  ) {
+    const data = {
+      requestId: requestId,
+      authorId: userId,
+      authorName: dto.authorName,
+      content: dto.content,
+      createdDate: dto.createdDate,
+    };
+
+    await this.prisma.comment.create({ data });
+
+    return;
+  }
+
+  async getComments(
+    userId: string,
+    requestId: string,
+  ): Promise<RequestCommentDto[]> {
+    return await this.prisma.comment.findMany({
+      where: {
+        requestId: requestId,
+        request: {
+          requestorId: userId,
+        },
+      },
     });
   }
 }

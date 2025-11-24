@@ -22,9 +22,10 @@ model Comment {
   commentId   String   @id(map: "comment_pkey") @default(uuid()) @db.Uuid
   requestId   String   @db.Uuid
   authorId    String   @db.Uuid
+  authorName  String   @db.Text
   content     String   @db.Text
   createdDate DateTime @default(now()) @db.Date
-  request     Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_comment_request_id")
+  request     Request  @relation(fields: [requestId], references: [requestId], onDelete: Cascade, onUpdate: NoAction, map: "fk_comment_request_id")
 }
 
 model Connection {
