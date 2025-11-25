@@ -34,7 +34,7 @@ export class KeycloakPermissionDto {
 
 export class KeycloakAuthzRequestDto {
   @IsString()
-  response_mode: string = 'decision'; // can be 'permissions'
+  response_mode: string = 'permissions'; // can be 'decision'
 
   @IsOptional()
   @IsArray()

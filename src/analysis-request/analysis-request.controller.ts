@@ -193,7 +193,7 @@ export class AnalysisRequestController {
 
   // TODO: should this not also have to be reject?
   @UseGuards(ResourceGuard)
-  @Scopes('view, approve')
+  @Scopes('view', 'approve')
   @Patch(':projectId/:requestId')
   @ApiOperation({
     summary: 'Approve analysis request',

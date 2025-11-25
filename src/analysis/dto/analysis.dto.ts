@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDefined, IsNotEmpty, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsDate,
+  IsDefined,
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { transformDateString } from 'src/utils/class.util';
 
 export class LoginDto {
   @ApiProperty({
@@ -34,4 +42,34 @@ export class AuthTokenResponseDto {
     example: 3600,
   })
   expires_in?: number;
+}
+
+export class DatasetDto {
+  @ApiProperty({
+    description: 'Unique identifier of the dataset',
+    format: 'uuid',
+    example: '2c7a2cb4-9fa4-4c1e-8573-0f9ab84b9e92',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  datasetId!: string;
+
+  @ApiProperty({
+    description: 'Identifier of the associated package',
+    example: 'test_db_creds_dGDZ6c',
+  })
+  @IsString()
+  @IsNotEmpty()
+  packageId!: string;
+
+  @ApiProperty({
+    description: 'Timestamp when the dataset was last modified',
+    type: String,
+    format: 'date-time',
+    example: '2025-11-21T13:45:30.000Z',
+  })
+  @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
+  lastModified!: Date;
 }

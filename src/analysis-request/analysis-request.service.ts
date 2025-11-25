@@ -10,6 +10,7 @@ import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { DatasetDto } from 'src/analysis/dto';
 
 @Injectable()
 export class AnalysisRequestService {
@@ -234,5 +235,38 @@ export class AnalysisRequestService {
         },
       },
     });
+  }
+
+  async getAnalysisProjects(userId: string): Promise<DatasetDto[]> {
+    const analysisProjectList = await this.prisma.analysis.findMany({
+      where: {
+        request: {
+          status: $Enums.RequestStatus.APPROVED,
+          requestorId: userId,
+        },
+        project: {
+          status: $Enums.ProjectStatus.MAPPED,
+        },
+      },
+      select: {
+        project: {
+          select: {
+            projectId: true,
+            lastModified: true,
+            packageId: true,
+          },
+        },
+      },
+    });
+
+    const formatted = analysisProjectList.map((request) => {
+      return {
+        datasetId: request.project.projectId,
+        packageId: request.project.packageId,
+        lastModified: request.project.lastModified,
+      };
+    });
+
+    return formatted;
   }
 }

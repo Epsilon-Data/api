@@ -25,7 +25,7 @@ export class KeycloakService {
   async checkPermission(
     authzRequest: KeycloakAuthzRequestDto,
     request: Request,
-  ) {
+  ): Promise<KeycloakPermissionDecisionDto> {
     const token = (request.auth?.token ||
       this.extractTokenFromHeader(request)) as string;
     if (!token) {
@@ -36,7 +36,7 @@ export class KeycloakService {
       grant_type: 'urn:ietf:params:oauth:grant-type:uma-ticket',
       audience: authzRequest.audience || this.config.clientId,
       permission: [] as string[],
-      response_mode: 'decision',
+      response_mode: 'permissions',
     };
 
     const permissions: PermissionDto[] = authzRequest.permissions || [];
@@ -82,15 +82,10 @@ export class KeycloakService {
     }
 
     if (res.status >= 400) {
-      // If the authorization request does not map to any permission, a 403 HTTP status code is returned instead.
+      // If the authorization request does not map to any permission, a 403 HTTP status code is returned instead from Keycloak
       if (res.status === 403) {
-        throw AuthorizationClientException(
-          // Add exception
-          Grant.AuthorizationCode,
-          res.status,
-          text,
-          'Authorization request does not map to any permission',
-        );
+        // return false from keycloak
+        return { result: false };
       }
       throw AuthorizationClientException(
         // Add exception
@@ -99,7 +94,14 @@ export class KeycloakService {
         text,
       );
     }
-    return JSON.parse(text) as KeycloakPermissionDecisionDto;
+
+    // status is OK, meaning some permissions exist, lets check if we have all of them
+    const keycloakPermissions = JSON.parse(text) as KeycloakPermissionDto[];
+    if (this.hasAllScopes(permissions, keycloakPermissions)) {
+      return { result: true };
+    } else {
+      return { result: false };
+    }
   }
 
   async getPermissions(
@@ -159,5 +161,17 @@ export class KeycloakService {
 
     const [type, token] = authHeader.split(' ');
     return type === 'Bearer' ? token : null;
+  }
+  private hasAllScopes(
+    expected: PermissionDto[],
+    kc: KeycloakPermissionDto[],
+  ): boolean {
+    const kcMap = new Map(kc.map((p) => [p.rsname, new Set(p.scopes)]));
+
+    return expected.every((e) => {
+      const kcScopes = kcMap.get(e.id);
+      if (!kcScopes) return false;
+      return e.scopes.every((s) => kcScopes.has(s));
+    });
   }
 }
