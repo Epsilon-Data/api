@@ -20,8 +20,8 @@ importers:
         specifier: ^3.925.0
         version: 3.925.0
       '@epsilon-data/epsilon-api-middleware':
-        specifier: ^0.0.3
-        version: 0.0.3
+        specifier: ^0.0.4
+        version: 0.0.4
       '@epsilon-data/epsilon-connector':
         specifier: ^0.1.2
         version: 0.1.2
@@ -591,8 +591,8 @@ packages:
   '@emnapi/wasi-threads@1.1.0':
     resolution: {integrity: sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ==}
 
-  '@epsilon-data/epsilon-api-middleware@0.0.3':
-    resolution: {integrity: sha512-Z6IUD1jOcVCze1TZlp4kRnt6QryODQrFrJIOW5IonDMnLBrqahHSZYUMJRFIDKHpuR1EvF5Ul/TIQUrfD7fSmA==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-api-middleware/0.0.3/5a068386806a8679d0bd84f0a9394b97afc14556}
+  '@epsilon-data/epsilon-api-middleware@0.0.4':
+    resolution: {integrity: sha512-ktlXw0YwCDUWDiuKN6IIC1/vIyI6ieP61GFc5lRUbRN0orZPvuqLDCrEsUaDr5TGCYJdYAF2a36iCJIYBkcONQ==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-api-middleware/0.0.4/d4fe04d375086b1ee953f91b959d3b2c06fc398c}
 
   '@epsilon-data/epsilon-connector@0.1.2':
     resolution: {integrity: sha512-aCJgGbycnA2CF3y4+31znK7uvqCsYMc5/2knrqx1MdwW9faSndu9LCaqQJ8VI0zpVJ6OSbtpiiM6jl4cap9AeQ==, tarball: https://npm.pkg.github.com/download/@epsilon-data/epsilon-connector/0.1.2/206abbe0541442253edd9556a72a1be9bfcd27a5}
@@ -5946,7 +5946,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@epsilon-data/epsilon-api-middleware@0.0.3':
+  '@epsilon-data/epsilon-api-middleware@0.0.4':
     dependencies:
       '@types/node': 20.19.24
       base64url: 3.0.1

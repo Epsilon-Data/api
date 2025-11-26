@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   AnalysisDecisionDto,
@@ -238,14 +242,23 @@ export class AnalysisRequestService {
   }
 
   async getAnalysisProjects(userId: string): Promise<DatasetDto[]> {
+    if (!userId) {
+      throw new BadRequestException(
+        'Analysis project not found or not owned by user',
+      );
+    }
     const analysisProjectList = await this.prisma.analysis.findMany({
       where: {
         request: {
-          status: $Enums.RequestStatus.APPROVED,
-          requestorId: userId,
+          is: {
+            status: $Enums.RequestStatus.APPROVED,
+            requestorId: userId,
+          },
         },
         project: {
-          status: $Enums.ProjectStatus.MAPPED,
+          is: {
+            status: $Enums.ProjectStatus.MAPPED,
+          },
         },
       },
       select: {
@@ -258,7 +271,7 @@ export class AnalysisRequestService {
         },
       },
     });
-
+    console.log(analysisProjectList);
     const formatted = analysisProjectList.map((request) => {
       return {
         datasetId: request.project.projectId,
