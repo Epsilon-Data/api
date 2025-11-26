@@ -95,7 +95,6 @@ export class AnalysisController {
   @UseGuards(ResourceGuard)
   @Scopes('analysis')
   @Get('datasets/:projectId')
-  // TODO: check if they have analysis scope for this and SDK scope
   @ApiOperation({ summary: 'Get archetype for a dataset' })
   async getDatasetArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
