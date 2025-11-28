@@ -529,11 +529,15 @@ describe('AnalysisRequestService', () => {
       expect(prisma.analysis.findMany).toHaveBeenCalledWith({
         where: {
           request: {
-            status: $Enums.RequestStatus.APPROVED,
-            requestorId: userId,
+            is: {
+              status: $Enums.RequestStatus.APPROVED,
+              requestorId: userId,
+            },
           },
           project: {
-            status: $Enums.ProjectStatus.MAPPED,
+            is: {
+              status: $Enums.ProjectStatus.MAPPED,
+            },
           },
         },
         select: {
