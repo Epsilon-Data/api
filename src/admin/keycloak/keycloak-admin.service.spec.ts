@@ -5,7 +5,7 @@ import {
   ADMIN_CONFIG,
   AdminModuleConfig,
   KEYCLOAK_ADMIN_INSTANCE,
-} from '../config.interface';
+} from '../admin-config.interface';
 
 // TODO: write proper tests
 // TODO: write better mock

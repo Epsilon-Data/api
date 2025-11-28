@@ -19,9 +19,6 @@ export interface AuthModuleConfigFactory {
   createKeycloakConnectOptions(): Promise<AuthModuleConfig> | AuthModuleConfig;
 }
 
-// export type AuthModuleAsyncConfig = Pick<ModuleMetadata, 'imports'> &
-//   Pick<FactoryProvider<AuthModuleConfig>, 'useFactory' | 'inject'>;
-
 export interface AuthModuleAsyncConfig extends Pick<ModuleMetadata, 'imports'> {
   inject?: any[];
   useExisting?: Type<AuthModuleConfigFactory>;

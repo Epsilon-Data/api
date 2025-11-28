@@ -13,58 +13,21 @@ import {
   DecisionStrategy,
   Logic,
 } from '@epsilon-data/keycloak-admin-client';
-import { ADMIN_CONFIG, KEYCLOAK_ADMIN_INSTANCE } from '../config.interface';
+import {
+  ADMIN_CONFIG,
+  KEYCLOAK_ADMIN_INSTANCE,
+} from '../admin-config.interface';
 
-import type { AdminModuleConfig } from '../config.interface';
+import type { AdminModuleConfig } from '../admin-config.interface';
 
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from 'src/analysis/dto';
-
-// FIXME: add to consts and DTOs
-const resourcePrefix = 'project:';
-const projectScopes = [
-  {
-    name: 'view',
-  },
-  {
-    name: 'stats',
-  },
-  {
-    name: 'edit',
-  },
-  {
-    name: 'approve',
-  },
-  {
-    name: 'analysis',
-  },
-  {
-    name: 'delete',
-  },
-  {
-    name: 'connect',
-  },
-];
-const ownerPolicyPrefix = 'Owner of ';
-const ownerPermissionPrefix = 'Owner ';
-const ownerPermissions = [
-  'view',
-  'edit',
-  'delete',
-  'approve',
-  'analysis',
-  'stats',
-];
-const groupPrefix = 'Collaborators of ';
-const groupPolicyPrefix = 'Collaborators on ';
-const groupPermissionPrefix = 'Collaborators ';
-const groupPermissions = ['view', 'edit', 'approve', 'analysis', 'stats'];
-const custodianPolicyPrefix = 'Custodian of ';
-const custodianPermissionPrefix = `Custodian `;
-const custodianPermissions = ['view', 'edit', 'connect'];
-const analysisPolicyPrefix = 'Analysis of ';
-const analysisPermissionPrefix = `Analysis `;
-const analysisPermissions = ['analysis'];
+import {
+  resourcePrefix,
+  analysisPolicyPrefix,
+  analysisPermissionPrefix,
+  analysisPermissions,
+} from 'src/utils/options.util';
 
 export type UserQueryParams = {
   readonly email?: string;
@@ -415,160 +378,6 @@ export class KeycloakAdminService {
     return events
       .filter((loginEvent: EventRepresentation) => loginEvent.userId === userId)
       .sort((a, b) => (b.time || 0) - (a.time || 0))[0];
-  }
-
-  async newResource(
-    id: string,
-    ownerId: string,
-    collaborators?: string[],
-    custodian?: string,
-  ) {
-    try {
-      // get owner username
-      const owner = await this.getUserById(ownerId);
-      if (!owner)
-        throw new Error(
-          `Owner with id ${ownerId} doesn't exists. This should not happen!`,
-        );
-      const ownerUsername = owner.username!;
-
-      // get client
-      const client = await this.getClientByName();
-
-      // create resource
-      await this.createResource(client, {
-        name: `${resourcePrefix}${id}`,
-        type: 'project',
-        displayName: `${resourcePrefix}${id}`,
-        // TODO: make this URL same as frontend
-        uris: [`project/${id}`],
-        scopes: projectScopes,
-      });
-
-      // create owner policy
-      await this.createPolicy(client, 'user', {
-        name: `${ownerPolicyPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        users: [ownerUsername],
-      });
-
-      // create owner permission
-      await this.createPermission(client, 'scope', {
-        name: `${ownerPermissionPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        resources: [`${resourcePrefix}${id}`],
-        // TODO: add these as constants
-        scopes: custodian ? ownerPermissions : [...ownerPermissions, 'connect'],
-        policies: [`${ownerPolicyPrefix}${id}`],
-      });
-
-      // create group
-      const createGroup = await this.createGroup({
-        name: `${groupPrefix}${id}`,
-      });
-
-      // add owner to group
-      await this.addUserToGroup(ownerId, createGroup.id);
-
-      // create group policy
-      await this.createPolicy(client, 'group', {
-        name: `${groupPolicyPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        groups: [createGroup.id],
-      });
-
-      // create group permission
-      await this.createPermission(client, 'scope', {
-        name: `${groupPermissionPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        resources: [`${resourcePrefix}${id}`],
-        scopes: groupPermissions,
-        policies: [`${groupPolicyPrefix}${id}`],
-      });
-
-      // create analysis policy
-      await this.createPolicy(client, 'user', {
-        name: `${analysisPolicyPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-      });
-
-      // create analysis permission
-      await this.createPermission(client, 'scope', {
-        name: `${analysisPermissionPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        resources: [`${resourcePrefix}${id}`],
-        scopes: analysisPermissions,
-        policies: [`${analysisPolicyPrefix}${id}`],
-      });
-
-      // invite collaborators and add them to the group
-      // TODO: improve this
-      if (collaborators) {
-        const collabQueries = collaborators.map(async (email) => {
-          const users = (await this.checkUser({ email })) || [];
-          if (!users.length) {
-            // TODO: add realm roles to user
-            const user = await this.createUser({
-              username: email,
-              email,
-              enabled: true,
-              groups: [`${groupPrefix}${id}`],
-            });
-            return await this.setUserActions(user.id);
-          } else {
-            return users.map(async (user: UserRepresentation) => {
-              await this.addUserToGroup(user.id!, createGroup.id);
-            });
-          }
-        });
-        await Promise.all(collabQueries);
-      }
-
-      if (custodian) {
-        // temp username
-        let custodianUserName = custodian.split('@')[0];
-        const users = (await this.checkUser({ email: custodian })) || [];
-        if (!users.length) {
-          // TODO: add realmroles to user
-          const user = await this.createUser({
-            username: custodianUserName,
-            email: custodian,
-            enabled: true,
-            groups: [`${groupPrefix}${id}`],
-          });
-          await this.setUserActions(user.id);
-        } else {
-          const user = users[0];
-          custodianUserName = user.username!;
-          await this.addUserToGroup(user.id!, createGroup.id);
-        }
-        // create custodian policy
-        await this.createPolicy(client, 'user', {
-          name: `${custodianPolicyPrefix}${id}`,
-          decisionStrategy: DecisionStrategy.UNANIMOUS,
-          logic: Logic.POSITIVE,
-          users: [custodianUserName],
-        });
-
-        // create custodian permission
-        await this.createPermission(client, 'scope', {
-          name: `${custodianPermissionPrefix}${id}`,
-          decisionStrategy: DecisionStrategy.UNANIMOUS,
-          logic: Logic.POSITIVE,
-          resources: [`${resourcePrefix}${id}`],
-          scopes: custodianPermissions,
-          policies: [`${custodianPolicyPrefix}${id}`],
-        });
-      }
-    } catch (error) {
-      this.logger.error(`Error creating resource`, error);
-    }
   }
 
   async createResource(

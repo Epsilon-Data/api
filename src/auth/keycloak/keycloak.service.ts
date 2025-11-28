@@ -3,17 +3,21 @@ import {
   AuthorizationServerException,
   Grant,
 } from '@epsilon-data/epsilon-api-middleware';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import fetch from 'node-fetch';
 import * as querystring from 'querystring';
 import type { AuthModuleConfig } from '../config.interface';
 import { AUTH_CONFIG } from '../config.interface';
 import {
   KeycloakAuthzRequestDto,
-  KeycloakPermissionDecisionDto,
   KeycloakPermissionDto,
   PermissionDto,
-} from './dto';
+} from '../dto';
 import { Request } from 'express';
 
 @Injectable()
@@ -25,11 +29,13 @@ export class KeycloakService {
   async checkPermission(
     authzRequest: KeycloakAuthzRequestDto,
     request: Request,
-  ): Promise<KeycloakPermissionDecisionDto> {
+  ) {
     const token = (request.auth?.token ||
       this.extractTokenFromHeader(request)) as string;
     if (!token) {
-      return Promise.reject(new Error('No bearer token'));
+      return Promise.reject(
+        new UnauthorizedException('Authorisation token not found'),
+      );
     }
 
     const params = {
@@ -85,7 +91,7 @@ export class KeycloakService {
       // If the authorization request does not map to any permission, a 403 HTTP status code is returned instead from Keycloak
       if (res.status === 403) {
         // return false from keycloak
-        return { result: false };
+        return false;
       }
       throw AuthorizationClientException(
         // Add exception
@@ -98,9 +104,9 @@ export class KeycloakService {
     // status is OK, meaning some permissions exist, lets check if we have all of them
     const keycloakPermissions = JSON.parse(text) as KeycloakPermissionDto[];
     if (this.hasAllScopes(permissions, keycloakPermissions)) {
-      return { result: true };
+      return true;
     } else {
-      return { result: false };
+      return false;
     }
   }
 

@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsDefined, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDefined,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { ArchetypeDto } from 'src/archetype/dto';
 import { DatabaseInfoDto } from 'src/connection-request/dto';
 
@@ -15,6 +22,24 @@ export class ArchetypeJobDataDto {
   @ValidateNested()
   @Type(() => ArchetypeDto)
   archetype!: ArchetypeDto;
+}
+
+export class AddResourceJobDataDto {
+  @IsUUID()
+  @IsDefined()
+  id!: string;
+
+  @IsUUID()
+  @IsDefined()
+  ownerId!: string;
+
+  @IsArray()
+  @IsOptional()
+  collaborators?: string[];
+
+  @IsString()
+  @IsOptional()
+  custodian?: string;
 }
 
 export class DataBrokerJobDataDto {

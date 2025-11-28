@@ -7,7 +7,34 @@ import { DatabaseInfoDto } from 'src/connection-request/dto';
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
-  constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
+  constructor(
+    @InjectQueue('atlas-queue') private atlasQueue: Queue,
+    @InjectQueue('keycloak-queue') private keycloakQueue: Queue,
+  ) {}
+
+  async addResourceJob(
+    id: string,
+    ownerId: string,
+    collaborators?: string[],
+    custodian?: string,
+  ) {
+    this.logger.log(
+      `Submitting 'process-add-resource' to queue for resource id ${id}`,
+    );
+    return await this.keycloakQueue.add(
+      'process-add-resource',
+      {
+        id,
+        ownerId,
+        collaborators,
+        custodian,
+      },
+      {
+        attempts: 5,
+        backoff: 10000,
+      },
+    );
+  }
 
   async dataBrokerJob(
     owner: string,

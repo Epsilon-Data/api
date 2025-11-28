@@ -2,30 +2,27 @@ import { DynamicModule, Global, Module, Provider } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { KeycloakAdminService } from './keycloak/keycloak-admin.service';
 
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import {
   ADMIN_CONFIG,
   ADMIN_MODULE_CONFIG_FACTORY,
   AdminModuleAsyncConfig,
   AdminModuleConfig,
+  AdminModuleConfigFactory,
   KEYCLOAK_ADMIN_INSTANCE,
-} from './config.interface';
+} from './admin-config.interface';
 import { AdminController } from './admin.controller';
-import {
-  // Credentials,
-  KeycloakAdminClient,
-} from '@epsilon-data/keycloak-admin-client';
+import { KeycloakAdminClient } from '@epsilon-data/keycloak-admin-client';
+import { AdminConfigService } from 'src/config/admin-config.service';
 
 @Global()
 @Module({
   imports: [ConfigModule],
   controllers: [AdminController],
   exports: [KeycloakAdminService],
-  providers: [AdminService, KeycloakAdminService],
+  providers: [AdminConfigService, AdminService, KeycloakAdminService],
 })
 export class AdminModule {
-  constructor(private configService: ConfigService) {}
-
   static forRoot({
     issuerBaseURL,
     realm,
@@ -73,65 +70,68 @@ export class AdminModule {
   private static createAsyncProviders(
     config: AdminModuleAsyncConfig,
   ): Provider[] {
-    const reqProviders = [
-      {
-        // TODO: remove this if not needed
-        useFactory: (configService: ConfigService) => {
-          return {
-            issuerBaseURL: configService.get<string>('admin.issuerBaseURL'),
-            realm: configService.get<string>('admin.realm'),
-            audience: configService.get<string>('admin.audience'),
-            scopePrefix: configService.get<string>('admin.scopePrefix'),
-            clientId: configService.get<string>('admin.clientId'),
-            clientSecret: configService.get<string>('admin.clientSecret'),
-            cookiePrefix: configService.get<string>('admin.cookiePrefix'),
-            encryptionKey: configService.get<string>('admin.encryptionKey'),
-            trustedWebOrigins: configService.get<string[]>(
-              'admin.trustedWebOrigins',
-            ),
-          };
-        },
-        inject: config.inject,
-        provide: ADMIN_CONFIG,
-      },
-      {
-        useFactory: (config: AdminModuleConfig) => {
-          // const credentials: Credentials = {
-          //   grantType: 'client_credentials',
-          //   clientId: config.clientId,
-          //   clientSecret: config.clientSecret,
-          // };
-          const kcAdminClient = new KeycloakAdminClient({
-            baseUrl: config.issuerBaseURL,
-            realmName: config.realm,
-          });
-          // init keycloak admin client
-          // TODO: improve this
-          // void (await kcAdminClient.auth(credentials));
-          // setInterval(() => void kcAdminClient.auth(credentials), 58 * 1000);
-          return kcAdminClient;
-        },
-        inject: [ADMIN_CONFIG],
-        provide: KEYCLOAK_ADMIN_INSTANCE,
-      },
-      KeycloakAdminService,
-      AdminService,
-    ];
+    // ADMIN_CONFIG provider
+    const adminConfigProvider: Provider =
+      this.createAdminConfigProvider(config);
 
-    if (config.useExisting || config.useFactory) {
-      return reqProviders;
+    // KEYCLOAK_ADMIN_INSTANCE provider
+    const keycloakProvider: Provider = {
+      provide: KEYCLOAK_ADMIN_INSTANCE,
+      useFactory: (adminConfig: AdminModuleConfig) =>
+        new KeycloakAdminClient({
+          baseUrl: adminConfig.issuerBaseURL,
+          realmName: adminConfig.realm,
+        }),
+      inject: [ADMIN_CONFIG],
+    };
+
+    // optional provider for useClass
+    const extraProviders: Provider[] = [];
+    if (config.useClass) {
+      extraProviders.push({
+        provide: ADMIN_MODULE_CONFIG_FACTORY,
+        useClass: config.useClass,
+      });
     }
 
     return [
-      ...reqProviders,
-      ...(config.useClass
-        ? [
-            {
-              provide: ADMIN_MODULE_CONFIG_FACTORY,
-              useClass: config.useClass,
-            } satisfies Provider,
-          ]
-        : []),
+      adminConfigProvider,
+      keycloakProvider,
+      KeycloakAdminService,
+      AdminService,
+      ...extraProviders,
     ];
+  }
+
+  private static createAdminConfigProvider(
+    config: AdminModuleAsyncConfig,
+  ): Provider {
+    if (config.useFactory) {
+      return {
+        provide: ADMIN_CONFIG,
+        useFactory: config.useFactory,
+        inject: config.inject ?? [],
+      };
+    }
+    if (config.useExisting) {
+      return {
+        provide: ADMIN_CONFIG,
+        useFactory: (factory: AdminModuleConfigFactory) =>
+          factory.createKeycloakAdminConnectOptions(),
+        inject: [config.useExisting],
+      };
+    }
+    if (config.useClass) {
+      return {
+        provide: ADMIN_CONFIG,
+        useFactory: (factory: AdminModuleConfigFactory) =>
+          factory.createKeycloakAdminConnectOptions(),
+        inject: [ADMIN_MODULE_CONFIG_FACTORY],
+      };
+    }
+
+    throw new Error(
+      'Invalid AdminModuleAsyncConfig: must provide useFactory, useExisting, or useClass',
+    );
   }
 }

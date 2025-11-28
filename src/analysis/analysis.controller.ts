@@ -21,7 +21,6 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { AuthTokenResponseDto, DatasetDto, LoginDto } from './dto/analysis.dto';
 import { ArchetypeService } from 'src/archetype/archetype.service';
-import type { Request } from 'express';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { GenericErrorResponseDto } from 'src/common/dto';
 import { Public } from 'src/common/decorators/public.decorator';

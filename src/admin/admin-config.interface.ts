@@ -16,13 +16,8 @@ export type AdminModuleConfig = {
   trustedWebOrigins: string[];
 };
 export interface AdminModuleConfigFactory {
-  createKeycloakConnectOptions():
-    | Promise<AdminModuleConfig>
-    | AdminModuleConfig;
+  createKeycloakAdminConnectOptions(): AdminModuleConfig;
 }
-
-// export type AdminModuleAsyncConfig = Pick<ModuleMetadata, 'imports'> &
-//   Pick<FactoryProvider<AdminModuleConfig>, 'useFactory' | 'inject'>;
 
 export interface AdminModuleAsyncConfig
   extends Pick<ModuleMetadata, 'imports'> {

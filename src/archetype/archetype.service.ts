@@ -684,6 +684,10 @@ export class ArchetypeService {
       }
     }
 
+    // always allow branches
+    // TODO: check this logic
+    if (isActiveBranchNode) return true;
+
     // No permission classifications → allow only for ACTIVE branch nodes
     if (perms.length === 0) {
       return isActiveBranchNode;

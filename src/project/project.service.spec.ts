@@ -9,7 +9,10 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { Prisma, RequestStatus } from '@prisma/client';
 import { SettingsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
-import { ADMIN_CONFIG, AdminModuleConfig } from 'src/admin/config.interface';
+import {
+  ADMIN_CONFIG,
+  AdminModuleConfig,
+} from 'src/admin/admin-config.interface';
 
 // mock nanoid + uuid to make tests deterministic
 jest.mock('nanoid', () => ({

@@ -20,7 +20,7 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
-import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
+import { KeycloakPermissionDto } from 'src/auth/dto';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -29,9 +29,8 @@ import {
 } from 'src/connection-request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
 import { Prisma } from '@prisma/client';
-import { Credentials } from '@epsilon-data/keycloak-admin-client';
-import type { AdminModuleConfig } from 'src/admin/config.interface';
-import { ADMIN_CONFIG } from 'src/admin/config.interface';
+import type { AdminModuleConfig } from 'src/admin/admin-config.interface';
+import { ADMIN_CONFIG } from 'src/admin/admin-config.interface';
 
 @Injectable()
 export class ProjectService {
@@ -335,14 +334,7 @@ export class ProjectService {
     const memberEmails = dto.members.flatMap((m) => (m.email ? [m.email] : []));
 
     // add keycloak resource
-    // TODO: better error handling
-    const credentials: Credentials = {
-      grantType: 'client_credentials',
-      clientId: this.config.clientId,
-      clientSecret: this.config.clientSecret,
-    };
-    await this.keycloakAdminService.auth(credentials);
-    void this.keycloakAdminService.newResource(
+    await this.queue.addResourceJob(
       project.projectId,
       project.ownerId,
       memberEmails.length ? memberEmails : undefined,

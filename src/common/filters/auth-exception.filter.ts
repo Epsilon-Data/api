@@ -45,9 +45,9 @@ export class AuthExceptionFilter implements ExceptionFilter {
 
   catch(exception: Error, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const res = ctx.getResponse<Response>();
+    const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    if (res.headersSent) {
+    if (response.headersSent) {
       return;
     }
 
@@ -70,7 +70,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
           stack: (exception as Error).stack,
         } as unknown as string,
       );
-      return res.status(status).json({
+      return response.status(status).json({
         statusCode: status,
         message: 'Invalid user credentials',
         error: 'AuthorisationServiceError',
@@ -80,7 +80,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
     this.handler(
       exception as ApiException,
       ctx.getRequest<Request>(),
-      res,
+      response,
       ctx.getNext<NextFunction>(),
     );
   }
