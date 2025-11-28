@@ -7,6 +7,11 @@ import {
   ResourceRepresentation,
   ClientScopeRepresentation,
   ClientRepresentation,
+  Credentials,
+  PolicyRepresentation,
+  GroupRepresentation,
+  DecisionStrategy,
+  Logic,
 } from '@epsilon-data/keycloak-admin-client';
 import { ADMIN_CONFIG, KEYCLOAK_ADMIN_INSTANCE } from '../config.interface';
 
@@ -61,8 +66,6 @@ const analysisPolicyPrefix = 'Analysis of ';
 const analysisPermissionPrefix = `Analysis `;
 const analysisPermissions = ['analysis'];
 
-// FIXME: add to keycloak-admin-client
-
 export type UserQueryParams = {
   readonly email?: string;
   readonly emailVerified?: string;
@@ -72,64 +75,16 @@ export type UserQueryParams = {
   readonly lastName?: string;
   readonly username?: string;
 };
-export enum DecisionStrategy {
-  AFFIRMATIVE = 'AFFIRMATIVE',
-  UNANIMOUS = 'UNANIMOUS',
-  CONSENSUS = 'CONSENSUS',
-}
-export enum DecisionEffect {
-  Permit = 'PERMIT',
-  Deny = 'DENY',
-}
-export enum Logic {
-  POSITIVE = 'POSITIVE',
-  NEGATIVE = 'NEGATIVE',
-}
-export interface PolicyRoleRepresentation {
-  id: string;
-  required?: boolean;
-}
-export interface PolicyRepresentation {
-  config?: Record<string, unknown>;
-  decisionStrategy?: DecisionStrategy;
-  description?: string;
-  id?: string;
-  logic?: Logic;
-  name?: string;
-  owner?: string;
-  policies?: string[];
-  resources?: string[];
-  scopes?: string[];
-  type?: string;
-  users?: string[];
-  roles?: PolicyRoleRepresentation[];
+
+export interface ExtendedPolicyRepresentation extends PolicyRepresentation {
   groups?: string[];
 }
-
-export type ClientQuery = {
-  readonly clientId?: string;
-  readonly viewableOnly?: boolean;
-  readonly search?: boolean;
-  readonly q?: string;
-};
-
-export interface GroupRepresentation {
-  id?: string;
-  name?: string;
-  path?: string;
-  subGroupCount?: number;
-  subGroups?: GroupRepresentation[];
-  access?: Record<string, boolean>;
-  attributes?: Record<string, unknown>;
-  clientRoles?: Record<string, unknown>;
-  realmRoles?: string[];
-}
-
 @Injectable()
 export class KeycloakAdminService {
   private readonly logger = new Logger('KeycloakAdminService');
   // TODO: get client for resource service
   // private client
+  // private kcAdminClient: KeycloakAdminClient;
 
   constructor(
     @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
@@ -137,6 +92,10 @@ export class KeycloakAdminService {
     private kcAdminClient: KeycloakAdminClient,
     private configService: ConfigService,
   ) {}
+
+  async auth(credentials: Credentials) {
+    return await this.kcAdminClient.auth(credentials);
+  }
 
   async createUser(user: UserRepresentation) {
     try {
@@ -640,7 +599,7 @@ export class KeycloakAdminService {
   async createPolicy(
     client: ClientRepresentation,
     policyType: string,
-    policy: PolicyRepresentation,
+    policy: ExtendedPolicyRepresentation,
   ) {
     this.logger.debug(`Creating ${policy.name} policy...`);
     try {
@@ -732,24 +691,20 @@ export class KeycloakAdminService {
     }
   }
 
+  // TODO: perhaps change from doing the auth for each operation
   async getAccessToken(login: LoginDto): Promise<{
     access_token: string;
     expires_in?: number;
   }> {
-    try {
-      await this.kcAdminClient.auth({
-        grantType: 'password',
-        clientId: this.configService.get<string>('sdk.clientId')!,
-        username: login.username,
-        password: login.password,
-      });
+    await this.auth({
+      grantType: 'password',
+      clientId: this.configService.get<string>('sdk.clientId')!,
+      username: login.username,
+      password: login.password,
+    });
 
-      const token = await this.kcAdminClient.getAccessToken();
-      return { access_token: token || '' };
-    } catch (error) {
-      this.logger.error('Error getting access token', error);
-      throw error;
-    }
+    const token = await this.kcAdminClient.getAccessToken();
+    return { access_token: token || '' };
   }
 
   //FIXME: not working properly

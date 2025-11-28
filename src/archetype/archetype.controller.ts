@@ -183,7 +183,7 @@ export class ArchetypeController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Patch(':projectId/:archetypeId')
   @ApiOperation({ summary: 'Update archetype details for a project' })
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -235,7 +235,7 @@ export class ArchetypeController {
   // rest of these will go through queue implementation
   // TODO: add proper API error responses
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Post(':projectId')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Create archetype for a project' })
@@ -255,7 +255,7 @@ export class ArchetypeController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Put(':projectId/:archetypeId')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Update archetype for a project' })
@@ -277,7 +277,7 @@ export class ArchetypeController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Delete(':projectId/:archetypeId')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Delete archetype for a project' })

@@ -1007,6 +1007,15 @@ describe('ArchetypeService', () => {
               parent_node: null,
               child_nodes: [{}, {}], // for length check
             },
+            classifications: [
+              {
+                typeName: 'root_node',
+                entityGuid: 'PARENT',
+                entityStatus: 'ACTIVE',
+                propagate: false,
+                removePropagationsOnEntityDelete: false,
+              },
+            ],
           },
           CHILD: {
             guid: 'CHILD',
@@ -1036,6 +1045,28 @@ describe('ArchetypeService', () => {
                 qualifiedName: columnQN,
               },
             },
+            classifications: [
+              {
+                typeName: 'leaf_node',
+                entityGuid: 'CHILD',
+                entityStatus: 'ACTIVE',
+                propagate: false,
+                removePropagationsOnEntityDelete: false,
+              },
+              {
+                typeName: 'archetype_node_analysis_permissions',
+                entityStatus: 'ACTIVE',
+                entityGuid: 'CHILD',
+                attributes: { access_level: 'DETAILED' },
+              },
+              // Simulate a propagated permission on someone else — should not match entityGuid and thus ignored
+              {
+                typeName: 'archetype_node_analysis_permissions',
+                entityStatus: 'ACTIVE',
+                entityGuid: 'some-other-guid',
+                attributes: { access_level: 'HIGH' },
+              },
+            ],
           },
         },
       };

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   AnalysisDecisionDto,
@@ -9,7 +13,8 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { DatasetDto } from 'src/analysis/dto';
 
 @Injectable()
 export class AnalysisRequestService {
@@ -234,5 +239,47 @@ export class AnalysisRequestService {
         },
       },
     });
+  }
+
+  async getAnalysisProjects(userId: string): Promise<DatasetDto[]> {
+    if (!userId) {
+      throw new BadRequestException(
+        'Analysis project not found or not owned by user',
+      );
+    }
+    const analysisProjectList = await this.prisma.analysis.findMany({
+      where: {
+        request: {
+          is: {
+            status: $Enums.RequestStatus.APPROVED,
+            requestorId: userId,
+          },
+        },
+        project: {
+          is: {
+            status: $Enums.ProjectStatus.MAPPED,
+          },
+        },
+      },
+      select: {
+        project: {
+          select: {
+            projectId: true,
+            lastModified: true,
+            packageId: true,
+          },
+        },
+      },
+    });
+    console.log(analysisProjectList);
+    const formatted = analysisProjectList.map((request) => {
+      return {
+        datasetId: request.project.projectId,
+        packageId: request.project.packageId,
+        lastModified: request.project.lastModified,
+      };
+    });
+
+    return formatted;
   }
 }

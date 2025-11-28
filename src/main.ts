@@ -11,7 +11,9 @@ import { AtlasExceptionFilter } from './common/filters/atlas-exception.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
   const configService = app.get(ConfigService);
   app.setGlobalPrefix(configService.get<string>('apiBaseUrl')!);
   app.enableCors({
@@ -57,4 +59,5 @@ async function bootstrap() {
   // start api service
   await app.listen(configService.get<number>('apiPort')!);
 }
+
 void bootstrap();

@@ -392,7 +392,7 @@ export class ProjectController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Put(':projectId')
   @ApiOperation({ summary: 'Edit project' })
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -407,7 +407,7 @@ export class ProjectController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit, delete')
+  @Scopes('view', 'edit', 'delete')
   @Delete(':projectId')
   @ApiOperation({ summary: 'Delete project' })
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -439,7 +439,7 @@ export class ProjectController {
 
   // TODO: need to see if this is needed
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Post(':projectId/settings')
   @ApiOperation({ summary: 'Add project settings' })
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -458,7 +458,7 @@ export class ProjectController {
 
   // TODO: need to see if this is needed
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Put(':projectId/settings')
   @ApiOperation({ summary: 'Update project settings' })
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -513,7 +513,7 @@ export class ProjectController {
 
   // TODO: this needs refactoring, is it used?
   @UseGuards(ResourceGuard)
-  @Scopes('view, edit')
+  @Scopes('view', 'edit')
   @Post(':projectId/upload-cover')
   @UseInterceptors(FileInterceptor('file', coverOptions))
   @ApiNoContentResponse({

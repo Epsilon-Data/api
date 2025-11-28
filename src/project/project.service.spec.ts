@@ -5,10 +5,11 @@ import { ProjectService } from './project.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { Prisma, RequestStatus } from '@prisma/client';
 import { SettingsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
+import { ADMIN_CONFIG, AdminModuleConfig } from 'src/admin/config.interface';
 
 // mock nanoid + uuid to make tests deterministic
 jest.mock('nanoid', () => ({
@@ -21,6 +22,19 @@ jest.mock('uuid', () => ({
 
 describe('ProjectService', () => {
   let service: ProjectService;
+  let injectedCfg: AdminModuleConfig;
+
+  const adminConfig: AdminModuleConfig = {
+    issuerBaseURL: 'http://localhost:8080',
+    realm: 'epsilon',
+    audience: 'epsilon.api',
+    scopePrefix: 'api.permissions',
+    clientId: 'epsilon-admin-api',
+    clientSecret: 'secret',
+    cookiePrefix: 'epsilon',
+    encryptionKey: 'dummy',
+    trustedWebOrigins: ['http://localhost:3000'],
+  };
 
   const prismaMock = {
     project: {
@@ -53,6 +67,7 @@ describe('ProjectService', () => {
 
   const keycloakMock = {
     newResource: jest.fn(),
+    auth: jest.fn(),
   } as unknown as KeycloakAdminService;
 
   beforeEach(async () => {
@@ -61,6 +76,7 @@ describe('ProjectService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProjectService,
+        { provide: ADMIN_CONFIG, useValue: adminConfig },
         { provide: PrismaService, useValue: prismaMock },
         { provide: QueueService, useValue: queueMock },
         { provide: FileStorageService, useValue: fileStorageMock },
@@ -69,6 +85,7 @@ describe('ProjectService', () => {
     }).compile();
 
     service = module.get<ProjectService>(ProjectService);
+    injectedCfg = module.get(ADMIN_CONFIG);
   });
 
   describe('getUserOwnedProjects', () => {
@@ -335,6 +352,7 @@ describe('ProjectService', () => {
         },
       });
 
+      expect(injectedCfg).toEqual(adminConfig);
       await service.createProject(user, dto);
 
       expect(prismaMock.project.create).toHaveBeenCalled();
@@ -512,7 +530,7 @@ describe('ProjectService', () => {
       const projectId = 'proj-1';
       const visualizations = [
         { title: 'Dash', link: 'https://example.com' },
-      ] as Prisma.Array;
+      ] as Prisma.JsonArray;
 
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
         visualizations,

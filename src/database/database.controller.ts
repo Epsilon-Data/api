@@ -173,7 +173,7 @@ export class DatabaseController {
   }
 
   @UseGuards(ResourceGuard)
-  @Scopes('view, connect')
+  @Scopes('view', 'connect')
   @Post(':projectId/sync')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Sync Database' })

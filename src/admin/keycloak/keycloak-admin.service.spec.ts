@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { KeycloakAdminService } from './keycloak.admin.service';
+import { KeycloakAdminService } from './keycloak-admin.service';
 import { ConfigService } from '@nestjs/config';
 import {
   ADMIN_CONFIG,

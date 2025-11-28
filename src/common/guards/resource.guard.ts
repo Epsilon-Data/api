@@ -101,7 +101,7 @@ export class ResourceGuard implements CanActivate {
     };
     const authzRequest: KeycloakAuthzRequestDto = {
       permissions: [permission],
-      response_mode: 'decision', // can be 'permissions'
+      response_mode: 'permissions', // can be 'decision'
     };
 
     const res = await this.keycloakConnect.checkPermission(

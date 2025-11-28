@@ -376,6 +376,15 @@ export class ArchetypeService {
       // TODO: handle errors
       for (const key in templateEntity?.referredEntities) {
         const node = templateEntity.referredEntities[key];
+
+        // check if node is allowed in the archetype
+        const isAllowedEntity =
+          node.status === 'ACTIVE' &&
+          node.typeName === AtlasArchetypeTypeName.Node &&
+          this.isEntityAllowedByPermissions(node);
+
+        if (!isAllowedEntity) continue;
+
         // TODO: check if this is the best thing to use
         const objectName = node.attributes
           .label!.replace(/\s+/g, '_')

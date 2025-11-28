@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { $Enums } from '@prisma/client';
 import { AnalysisDecisionDto, AnalysisDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
@@ -496,6 +496,84 @@ describe('AnalysisRequestService', () => {
         },
       });
       expect(result).toEqual(comments);
+    });
+  });
+
+  describe('getAnalysisProjects', () => {
+    it('should call prisma with correct filters and map result to DatasetDto[]', async () => {
+      const userId = 'user-123';
+
+      const now = new Date('2025-01-01T10:00:00.000Z');
+
+      const prismaResult = [
+        {
+          project: {
+            projectId: 'proj-1',
+            lastModified: now,
+            packageId: 'pkg-1',
+          },
+        },
+        {
+          project: {
+            projectId: 'proj-2',
+            lastModified: now,
+            packageId: null,
+          },
+        },
+      ];
+
+      jest.spyOn(prisma.analysis, 'findMany').mockResolvedValue(prismaResult);
+
+      const result = await service.getAnalysisProjects(userId);
+
+      expect(prisma.analysis.findMany).toHaveBeenCalledWith({
+        where: {
+          request: {
+            is: {
+              status: $Enums.RequestStatus.APPROVED,
+              requestorId: userId,
+            },
+          },
+          project: {
+            is: {
+              status: $Enums.ProjectStatus.MAPPED,
+            },
+          },
+        },
+        select: {
+          project: {
+            select: {
+              projectId: true,
+              lastModified: true,
+              packageId: true,
+            },
+          },
+        },
+      });
+
+      expect(result).toEqual([
+        {
+          datasetId: 'proj-1',
+          packageId: 'pkg-1',
+          lastModified: now,
+        },
+        {
+          datasetId: 'proj-2',
+          packageId: null,
+          lastModified: now,
+        },
+      ]);
+    });
+
+    it('should return an empty array when no analysis projects are found', async () => {
+      const userId = 'user-456';
+
+      jest.spyOn(prisma.analysis, 'findMany').mockResolvedValue([]);
+
+      const result = await service.getAnalysisProjects(userId);
+
+      expect(prisma.analysis.findMany).toHaveBeenCalled();
+      expect(result).toEqual([]);
     });
   });
 });
