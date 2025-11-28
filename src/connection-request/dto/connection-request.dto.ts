@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { $Enums, Prisma } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { RequestCommentDto } from 'src/common/dto';
+import { transformDateString } from 'src/utils/class.util';
 
 export class DatabaseInfoDto {
   @ApiProperty({
@@ -240,9 +241,10 @@ export class RequestDto {
     type: Date,
     description: 'The date the request was created',
   })
+  @IsDefined()
   @IsDate()
-  @Type(() => Date)
-  createdDate: Date;
+  @Transform(({ value }) => transformDateString(value))
+  createdDate!: Date;
 
   @ApiPropertyOptional({
     type: Date,
@@ -250,7 +252,7 @@ export class RequestDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => transformDateString(value))
   lastModified?: Date;
 
   @ApiProperty({

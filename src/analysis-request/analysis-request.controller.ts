@@ -243,9 +243,10 @@ export class AnalysisRequestController {
   })
   approve(
     @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: AnalysisDecisionDto,
   ) {
-    return this.analysisRequestService.approve(requestId, dto);
+    return this.analysisRequestService.approve(requestId, projectId, dto);
   }
 
   @Put(':requestId')

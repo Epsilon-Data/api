@@ -11,7 +11,7 @@ import { AtlasModule } from './atlas/atlas.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
 import { ProjectModule } from './project/project.module';
-import { AnalysisRequestModule } from './analysis-request/analysis_request.module';
+import { AnalysisRequestModule } from './analysis-request/analysis-request.module';
 import { StandardAnalysisModule } from './standard-analysis/standard-analysis.module';
 import { FileStorageModule } from './file-storage/file-storage.module';
 import { QueueModule } from './queue/queue.module';

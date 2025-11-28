@@ -234,8 +234,9 @@ export class ArchetypeSummaryDto {
     format: 'date-time',
     example: '2025-10-30T12:34:56.000Z',
   })
-  @Type(() => Date)
   @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
   created!: Date;
 
   @ApiProperty({
@@ -244,8 +245,9 @@ export class ArchetypeSummaryDto {
     format: 'date-time',
     example: '2025-10-31T08:15:42.000Z',
   })
-  @Type(() => Date)
   @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
   lastModified!: Date;
 }
 

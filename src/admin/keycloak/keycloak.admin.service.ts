@@ -57,6 +57,9 @@ const groupPermissions = ['view', 'edit', 'approve', 'analysis', 'stats'];
 const custodianPolicyPrefix = 'Custodian of ';
 const custodianPermissionPrefix = `Custodian `;
 const custodianPermissions = ['view', 'edit', 'connect'];
+const analysisPolicyPrefix = 'Analysis of ';
+const analysisPermissionPrefix = `Analysis `;
+const analysisPermissions = ['analysis'];
 
 // FIXME: add to keycloak-admin-client
 
@@ -528,6 +531,23 @@ export class KeycloakAdminService {
         policies: [`${groupPolicyPrefix}${id}`],
       });
 
+      // create analysis policy
+      await this.createPolicy(client, 'user', {
+        name: `${analysisPolicyPrefix}${id}`,
+        decisionStrategy: DecisionStrategy.UNANIMOUS,
+        logic: Logic.POSITIVE,
+      });
+
+      // create analysis permission
+      await this.createPermission(client, 'scope', {
+        name: `${analysisPermissionPrefix}${id}`,
+        decisionStrategy: DecisionStrategy.UNANIMOUS,
+        logic: Logic.POSITIVE,
+        resources: [`${resourcePrefix}${id}`],
+        scopes: analysisPermissions,
+        policies: [`${analysisPolicyPrefix}${id}`],
+      });
+
       // invite collaborators and add them to the group
       // TODO: improve this
       if (collaborators) {
@@ -622,7 +642,7 @@ export class KeycloakAdminService {
     policyType: string,
     policy: PolicyRepresentation,
   ) {
-    this.logger.debug(`Creating ${policyType} policy...`);
+    this.logger.debug(`Creating ${policy.name} policy...`);
     try {
       return this.kcAdminClient.clients.createPolicy(
         {
@@ -636,14 +656,70 @@ export class KeycloakAdminService {
       throw error;
     }
   }
+
+  async addUserToUserPolicy(projectId: string, userId: string) {
+    this.logger.debug(
+      `Modifying policy ${analysisPolicyPrefix}${projectId}, adding user ${userId}`,
+    );
+    try {
+      // get client
+      const client = await this.getClientByName();
+      const user = await this.getUserById(userId);
+      if (!user)
+        throw new Error(
+          `User with id ${userId} doesn't exists. This should not happen!`,
+        );
+      const username = user.username!;
+      const existingPolicy = await this.kcAdminClient.clients.findPolicyByName({
+        id: client.id!,
+        realm: this.config.realm,
+        name: `${analysisPolicyPrefix}${projectId}`,
+      });
+      let policy: PolicyRepresentation = {
+        name: `${analysisPolicyPrefix}${projectId}`,
+        decisionStrategy: DecisionStrategy.UNANIMOUS,
+        type: 'user',
+        logic: Logic.POSITIVE,
+        users: [username],
+      };
+      if (existingPolicy) {
+        const existingUsers = new Set(existingPolicy.users ?? []);
+        existingUsers.add(username);
+        policy = {
+          ...existingPolicy,
+          type: existingPolicy.type ?? 'user',
+          users: Array.from(existingUsers),
+        };
+      }
+      await this.kcAdminClient.clients.createOrUpdatePolicy({
+        id: client.id!,
+        policyName: `${analysisPolicyPrefix}${projectId}`,
+        policy: policy,
+      });
+
+      if (!existingPolicy)
+        // create analysis permission as the existing Policy didn't exist
+        await this.createPermission(client, 'scope', {
+          name: `${analysisPermissionPrefix}${projectId}`,
+          decisionStrategy: DecisionStrategy.UNANIMOUS,
+          logic: Logic.POSITIVE,
+          resources: [`${resourcePrefix}${projectId}`],
+          scopes: analysisPermissions,
+          policies: [`${analysisPolicyPrefix}${projectId}`],
+        });
+    } catch (error) {
+      this.logger.error('Error in addUserToUserPolicy', error);
+      throw error;
+    }
+  }
   async createPermission(
     client: ClientRepresentation,
     permissionType: string,
     policy: PolicyRepresentation,
   ) {
-    this.logger.debug(`Creating ${permissionType} permission...`);
+    this.logger.debug(`Creating ${policy.name} permission...`);
     try {
-      return this.kcAdminClient.clients.createPolicy(
+      return this.kcAdminClient.clients.createPermission(
         {
           id: client.id!,
           type: permissionType,

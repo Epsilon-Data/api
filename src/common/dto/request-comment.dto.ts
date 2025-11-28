@@ -1,12 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsDate,
   IsDefined,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
+import { transformDateString } from 'src/utils/class.util';
 
 export class RequestCommentDto {
   @ApiProperty({
@@ -15,9 +17,10 @@ export class RequestCommentDto {
     example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
   })
   @IsUUID()
+  @IsDefined()
   requestId!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Comment identifier',
     format: 'uuid',
     example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230',
@@ -32,6 +35,7 @@ export class RequestCommentDto {
     example: '8b7e2f36-9217-4ea0-8d6e-b621fb6e2230',
   })
   @IsUUID()
+  @IsDefined()
   authorId!: string;
 
   @ApiProperty({
@@ -40,6 +44,7 @@ export class RequestCommentDto {
   })
   @IsDefined()
   @IsString()
+  @IsNotEmpty()
   authorName!: string;
 
   @ApiProperty({
@@ -47,13 +52,16 @@ export class RequestCommentDto {
     description: 'The date the comment was created',
   })
   @IsDate()
-  @Type(() => Date)
-  createdDate: Date;
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
+  createdDate!: Date;
 
   @ApiProperty({
     description: 'Comment content',
     example: 'This is a comment.',
   })
   @IsString()
+  @IsDefined()
+  @IsNotEmpty()
   content!: string;
 }

@@ -9,10 +9,14 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
 
 @Injectable()
 export class AnalysisRequestService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly keycloak: KeycloakAdminService,
+  ) {}
 
   async getDetails(
     userId: string,
@@ -141,16 +145,24 @@ export class AnalysisRequestService {
     return; // no content return
   }
 
-  async approve(requestId: string, dto: AnalysisDecisionDto) {
+  async approve(
+    requestId: string,
+    projectId: string,
+    dto: AnalysisDecisionDto,
+  ) {
     const status = dto.isApproved
       ? $Enums.RequestStatus.APPROVED
       : $Enums.RequestStatus.REJECTED;
-    return await this.prisma.request.update({
+    const result = await this.prisma.request.update({
       where: { requestId: requestId },
       data: {
         status,
       },
     });
+    if (status === $Enums.RequestStatus.APPROVED)
+      // TODO: need proper error handling here from keycloak or go via queue
+      await this.keycloak.addUserToUserPolicy(projectId, result.requestorId);
+    return;
   }
 
   async update(userId: string, requestId: string, dto: AnalysisDto) {

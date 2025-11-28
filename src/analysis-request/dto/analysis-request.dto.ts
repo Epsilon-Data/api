@@ -209,8 +209,9 @@ export class AnalysisRequestSummaryInfoDto {
     format: 'date-time',
     example: '2025-11-20T10:15:30.000Z',
   })
-  @Type(() => Date)
   @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
   createdDate!: Date;
 
   @ApiProperty({
@@ -219,8 +220,9 @@ export class AnalysisRequestSummaryInfoDto {
     format: 'date-time',
     example: '2025-11-20T11:42:10.000Z',
   })
-  @Type(() => Date)
   @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
   lastModified!: Date;
 }
 
