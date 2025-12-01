@@ -271,7 +271,6 @@ export class AnalysisRequestService {
         },
       },
     });
-    console.log(analysisProjectList);
     const formatted = analysisProjectList.map((request) => {
       return {
         datasetId: request.project.projectId,

@@ -60,6 +60,7 @@ describe('ProjectService', () => {
 
   const queueMock = {
     dataBrokerJob: jest.fn(),
+    addResourceJob: jest.fn(),
   } as unknown as QueueService;
 
   const fileStorageMock = {
@@ -359,7 +360,7 @@ describe('ProjectService', () => {
       await service.createProject(user, dto);
 
       expect(prismaMock.project.create).toHaveBeenCalled();
-      expect(keycloakMock.newResource).toHaveBeenCalledWith('proj-1', 'user1', [
+      expect(queueMock.addResourceJob).toHaveBeenCalledWith('proj-1', 'user1', [
         'member1@example.com',
       ]);
       expect(prismaMock.comment.create).toHaveBeenCalledWith({
@@ -411,7 +412,7 @@ describe('ProjectService', () => {
         'mocked-request-id',
         dto.connection.tempDbDetails,
       );
-      expect(keycloakMock.newResource).toHaveBeenCalled();
+      expect(queueMock.addResourceJob).toHaveBeenCalled();
     });
   });
 
