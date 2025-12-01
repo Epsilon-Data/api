@@ -253,7 +253,7 @@ describe('KeycloakAdminService', () => {
 
       expect(mockKcAdminClient.clients.find).toHaveBeenCalledWith(
         {
-          clientId: providedId, // ← updated expectation
+          clientId: providedId, // updated expectation
           realm: mockAdminConfig.realm,
         },
         { catchNotFound: false },
@@ -272,7 +272,7 @@ describe('KeycloakAdminService', () => {
 
       expect(mockKcAdminClient.clients.find).toHaveBeenCalledWith(
         {
-          clientId: 'config-client-id', // ← new fallback logic
+          clientId: 'config-client-id', // new fallback logic
           realm: mockAdminConfig.realm,
         },
         { catchNotFound: false },
