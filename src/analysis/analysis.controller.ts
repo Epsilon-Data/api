@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -18,8 +19,12 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
-import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
-import { AuthTokenResponseDto, DatasetDto, LoginDto } from './dto/analysis.dto';
+import {
+  AnalysisArchetypeResponseDto,
+  AuthTokenResponseDto,
+  DatasetDto,
+  LoginDto,
+} from './dto/analysis.dto';
 import { ArchetypeService } from 'src/archetype/archetype.service';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { GenericErrorResponseDto } from 'src/common/dto';
@@ -39,7 +44,6 @@ export class AnalysisController {
     private readonly archetypeService: ArchetypeService,
     private readonly keycloakService: KeycloakAdminService,
     private readonly analysisRequestService: AnalysisRequestService,
-    private readonly keycloakConnect: KeycloakService,
   ) {}
 
   @Public()
@@ -51,7 +55,7 @@ export class AnalysisController {
     type: AuthTokenResponseDto,
   })
   @ApiUnauthorizedResponse({
-    description: 'Invalid request data for database operation',
+    description: 'Invalid credentials',
     content: {
       'application/json': {
         schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
@@ -75,7 +79,7 @@ export class AnalysisController {
     isArray: true,
   })
   @ApiUnauthorizedResponse({
-    description: 'Invalid request data for database operation',
+    description: 'Invalid credentials',
     content: {
       'application/json': {
         schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
@@ -95,6 +99,33 @@ export class AnalysisController {
   @Scopes('analysis')
   @Get('datasets/:projectId')
   @ApiOperation({ summary: 'Get archetype for a dataset' })
+  @ApiOkResponse({
+    description: 'Archetype Json Schema returned',
+    type: AnalysisArchetypeResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 401,
+          message: 'No authorisation found',
+          error: 'Unauthorized Request',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Archetype or underlying Atlas entity not found',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 404,
+      message: 'Requested resource could not be found',
+      error: 'MetadataServiceError',
+    },
+  })
   async getDatasetArchetype(
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {

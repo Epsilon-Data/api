@@ -80,7 +80,6 @@ export class KeycloakService {
 
     // Read text if it exists
     const text = await res.text();
-
     if (res.status >= 500) {
       throw AuthorizationServerException(
         `Server error response in a Permission request: ${text}`,
@@ -168,6 +167,7 @@ export class KeycloakService {
     const [type, token] = authHeader.split(' ');
     return type === 'Bearer' ? token : null;
   }
+
   private hasAllScopes(
     expected: PermissionDto[],
     kc: KeycloakPermissionDto[],

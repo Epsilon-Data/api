@@ -4,6 +4,7 @@ import { AtlasProcessor } from './atlas.processor';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { QueueService } from './queue.service';
 import { DockerModule } from 'src/docker/docker.module';
+import { KeycloakProcessor } from './keycloak.processor';
 
 @Global()
 @Module({
@@ -25,7 +26,7 @@ import { DockerModule } from 'src/docker/docker.module';
     ),
     DockerModule,
   ],
-  providers: [QueueService, AtlasProcessor],
+  providers: [QueueService, AtlasProcessor, KeycloakProcessor],
   exports: [QueueService],
 })
 export class QueueModule {}

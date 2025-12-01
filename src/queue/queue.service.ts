@@ -19,9 +19,10 @@ export class QueueService {
     custodian?: string,
   ) {
     this.logger.log(
-      `Submitting 'process-add-resource' to queue for resource id ${id}`,
+      `Submitting 'process-add-resource' to queue with resource id ${id}`,
     );
-    return await this.keycloakQueue.add(
+
+    const result = await this.keycloakQueue.add(
       'process-add-resource',
       {
         id,
@@ -34,6 +35,8 @@ export class QueueService {
         backoff: 10000,
       },
     );
+    this.logger.debug(result);
+    return result;
   }
 
   async dataBrokerJob(

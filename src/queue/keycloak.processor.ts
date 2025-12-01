@@ -30,6 +30,7 @@ import {
   ADMIN_CONFIG,
   type AdminModuleConfig,
 } from 'src/admin/admin-config.interface';
+import { ConfigService } from '@nestjs/config';
 
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
@@ -40,12 +41,14 @@ export class KeycloakProcessor {
   constructor(
     @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     private readonly keycloak: KeycloakAdminService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Process('process-add-resource')
   async handleAddResource(job: Job) {
     const { id, ownerId, collaborators, custodian } =
       job.data as AddResourceJobDataDto;
+    this.logger.log(`Handling 'process-add-resource' for resource id ${id}...`);
     try {
       // auth
       // add keycloak resource
@@ -65,8 +68,9 @@ export class KeycloakProcessor {
         );
       const ownerUsername = owner.username!;
 
-      // get client
-      const client = await this.keycloak.getClientByName();
+      // get authorisationservice client
+      const authClient = this.configService.get<string>('auth.clientId');
+      const client = await this.keycloak.getClientById(authClient);
 
       // create resource
       await this.keycloak.createResource(client, {

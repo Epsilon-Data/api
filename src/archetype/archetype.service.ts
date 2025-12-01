@@ -28,6 +28,7 @@ import {
   AtlasSearchBasicHeadlessResponseDto,
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
+import { AnalysisArchetypeResponseDto } from 'src/analysis/dto';
 
 @Injectable()
 export class ArchetypeService {
@@ -326,7 +327,10 @@ export class ArchetypeService {
     return templateInfo;
   }
 
-  async getAnalysisArchetype(projectId: string, token?: string) {
+  async getAnalysisArchetype(
+    projectId: string,
+    token?: string,
+  ): Promise<AnalysisArchetypeResponseDto> {
     // get ID of PUBLISHED archetype
     const body = {
       typeName: AtlasArchetypeTypeName.Template,
@@ -447,7 +451,9 @@ export class ArchetypeService {
       }
       return schema;
     }
-    return {};
+    throw new NotFoundException(
+      `No published archetypes found for project ${projectId}`,
+    );
   }
 
   // Commands

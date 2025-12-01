@@ -19,51 +19,59 @@ import { AdminConfigService } from 'src/config/admin-config.service';
 @Module({
   imports: [ConfigModule],
   controllers: [AdminController],
-  exports: [KeycloakAdminService],
-  providers: [AdminConfigService, AdminService, KeycloakAdminService],
+  exports: [],
+  providers: [AdminConfigService],
 })
 export class AdminModule {
-  static forRoot({
-    issuerBaseURL,
-    realm,
-    audience,
-    scopePrefix,
-    clientId,
-    clientSecret,
-    cookiePrefix,
-    encryptionKey,
-    trustedWebOrigins,
-  }: AdminModuleConfig): DynamicModule {
+  static forRoot(config: AdminModuleConfig): DynamicModule {
+    const adminConfigProvider: Provider = {
+      provide: ADMIN_CONFIG,
+      useValue: config,
+    };
+
+    const keycloakProvider: Provider = {
+      provide: KEYCLOAK_ADMIN_INSTANCE,
+      useFactory: (adminConfig: AdminModuleConfig) =>
+        new KeycloakAdminClient({
+          baseUrl: adminConfig.issuerBaseURL,
+          realmName: adminConfig.realm,
+        }),
+      inject: [ADMIN_CONFIG],
+    };
     return {
       providers: [
-        {
-          useValue: {
-            issuerBaseURL,
-            realm,
-            audience,
-            scopePrefix,
-            clientId,
-            clientSecret,
-            cookiePrefix,
-            encryptionKey,
-            trustedWebOrigins,
-          },
-          provide: ADMIN_CONFIG,
-        },
+        adminConfigProvider,
+        keycloakProvider,
         KeycloakAdminService,
         AdminService,
       ],
-      exports: [AdminService],
-      imports: [],
+      exports: [
+        AdminService,
+        KeycloakAdminService,
+        ADMIN_CONFIG,
+        KEYCLOAK_ADMIN_INSTANCE,
+      ],
+      imports: [ConfigModule],
       module: AdminModule,
     };
   }
   static forRootAsync(config: AdminModuleAsyncConfig): DynamicModule {
+    const asyncProviders = this.createAsyncProviders(config);
     return {
       module: AdminModule,
-      imports: config.imports,
-      providers: this.createAsyncProviders(config),
-      exports: this.createAsyncProviders(config),
+      imports: [ConfigModule, ...(config.imports ?? [])],
+      providers: [
+        ...asyncProviders,
+        AdminConfigService,
+        AdminService,
+        KeycloakAdminService,
+      ],
+      exports: [
+        AdminService,
+        KeycloakAdminService,
+        ADMIN_CONFIG,
+        KEYCLOAK_ADMIN_INSTANCE,
+      ],
     };
   }
 
@@ -94,13 +102,7 @@ export class AdminModule {
       });
     }
 
-    return [
-      adminConfigProvider,
-      keycloakProvider,
-      KeycloakAdminService,
-      AdminService,
-      ...extraProviders,
-    ];
+    return [adminConfigProvider, keycloakProvider, ...extraProviders];
   }
 
   private static createAdminConfigProvider(

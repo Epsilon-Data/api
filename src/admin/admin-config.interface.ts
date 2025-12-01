@@ -8,12 +8,8 @@ export type AdminModuleConfig = {
   issuerBaseURL: string;
   realm: string;
   audience: string;
-  scopePrefix: string;
   clientId: string;
   clientSecret: string;
-  cookiePrefix: string;
-  encryptionKey: string;
-  trustedWebOrigins: string[];
 };
 export interface AdminModuleConfigFactory {
   createKeycloakAdminConnectOptions(): AdminModuleConfig;

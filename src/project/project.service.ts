@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -29,14 +28,11 @@ import {
 } from 'src/connection-request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
 import { Prisma } from '@prisma/client';
-import type { AdminModuleConfig } from 'src/admin/admin-config.interface';
-import { ADMIN_CONFIG } from 'src/admin/admin-config.interface';
 
 @Injectable()
 export class ProjectService {
   private readonly logger = new Logger(ProjectService.name);
   constructor(
-    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     private prisma: PrismaService,
     private queue: QueueService,
     private fileStorage: FileStorageService,

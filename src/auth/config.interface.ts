@@ -7,7 +7,6 @@ export const KEYCLOAK_INSTANCE = 'KEYCLOAK_INSTANCE';
 export type AuthModuleConfig = {
   issuerBaseURL: string;
   audience: string;
-  scopePrefix: string;
   cookiePrefix: string;
   encryptionKey: string;
   trustedWebOrigins: string[];
