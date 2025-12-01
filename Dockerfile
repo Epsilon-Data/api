@@ -1,24 +1,28 @@
-# Start with a node 20 image with package info
+# Start with a node 22 image
 # Installs *all* pnpm packages and runs build script
-FROM node:20.9.0-alpine AS workspace
+FROM node:22.21.1-alpine AS workspace
 
-# private git packages
+# Install docker CLI (client only, no daemon) for postinstall script
+RUN apk add --no-cache docker-cli
+
+# private git packages creds
 ARG GITHUB_NPM_TOKEN
 ENV GITHUB_NPM_TOKEN=${GITHUB_NPM_TOKEN}
 
+# broker image name
+ARG BROKER_IMAGE
+ENV BROKER_IMAGE=${BROKER_IMAGE}
+
 WORKDIR /app
+# install packages
 RUN npm install -g pnpm
 COPY [".", "/app/"]
-# TODO: add .npmrc file
-# RUN pnpm login --scope=@epsilon-data --registry=https://npm.pkg.github.com
 RUN pnpm install
 
 # build app
 FROM workspace AS build
 WORKDIR /app
-# ARG APP
 ENV NODE_ENV=production
-# RUN pnpm build:${APP}
 RUN pnpm build
 
 CMD pnpm run

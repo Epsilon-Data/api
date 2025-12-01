@@ -120,78 +120,10 @@ npx prisma migrate resolve --applied 0_init
 npx prisma migrate dev
 ```
 
-## Keycloak Configuration (For Coordinator OAuth with GitHub)
+## Before raising PR
 
-### Setting up Keycloak Client for OAuth
-
-1. **Access Keycloak Admin Console**
-   - Navigate to `http://localhost:8080`
-   - Login with admin credentials
-
-2. **Create OAuth Client**
-   - Go to **Clients** → **Create client**
-   - Configure as follows:
-     ```
-     Client ID: coordinator-oauth
-     Client Protocol: openid-connect
-     Root URL: http://localhost:3005
-     ```
-
-3. **Configure Client Settings**
-   - **Settings Tab:**
-     - Client authentication: `ON`
-     - Authorization: `OFF`
-     - Authentication flow:
-       - Standard flow: `ON`
-       - Direct access grants: `ON`
-     - Valid redirect URIs: `http://localhost:3005/api/auth/callback`
-     - Web origins: `http://localhost:3005` and `http://localhost:3334`
-
-   - **Credentials Tab:**
-     - Copy the `Client Secret` and add to your `.env` file as `COORDINATOR_CLIENT_SECRET`
-
-   - **Client Scopes Tab:**
-     - Add default scopes: `openid`, `email`, `profile`
-
-### Setting up GitHub Identity Provider
-
-1. **Create GitHub OAuth App**
-   - Go to GitHub → Settings → Developer settings → OAuth Apps
-   - Click **New OAuth App**
-   - Configure:
-     ```
-     Application name: Epsilon Keycloak
-     Homepage URL: http://localhost:8080
-     Authorization callback URL: http://localhost:8080/realms/epsilon/broker/github/endpoint
-     ```
-   - Copy the `Client ID` and `Client Secret`
-
-2. **Configure GitHub in Keycloak**
-   - In Keycloak Admin Console, go to **Identity Providers**
-   - Click **Add provider** → **GitHub**
-   - Configure:
-     ```
-     Client ID: [Your GitHub OAuth App Client ID]
-     Client Secret: [Your GitHub OAuth App Client Secret]
-     ```
-   - Advanced Settings:
-     - Trust Email: `ON`
-     - Account linking only: `OFF`
-     - Store tokens: `ON`
-     - Sync mode: `Import`
-
-
-### Key Components
-
-- **Coordinator**: Frontend application that initiates OAuth flow and manages user sessions
-- **API Service**: Backend service that handles business logic and protected resources
-- **Keycloak**: Identity and Access Management server that handles authentication and authorization
-- **GitHub**: External identity provider for social login
-
-### Token Flow
-
-1. User authenticates via GitHub through Keycloak
-2. Keycloak issues JWT tokens containing user information
-3. ResearchWorkspace stores tokens in session
-4. API validates tokens for protected endpoints
-5. Tokens can be refreshed using refresh tokens
+```bash
+pnpm run clean-install # cleans cache, reinstalls and checks versions of packages
+pnpm fix # runs lint and prettier
+pnpm test # runs all unit tests for packages and services
+```

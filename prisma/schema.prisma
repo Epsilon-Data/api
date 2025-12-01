@@ -22,18 +22,20 @@ model Comment {
   commentId   String   @id(map: "comment_pkey") @default(uuid()) @db.Uuid
   requestId   String   @db.Uuid
   authorId    String   @db.Uuid
+  authorName  String   @db.Text
   content     String   @db.Text
   createdDate DateTime @default(now()) @db.Date
-  request     Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_comment_request_id")
+  request     Request  @relation(fields: [requestId], references: [requestId], onDelete: Cascade, onUpdate: NoAction, map: "fk_comment_request_id")
 }
 
 model Connection {
-  requestId     String  @id @db.Uuid
-  projectId     String  @unique @db.Uuid
-  orgAdminEmail String? @db.Text
-  tempDbDetails Json?   @db.Json
-  request       Request @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_request_id")
-  project       Project @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_project_id")
+  id            String   @id(map: "connection_pkey") @default(uuid()) @db.Uuid
+  requestId     String?  @unique @db.Uuid
+  projectId     String   @unique @db.Uuid
+  orgAdminEmail String?  @db.Text
+  tempDbDetails Json?    @db.Json
+  request       Request? @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_request_id")
+  project       Project  @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_connection_project_id")
 }
 
 model Analysis {
@@ -51,8 +53,8 @@ model Analysis {
   projectOutcome     String   @db.Text
   projectMembers     Json?    @db.Json
   projectEthicsId    String   @db.Text
-  request            Request  @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_request_id")
-  project            Project  @relation(fields: [projectId], references: [projectId], onDelete: NoAction, onUpdate: NoAction, map: "fk_analysis_project_id")
+  request            Request  @relation(fields: [requestId], references: [requestId], onDelete: Cascade, onUpdate: NoAction, map: "fk_analysis_request_id")
+  project            Project  @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_analysis_project_id")
 }
 
 model Project {
@@ -74,7 +76,7 @@ model Project {
   dbKeywords      String[]
   createdDate     DateTime      @default(now()) @db.Date
   visualizations  Json?         @db.Json
-  status          ProjectStatus @default(CRAWLING)
+  status          ProjectStatus @default(PENDING)
   connection      Connection?
   analysis        Analysis[]
 
@@ -123,14 +125,16 @@ enum NotificationStatus {
 }
 
 enum ProjectStatus {
+  PENDING
   CRAWLING
-  ACTIVE
   ERROR
+  READY
   MAPPED
-  LINKED
 }
 
 enum RequestStatus {
   PENDING
+  REVISION
+  REJECTED
   APPROVED
 }

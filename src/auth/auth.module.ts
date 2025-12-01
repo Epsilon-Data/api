@@ -13,11 +13,11 @@ import {
   AuthModuleAsyncConfig,
   AuthModuleConfig,
   AUTH_CONFIG,
-  // KEYCLOAK_INSTANCE,
+  AUTH_MODULE_CONFIG_FACTORY,
 } from './config.interface';
 
 import { auth } from 'express-oauth2-jwt-bearer';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KeycloakService } from './keycloak/keycloak.service';
@@ -32,8 +32,23 @@ import { KeycloakService } from './keycloak/keycloak.service';
 export class AuthModule implements NestModule {
   constructor(private configService: ConfigService) {}
   configure(consumer: MiddlewareConsumer) {
+    const excludes = [
+      { path: 'health', method: RequestMethod.GET },
+      { path: 'analysis/auth', method: RequestMethod.ALL },
+    ];
+
+    // only add docs if dev
+    if (this.configService.get<boolean>('isDev')) {
+      excludes.push(
+        { path: 'docs', method: RequestMethod.GET },
+        { path: 'docs/*path', method: RequestMethod.GET },
+      );
+    }
+
     consumer
       .apply(
+        // TODO: investigate this
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument
         cookieParser(),
         AuthMiddleware,
         auth({
@@ -41,12 +56,8 @@ export class AuthModule implements NestModule {
           audience: this.configService.get<string>('auth.audience'),
         }),
       )
-      .exclude({ path: 'health', method: RequestMethod.GET })
-      .exclude({ path: 'docs', method: RequestMethod.GET })
-      .exclude({ path: 'analysis/auth', method: RequestMethod.POST }) // SDK Auth
-      .exclude({ path: 'analysis/auth/github', method: RequestMethod.GET }) // Coordination of OAuth
-      .exclude({ path: 'analysis/auth/github/callback', method: RequestMethod.GET })
-      .forRoutes('*');
+      .exclude(...excludes)
+      .forRoutes('*path');
   }
 
   static forRoot({
@@ -91,7 +102,7 @@ export class AuthModule implements NestModule {
   ): Provider[] {
     const reqProviders = [
       {
-        useFactory: async (configService: ConfigService) => {
+        useFactory: (configService: ConfigService) => {
           return {
             issuerBaseURL: configService.get<string>('auth.issuerBaseURL'),
             audience: configService.get<string>('auth.audience'),
@@ -109,14 +120,6 @@ export class AuthModule implements NestModule {
         inject: config.inject,
         provide: AUTH_CONFIG,
       },
-      // {
-      //   useFactory: (config: AuthModuleConfig) => {
-      //     const keycloak: KeycloakService = new KeycloakService(config);
-      //     return keycloak;
-      //   },
-      //   inject: [AUTH_CONFIG],
-      //   provide: KEYCLOAK_INSTANCE,
-      // },
       KeycloakService,
     ];
     if (config.useExisting || config.useFactory) {
@@ -125,10 +128,14 @@ export class AuthModule implements NestModule {
 
     return [
       ...reqProviders,
-      {
-        provide: config.useClass,
-        useClass: config.useClass,
-      },
+      ...(config.useClass
+        ? [
+            {
+              provide: AUTH_MODULE_CONFIG_FACTORY,
+              useClass: config.useClass,
+            } satisfies Provider,
+          ]
+        : []),
     ];
   }
 }

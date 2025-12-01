@@ -3,7 +3,7 @@ const { env } = process;
 const trustedWebOrigins = () =>
   (
     env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN ||
-    'http://localhost:3000,http://localhost:3334'
+    'http://localhost:3000,http://localhost:3334,http://localhost:4173/'
   )
     .split(',')
     .map((origin) => origin.trim());
@@ -11,7 +11,7 @@ const trustedWebOrigins = () =>
 export default () => ({
   isDev: process.env.NODE_ENV === 'development' ? true : false,
   apiBaseUrl: env.API_BASE_URL || '/api/v1/hub',
-  apiPort: parseInt(env.API_SERVICE_PORT) || 3334,
+  apiPort: parseInt(env.API_SERVICE_PORT || '3334'),
   brokerImage: env.BROKER_IMAGE || 'ghcr.io/epsilon-data/data-broker:latest',
   auth: {
     trustedWebOrigins: trustedWebOrigins(),
@@ -60,7 +60,7 @@ export default () => ({
   },
   redis: {
     host: env.REDIS_HOST || 'localhost',
-    port: env.REDIS_PORT || 6379,
+    port: parseInt(env.REDIS_PORT || '6379'),
   },
   notificationServiceUrl:
     env.NOTIFICATION_SERVICE_URL || 'http://localhost:4001/notification',

@@ -1,6 +1,7 @@
 import { ModuleMetadata, Type } from '@nestjs/common';
 
 export const AUTH_CONFIG = 'AUTH_CONFIG';
+export const AUTH_MODULE_CONFIG_FACTORY = 'ADMIN_MODULE_CONFIG_FACTORY';
 export const KEYCLOAK_INSTANCE = 'KEYCLOAK_INSTANCE';
 
 export type AuthModuleConfig = {

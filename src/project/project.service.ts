@@ -1,68 +1,78 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ProjectDto, SettingsDto } from './dto';
-import { FileStorageService } from 'src/file_storage/file_storage.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
+import {
+  CreateProjectDto,
+  ProjectDetailsResponseDto,
+  ProjectRequestsResponse,
+  ProjectSummaryInfoDto,
+  SettingsDto,
+  SettingsResponseDto,
+  UpdateProjectDto,
+} from './dto';
+import { FileStorageService } from 'src/file-storage/file_storage.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
-import { PermissionsDto } from 'src/auth/dto';
+import { KeycloakPermissionDto } from 'src/auth/keycloak/dto';
+import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  ConnectionRequestResponseDto,
+  DatabaseInfoDto,
+} from 'src/connection-request/dto';
+import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
+import { Prisma } from '@prisma/client';
+import { Credentials } from '@epsilon-data/keycloak-admin-client';
+import type { AdminModuleConfig } from 'src/admin/config.interface';
+import { ADMIN_CONFIG } from 'src/admin/config.interface';
+
 @Injectable()
 export class ProjectService {
+  private readonly logger = new Logger(ProjectService.name);
   constructor(
+    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     private prisma: PrismaService,
     private queue: QueueService,
     private fileStorage: FileStorageService,
-    private readonly keycloak: KeycloakAdminService,
+    private readonly keycloakAdminService: KeycloakAdminService,
   ) {}
 
-  async getUserOwnedProjects(userId: string) {
-    const projects = await this.prisma.project.findMany({
+  // Queries
+  async getUserOwnedProjects(userId: string): Promise<ProjectSummaryInfoDto[]> {
+    return await this.prisma.project.findMany({
       where: {
         ownerId: userId,
-        connection: {
-          request: {
-            requestorId: userId,
-          },
-        },
       },
       select: {
         projectId: true,
         customId: true,
         name: true,
         lastModified: true,
-        createdDate: true,
         status: true,
         university: true,
+        lead: true,
         faculty: true,
       },
     });
-    return projects;
   }
 
-  async getUserSharedProjects(userEmail: string) {
-    const projects = await this.prisma.$queryRaw<
-      Array<{
-        projectId: string;
-        customId: string;
-        name: string;
-        lastModified: Date;
-        createdDate: Date;
-        status: string;
-        university: string | null;
-        faculty: string | null;
-      }>
-    >`
-    SELECT "projectId","customId","name","lastModified","createdDate","status","university","faculty"
-    FROM "Project"
-    WHERE "members"::jsonb @> ${JSON.stringify([{ email: userEmail }])}::jsonb
-  `;
-    return projects;
-  }
-
-  async getUserProjects(permissions: PermissionsDto[]) {
-    const uuids = permissions.map((item) => item.rsname.split(':')[1]);
-    const projects = await this.prisma.project.findMany({
+  async getUserSharedProjects(
+    permissions: KeycloakPermissionDto[],
+  ): Promise<ProjectSummaryInfoDto[]> {
+    const uuids = permissions
+      .filter(
+        (item) =>
+          item.scopes.includes('view') && !item.scopes.includes('delete'),
+      )
+      .map((item) => item.rsname.split(':').at(1)!);
+    return await this.prisma.project.findMany({
       where: {
         projectId: {
           in: uuids, // find all projects associated
@@ -73,21 +83,19 @@ export class ProjectService {
         customId: true,
         name: true,
         lastModified: true,
-        createdDate: true,
+        lead: true,
         status: true,
         university: true,
         faculty: true,
       },
     });
-
-    return projects;
   }
 
   async getAllProjects() {
     return await this.prisma.project.findMany({
       where: {
         status: {
-          in: ['MAPPED', 'LINKED', 'ACTIVE'],
+          in: ['MAPPED'],
         },
       },
       select: {
@@ -96,15 +104,23 @@ export class ProjectService {
         name: true,
         lastModified: true,
         createdDate: true,
-        status: true,
         university: true,
         faculty: true,
       },
     });
   }
 
-  async getProjectRequests(projectId: string, email: string) {
-    const requestList = { connection: [], analysis: [] };
+  async getProjectRequests(
+    projectId: string,
+    email: string,
+  ): Promise<ProjectRequestsResponse> {
+    const requestList: {
+      connection: ConnectionRequestResponseDto[];
+      analysis: AnalysisRequestResponseDto[];
+    } = {
+      connection: [],
+      analysis: [],
+    };
     requestList.connection = await this.prisma.connection.findMany({
       where: {
         orgAdminEmail: email,
@@ -145,100 +161,10 @@ export class ProjectService {
     return requestList;
   }
 
-  async createProject(owner: string, dto: ProjectDto) {
-    const memberData = JSON.parse(dto.members);
-    const customId = nanoid(12);
-    const packageName = dto.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-
-    const request = {
-      ownerId: dto.ownerId,
-      customId: customId,
-      packageId: `${packageName}_${customId.slice(0, 6)}`,
-      name: dto.name,
-      lead: dto.lead,
-      university: dto.university,
-      faculty: dto.faculty,
-      ethicsId: dto.ethicsId,
-      description: dto.description,
-      startDate: dto.startDate,
-      endDate: dto.endDate,
-      participantsNum: dto.participantsNum,
-      members: memberData,
-      dbKeywords: dto.dbKeywords,
-      connection: {
-        create: {
-          orgAdminEmail: dto.connection.orgAdminEmail,
-          tempDbDetails: dto.connection.tempDbDetails
-            ? JSON.stringify(dto.connection.tempDbDetails)
-            : null,
-          request: {
-            create: {
-              requestorId: dto.ownerId,
-            },
-          },
-        },
-      },
-    };
-
-    const project = await this.prisma.project.create({
-      data: request,
-      include: {
-        connection: {
-          include: {
-            request: true,
-          },
-        },
-      },
-    });
-
-    const memberEmails = memberData.map((member) => member.email);
-
-    // add keycloak resource
-    this.keycloak.newResource(project.projectId, project.ownerId, memberEmails);
-
-    if (dto.connection.additionalInfo) {
-      await this.prisma.comment.create({
-        data: {
-          requestId: project.connection.request.requestId,
-          authorId: dto.ownerId,
-          content: dto.connection.additionalInfo,
-        },
-      });
-    }
-
-    if (dto.connection.tempDbDetails.url) {
-      await this.prisma.request.update({
-        where: {
-          requestId: project.connection.requestId,
-        },
-        data: {
-          status: 'APPROVED',
-        },
-      });
-      await this.queue.dataBrokerJob(
-        owner,
-        project.projectId,
-        project.connection.requestId,
-        dto.connection.tempDbDetails,
-      );
-    } else {
-      await this.prisma.request.update({
-        where: {
-          requestId: project.connection.requestId,
-        },
-        data: {
-          status: 'PENDING',
-        },
-      });
-    }
-
-    return project;
-  }
-  async getProjectDetails(projectId: string) {
-    const project = await this.prisma.project.findFirst({
+  async getProjectDetails(
+    projectId: string,
+  ): Promise<ProjectDetailsResponseDto> {
+    return await this.prisma.project.findUniqueOrThrow({
       where: {
         projectId: projectId,
       },
@@ -254,31 +180,256 @@ export class ProjectService {
         },
       },
     });
-    //TODO: get archetype when project status is MAPPED
-    return project;
   }
 
-  async updateProject(projectId: string, dto: ProjectDto) {
-    const dbData = JSON.stringify(dto.connection.tempDbDetails);
-    // const memberData = JSON.parse(dto.members);
-    await this.prisma.project.update({
-      where: { projectId: projectId },
-      data: {
-        name: dto.name,
-        lead: dto.lead,
-        university: dto.university,
-        faculty: dto.faculty,
-        ethicsId: dto.ethicsId,
-        description: dto.description,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-        participantsNum: dto.participantsNum,
-        dbKeywords: dto.dbKeywords,
+  async getProjectPublicDetails(
+    projectId: string,
+  ): Promise<ProjectDetailsResponseDto> {
+    const projectInfo = await this.prisma.project.findUniqueOrThrow({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        projectId: true,
+        status: true,
+        customId: true,
+        ownerId: true,
+        name: true,
+        lead: true,
+        university: true,
+        faculty: true,
+        ethicsId: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+        participantsNum: true,
+        members: true, // TODO: these need to be names not emails
+        lastModified: true,
+        dbKeywords: true,
+        createdDate: true,
         connection: {
-          update: {
-            tempDbDetails: dbData,
+          select: {
+            tempDbDetails: true, // TODO: need to move database and nature out from there
           },
         },
+      },
+    });
+    if (!projectInfo) {
+      // Nest will automatically turn this into a 404 JSON response
+      throw new NotFoundException(`Project with ID '${projectId}' not found`);
+    }
+    // TODO: get member names from keycloak
+    // const members = projectInfo.members as string[];
+    // if (members.length)
+
+    const { name, type } =
+      projectInfo.connection?.tempDbDetails &&
+      typeof projectInfo.connection?.tempDbDetails === 'object'
+        ? (projectInfo.connection?.tempDbDetails as Partial<DatabaseInfoDto>)
+        : {};
+    return {
+      projectId: projectInfo.projectId,
+      status: projectInfo.status,
+      customId: projectInfo.customId,
+      ownerId: projectInfo.ownerId,
+      name: projectInfo.name,
+      lead: projectInfo.lead,
+      university: projectInfo.university,
+      faculty: projectInfo.faculty,
+      ethicsId: projectInfo.ethicsId,
+      description: projectInfo.description,
+      startDate: projectInfo.startDate,
+      endDate: projectInfo.endDate,
+      participantsNum: projectInfo.participantsNum,
+      dbKeywords: projectInfo.dbKeywords,
+      members: projectInfo.members,
+      // TODO: need to fix these things
+      connection: {
+        tempDbDetails: { name, type },
+      },
+    };
+  }
+
+  async getProjectSettings(projectId: string): Promise<SettingsResponseDto> {
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        visualizations: true,
+      },
+    });
+    const bucket = 'cover';
+    const key = `${projectId}/cover.jpg`;
+
+    const cover = await this.fileStorage.getFileUrl(bucket, key);
+
+    return {
+      projectId: projectId,
+      visualizations: project.visualizations,
+      cover: cover ?? null,
+    };
+  }
+
+  // Commands
+  async createProject(user: CurrentUserInfo, dto: CreateProjectDto) {
+    const { packageId, customId } = this.createIds(dto.name, dto.customId);
+    const ownerId = user.id; //using current logged in user details rather than post
+    // check if members are added
+    const members = dto.members
+      ? (dto.members as unknown as Prisma.JsonArray)
+      : undefined;
+    const request = {
+      ownerId,
+      customId,
+      packageId,
+      name: dto.name,
+      lead: dto.lead,
+      university: dto.university,
+      faculty: dto.faculty,
+      ethicsId: dto.ethicsId,
+      description: dto.description,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      participantsNum: dto.participantsNum,
+
+      ...(members && {
+        members,
+      }),
+      dbKeywords: dto.dbKeywords,
+    };
+
+    // check if database credential request is needed
+    const createRequest = dto.connection.orgAdminEmail ? true : false;
+    const requestId = uuidv4();
+    // check if any DB temp details
+    const tempDbDetails = dto.connection.tempDbDetails
+      ? (dto.connection.tempDbDetails as unknown as Prisma.JsonObject)
+      : undefined;
+    const project = await this.prisma.project.create({
+      data: {
+        ...request,
+        connection: {
+          create: {
+            // if no orgAdminEmail provider make owner admin
+            orgAdminEmail: dto.connection.orgAdminEmail ?? user.email,
+            tempDbDetails,
+            ...(createRequest && {
+              request: {
+                create: {
+                  requestId,
+                  requestorId: ownerId,
+                },
+              },
+            }),
+          },
+        },
+      },
+      include: {
+        connection: {
+          include: { request: true },
+        },
+      },
+    });
+
+    const memberEmails = dto.members.flatMap((m) => (m.email ? [m.email] : []));
+
+    // add keycloak resource
+    // TODO: better error handling
+    const credentials: Credentials = {
+      grantType: 'client_credentials',
+      clientId: this.config.clientId,
+      clientSecret: this.config.clientSecret,
+    };
+    await this.keycloakAdminService.auth(credentials);
+    void this.keycloakAdminService.newResource(
+      project.projectId,
+      project.ownerId,
+      memberEmails.length ? memberEmails : undefined,
+    );
+
+    if (createRequest) {
+      // create comment if additionalInfo is provided to request
+      if (dto.connection.additionalInfo) {
+        await this.prisma.comment.create({
+          data: {
+            requestId,
+            authorId: ownerId,
+            authorName: `${user.given_name} ${user.family_name}`,
+            content: dto.connection.additionalInfo,
+          },
+        });
+      }
+    } else {
+      // database credentials should exist so run database crawling
+      if (dto.connection.tempDbDetails?.url) {
+        await this.prisma.project.update({
+          where: { projectId: project.projectId },
+          data: {
+            status: 'CRAWLING',
+          },
+        });
+        await this.queue.dataBrokerJob(
+          user.username,
+          project.projectId,
+          requestId,
+          dto.connection.tempDbDetails,
+        );
+      }
+    }
+    // just return, no content
+    return;
+  }
+
+  async updateProject(projectId: string, dto: UpdateProjectDto) {
+    // should not update on invalid projectId
+    if (projectId !== dto.projectId)
+      throw new BadRequestException(`Update projectIds do not match`);
+    const members = dto.members
+      ? (dto.members as unknown as Prisma.JsonArray)
+      : undefined;
+    const data = {
+      // NOTE: can you change name as that changes package???
+      name: dto.name,
+      lead: dto.lead,
+      status: dto.status,
+      // NOTE: can you change customId as that also changes package??
+      university: dto.university,
+      faculty: dto.faculty,
+      ethicsId: dto.ethicsId,
+      description: dto.description,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      lastModified: new Date(),
+      participantsNum: dto.participantsNum,
+      ...(members && {
+        members,
+      }),
+      dbKeywords: dto.dbKeywords,
+    };
+
+    // remove undefined fields
+    Object.keys(data).forEach(
+      (key) => data[key] === undefined && delete data[key],
+    );
+
+    // Check if connection details are updated
+    const connection =
+      dto.connection?.tempDbDetails !== undefined
+        ? {
+            connection: {
+              update: {
+                tempDbDetails: dto.connection
+                  .tempDbDetails as unknown as Prisma.JsonObject,
+              },
+            },
+          }
+        : {};
+    return await this.prisma.project.update({
+      where: { projectId: projectId },
+      data: {
+        ...data,
+        ...connection,
       },
     });
   }
@@ -295,43 +446,23 @@ export class ProjectService {
     });
   }
 
-  async getProjectSettings(projectId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: {
-        projectId: projectId,
-      },
-      select: {
-        visualizations: true,
-      },
-    });
-
-    const bucket = 'cover';
-    const key = `${projectId}/cover.jpg`;
-    let cover = null;
-
-    const exists = await this.fileStorage.fileExists(bucket, key);
-    if (exists) {
-      cover = await this.fileStorage.getFileUrl(bucket, key);
-    }
-
-    return {
-      projectId: projectId,
-      visualizations: project.visualizations,
-      cover: cover,
-    };
-  }
-
   async updateProjectSettings(projectId: string, dto: SettingsDto) {
-    await this.prisma.project.update({
-      where: {
-        projectId: projectId,
-      },
-      data: {
-        visualizations: JSON.stringify(dto.visualizations),
-      },
-    });
+    if (projectId !== dto.projectId)
+      throw new BadRequestException(`Update projectIds do not match`);
+    if (dto.visualizations) {
+      // nothing to update
+      await this.prisma.project.update({
+        where: {
+          projectId: projectId,
+        },
+        data: {
+          visualizations: dto.visualizations as unknown as Prisma.JsonArray,
+        },
+      });
 
-    this.fileStorage.deleteFile('cover', `${projectId}`);
+      // TODO: check this
+      await this.fileStorage.deleteFile('cover', `${projectId}`);
+    }
     return projectId;
   }
 
@@ -344,8 +475,19 @@ export class ProjectService {
         lastModified: new Date(),
       },
     });
-
-    this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
+    // FIXME: not sure if forcing jpg is good, it should use the ext it has been uploaded
+    await this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
+  }
+
+  // TODO: review this generation
+  private createIds(name: string, id?: string) {
+    const customId = id ?? nanoid(12);
+    const packageName = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const packageId = `${packageName}_${customId.slice(0, 6)}`;
+    return { packageId, customId };
   }
 }

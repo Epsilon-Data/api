@@ -1,0 +1,38 @@
+import { Type } from 'class-transformer';
+import { IsDefined, IsString, ValidateNested } from 'class-validator';
+import { ArchetypeDto } from 'src/archetype/dto';
+import { DatabaseInfoDto } from 'src/connection-request/dto';
+
+export class ArchetypeJobDataDto {
+  @IsString()
+  @IsDefined()
+  owner!: string;
+
+  @IsString()
+  @IsDefined()
+  projectId!: string;
+
+  @ValidateNested()
+  @Type(() => ArchetypeDto)
+  archetype!: ArchetypeDto;
+}
+
+export class DataBrokerJobDataDto {
+  @IsString()
+  @IsDefined()
+  owner!: string;
+
+  @IsString()
+  @IsDefined()
+  @IsString()
+  projectId!: string;
+
+  @IsString()
+  @IsDefined()
+  @IsString()
+  requestId!: string;
+
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  database!: DatabaseInfoDto;
+}

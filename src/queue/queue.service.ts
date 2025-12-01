@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import type { Queue } from 'bull';
 import { ArchetypeDto } from 'src/archetype/dto';
-import { DatabaseInfoDto } from 'src/connection_request/dto';
+import { DatabaseInfoDto } from 'src/connection-request/dto';
 
 @Injectable()
 export class QueueService {
@@ -10,7 +10,7 @@ export class QueueService {
   constructor(@InjectQueue('atlas-queue') private atlasQueue: Queue) {}
 
   async dataBrokerJob(
-    ownerId: string,
+    owner: string,
     projectId: string,
     requestId: string,
     database: DatabaseInfoDto,
@@ -21,7 +21,7 @@ export class QueueService {
     return await this.atlasQueue.add(
       'process-data-broker',
       {
-        ownerId,
+        owner,
         projectId,
         requestId,
         database,
@@ -34,7 +34,11 @@ export class QueueService {
     );
   }
 
-  async addArchetypeJob(owner: string, archetype: ArchetypeDto) {
+  async addArchetypeJob(
+    owner: string,
+    projectId: string,
+    archetype: ArchetypeDto,
+  ) {
     this.logger.log(
       `Submitting 'process-add-archetype' to queue for projectId ${archetype.projectId}`,
     );
@@ -42,7 +46,7 @@ export class QueueService {
       'process-add-archetype',
       {
         owner,
-        projectId: archetype.projectId,
+        projectId: projectId,
         archetype,
       },
       {
@@ -52,18 +56,24 @@ export class QueueService {
     );
   }
 
-  async updateArchetypeJob(archetype: ArchetypeDto) {
+  async updateArchetypeJob(
+    owner: string,
+    projectId: string,
+    archetypeId: string,
+    archetype: ArchetypeDto,
+  ) {
     this.logger.log(
-      `Submitting 'process-update-archetype' to queue for archetypeId ${archetype.archetypeId}`,
+      `Submitting 'process-update-archetype' to queue for archetypeId ${archetypeId}`,
     );
     return await this.atlasQueue.add(
       'process-update-archetype',
       {
-        projectId: archetype.projectId,
+        owner,
+        projectId,
         archetype,
       },
       {
-        // TODO: add jobid?
+        // NOTE: add jobid?
         attempts: 5,
         backoff: 10000,
       },
@@ -87,28 +97,13 @@ export class QueueService {
     );
   }
 
-  // TODO: remove redundant method
-  async addPermissionsJob(permissions: string, projectId: string) {
-    return await this.atlasQueue.add(
-      'process-add-permissions',
-      {
-        permissions,
-        projectId,
-      },
-      {
-        attempts: 5,
-        backoff: 10000,
-      },
-    );
-  }
-
   async getJobResult(jobId: number | string) {
     const job = await this.atlasQueue.getJob(jobId);
     if (!job) {
       return { message: 'Job not found or still processing' };
     }
 
-    const result = await job.finished();
+    const result: unknown = await job.finished();
     return { jobId, result };
   }
 

@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { NotificationDto } from './dto';
-import { Request } from 'express';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { CurrentUser } from 'src/common/decorators/user.decorator';
+import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 @ApiTags('Notification')
+@ApiBearerAuth()
 @Controller('notification')
 export class NotificationController {
   constructor(private notificationService: NotificationService) {}
@@ -17,8 +20,7 @@ export class NotificationController {
 
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
-  async getNotifications(@Req() request: Request) {
-    const userId = request.auth.payload.sub.toString();
-    return this.notificationService.getNotifications(userId);
+  async getNotifications(@CurrentUser() user: CurrentUserInfo) {
+    return this.notificationService.getNotifications(user.id);
   }
 }

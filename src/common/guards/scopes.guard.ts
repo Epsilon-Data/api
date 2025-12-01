@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { requiredScopes } from 'express-oauth2-jwt-bearer';
 import { UnauthorizedException } from '@epsilon-data/epsilon-api-middleware';
+import { Request, Response } from 'express';
 
 @Injectable()
 export class ScopesGuard implements CanActivate {
@@ -12,10 +13,10 @@ export class ScopesGuard implements CanActivate {
   ): boolean | Promise<boolean> | Observable<boolean> {
     const ctx = context.switchToHttp();
 
-    let err = undefined;
-    const resp = ctx.getResponse();
-    requiredScopes(this.scopes)(ctx.getRequest(), resp, (res) => {
-      err = res;
+    let err;
+    const resp = ctx.getResponse<Response>();
+    requiredScopes(this.scopes)(ctx.getRequest<Request>(), resp, (res) => {
+      err = res as Error;
     });
 
     if (resp.headersSent) {
@@ -23,7 +24,7 @@ export class ScopesGuard implements CanActivate {
     }
 
     if (err) {
-      throw err;
+      throw err instanceof Error ? err : new Error(String(err));
     }
 
     return true;

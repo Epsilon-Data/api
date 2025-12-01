@@ -1,9 +1,10 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { KeycloakAdminService } from './keycloak/keycloak.admin.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { KeycloakAdminService } from './keycloak/keycloak-admin.service';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
 
 @ApiTags('Keycloak Admin')
+@ApiBearerAuth()
 @Controller('admin')
 export class AdminController {
   constructor(private readonly keycloakService: KeycloakAdminService) {}

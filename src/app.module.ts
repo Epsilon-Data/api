@@ -4,20 +4,19 @@ import { AppController } from './app.controller';
 
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ConnectionRequestModule } from './connection_request/connection_request.module';
+import { ConnectionRequestModule } from './connection-request/connection-request.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseModule } from './database/database.module';
 import { AtlasModule } from './atlas/atlas.module';
 import { DockerModule } from './docker/docker.module';
 import { AdminModule } from './admin/admin.module';
 import { ProjectModule } from './project/project.module';
-import { AnalysisRequestModule } from './analysis_request/analysis_request.module';
-import { StandardAnalysisModule } from './standard_analysis/standard_analysis.module';
-import { FileStorageModule } from './file_storage/file_storage.module';
+import { AnalysisRequestModule } from './analysis-request/analysis-request.module';
+import { StandardAnalysisModule } from './standard-analysis/standard-analysis.module';
+import { FileStorageModule } from './file-storage/file-storage.module';
 import { QueueModule } from './queue/queue.module';
 import { ArchetypeModule } from './archetype/archetype.module';
 import { NotificationModule } from './notification/notification.module';
-import { ChatModule } from './chat/chat.module';
 import configuration from './config/configuration';
 import { AdminConfigService } from './config/admin.config.service';
 import { AuthConfigService } from './config/auth.config.service';
@@ -48,7 +47,6 @@ import { AnalysisModule } from './analysis/analysis.module';
     QueueModule,
     ArchetypeModule,
     NotificationModule,
-    ChatModule,
     AnalysisModule,
   ],
   controllers: [AppController],
