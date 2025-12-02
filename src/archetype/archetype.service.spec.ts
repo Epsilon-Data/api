@@ -18,7 +18,7 @@ import {
 } from 'src/atlas/dto';
 import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { $Enums } from '@prisma/client';
+import { $Enums } from 'src/generated/prisma/client';
 
 describe('ArchetypeService', () => {
   let service: ArchetypeService;

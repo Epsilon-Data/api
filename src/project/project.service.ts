@@ -27,7 +27,7 @@ import {
   DatabaseInfoDto,
 } from 'src/connection-request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
-import { Prisma } from '@prisma/client';
+import { Prisma } from 'src/generated/prisma/client';
 
 @Injectable()
 export class ProjectService {

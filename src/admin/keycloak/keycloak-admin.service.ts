@@ -49,6 +49,10 @@ export type UserQueryParams = {
   readonly username?: string;
 };
 
+type UserWithLastLogin = UserRepresentation & {
+  lastLogin: Date | null;
+};
+
 export interface ExtendedPolicyRepresentation extends PolicyRepresentation {
   groups?: string[];
 }
@@ -144,7 +148,9 @@ export class KeycloakAdminService implements OnModuleInit {
     }
   }
 
-  async getAllUsersAndLastLogin(query?: UserQueryParams) {
+  async getAllUsersAndLastLogin(
+    query?: UserQueryParams,
+  ): Promise<UserWithLastLogin[]> {
     try {
       const usersQuery = this.kcAdminClient.users.find(
         {
@@ -218,7 +224,7 @@ export class KeycloakAdminService implements OnModuleInit {
       return this.handleKeycloakError('getClients', error);
     }
   }
-  async getUserInfoById(id: string) {
+  async getUserInfoById(id: string): Promise<UserWithLastLogin> {
     try {
       const userQuery = this.kcAdminClient.users.findOne(
         {
@@ -243,6 +249,8 @@ export class KeycloakAdminService implements OnModuleInit {
           ...user,
           lastLogin: lastLoginEvent ? new Date(lastLoginEvent.time!) : null,
         };
+      } else {
+        throw new KeycloakNotFoundError(`Keycloak user '${id}' does not exist`);
       }
     } catch (error) {
       return this.handleKeycloakError('getUserInfoById', error);

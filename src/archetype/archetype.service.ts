@@ -7,7 +7,7 @@ import {
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { $Enums } from '@prisma/client';
+import { $Enums } from 'src/generated/prisma/client';
 import {
   ALLOWED_TRANSITIONS,
   ArchetypeDto,
