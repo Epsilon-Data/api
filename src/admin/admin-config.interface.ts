@@ -8,21 +8,12 @@ export type AdminModuleConfig = {
   issuerBaseURL: string;
   realm: string;
   audience: string;
-  scopePrefix: string;
   clientId: string;
   clientSecret: string;
-  cookiePrefix: string;
-  encryptionKey: string;
-  trustedWebOrigins: string[];
 };
 export interface AdminModuleConfigFactory {
-  createKeycloakConnectOptions():
-    | Promise<AdminModuleConfig>
-    | AdminModuleConfig;
+  createKeycloakAdminConnectOptions(): AdminModuleConfig;
 }
-
-// export type AdminModuleAsyncConfig = Pick<ModuleMetadata, 'imports'> &
-//   Pick<FactoryProvider<AdminModuleConfig>, 'useFactory' | 'inject'>;
 
 export interface AdminModuleAsyncConfig
   extends Pick<ModuleMetadata, 'imports'> {

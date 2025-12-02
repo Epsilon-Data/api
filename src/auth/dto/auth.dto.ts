@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
   IsDefined,
   IsOptional,
   IsString,
@@ -45,10 +44,4 @@ export class KeycloakAuthzRequestDto {
   @IsOptional()
   @IsString()
   audience?: string;
-}
-
-export class KeycloakPermissionDecisionDto {
-  @IsDefined()
-  @IsBoolean()
-  result: boolean;
 }

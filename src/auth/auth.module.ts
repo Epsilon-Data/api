@@ -14,6 +14,7 @@ import {
   AuthModuleConfig,
   AUTH_CONFIG,
   AUTH_MODULE_CONFIG_FACTORY,
+  AuthModuleConfigFactory,
 } from './config.interface';
 
 import { auth } from 'express-oauth2-jwt-bearer';
@@ -21,20 +22,21 @@ import cookieParser from 'cookie-parser';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KeycloakService } from './keycloak/keycloak.service';
+import { AuthConfigService } from 'src/config/auth-config.service';
 
 @Global()
 @Module({
   imports: [ConfigModule],
   controllers: [],
   exports: [KeycloakService],
-  providers: [KeycloakService],
+  providers: [AuthConfigService, KeycloakService],
 })
 export class AuthModule implements NestModule {
   constructor(private configService: ConfigService) {}
   configure(consumer: MiddlewareConsumer) {
     const excludes = [
       { path: 'health', method: RequestMethod.GET },
-      { path: 'analysis/auth', method: RequestMethod.ALL },
+      { path: 'analysis/auth', method: RequestMethod.ALL }, // analysis sdk auth path
     ];
 
     // only add docs if dev
@@ -100,42 +102,48 @@ export class AuthModule implements NestModule {
   private static createAsyncProviders(
     config: AuthModuleAsyncConfig,
   ): Provider[] {
-    const reqProviders = [
-      {
-        useFactory: (configService: ConfigService) => {
-          return {
-            issuerBaseURL: configService.get<string>('auth.issuerBaseURL'),
-            audience: configService.get<string>('auth.audience'),
-            scopePrefix: configService.get<string>('auth.scopePrefix'),
-            cookiePrefix: configService.get<string>('auth.cookiePrefix'),
-            encryptionKey: configService.get<string>('auth.encryptionKey'),
-            trustedWebOrigins: configService.get<string[]>(
-              'auth.trustedWebOrigins',
-            ),
-            allowTokenAuth:
-              configService.get<boolean>('auth.allowTokenAuth') || true,
-            clientId: configService.get<string>('auth.clientId'),
-          };
-        },
-        inject: config.inject,
-        provide: AUTH_CONFIG,
-      },
-      KeycloakService,
-    ];
-    if (config.useExisting || config.useFactory) {
-      return reqProviders;
+    // AUTH_CONFIG provider
+    const authConfigProvider: Provider = this.createAuthConfigProvider(config);
+
+    const extraProviders: Provider[] = [];
+    if (config.useClass) {
+      extraProviders.push({
+        provide: AUTH_MODULE_CONFIG_FACTORY,
+        useClass: config.useClass,
+      });
     }
 
-    return [
-      ...reqProviders,
-      ...(config.useClass
-        ? [
-            {
-              provide: AUTH_MODULE_CONFIG_FACTORY,
-              useClass: config.useClass,
-            } satisfies Provider,
-          ]
-        : []),
-    ];
+    return [authConfigProvider, KeycloakService, ...extraProviders];
+  }
+  private static createAuthConfigProvider(
+    config: AuthModuleAsyncConfig,
+  ): Provider {
+    if (config.useFactory) {
+      return {
+        provide: AUTH_CONFIG,
+        useFactory: config.useFactory,
+        inject: config.inject ?? [],
+      };
+    }
+    if (config.useExisting) {
+      return {
+        provide: AUTH_CONFIG,
+        useFactory: (factory: AuthModuleConfigFactory) =>
+          factory.createKeycloakConnectOptions(),
+        inject: [config.useExisting],
+      };
+    }
+    if (config.useClass) {
+      return {
+        provide: AUTH_CONFIG,
+        useFactory: (factory: AuthModuleConfigFactory) =>
+          factory.createKeycloakConnectOptions(),
+        inject: [AUTH_MODULE_CONFIG_FACTORY],
+      };
+    }
+
+    throw new Error(
+      'Invalid AuthModuleAsyncConfig: must provide useFactory, useExisting, or useClass',
+    );
   }
 }

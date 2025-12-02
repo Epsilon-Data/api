@@ -13,14 +13,14 @@ export class AuthenticatedGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    const userId = request?.auth?.payload?.sub;
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true; // if set to public bypass
+    if (!userId && isPublic) return true; // if no user and set to public bypass
 
-    const request = context.switchToHttp().getRequest<Request>();
-    const userId = request?.auth?.payload?.sub;
     if (!userId) {
       throw new UnauthorizedException('User not logged in');
     }

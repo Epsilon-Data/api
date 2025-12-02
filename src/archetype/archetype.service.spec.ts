@@ -1160,7 +1160,7 @@ describe('ArchetypeService', () => {
       });
     });
 
-    it('returns {} when no published archetype is found', async () => {
+    it('throws not found when no published archetype is found', async () => {
       const projectId = 'proj-empty';
       atlas.post.mockResolvedValueOnce({
         approximateCount: 0,
@@ -1168,8 +1168,9 @@ describe('ArchetypeService', () => {
         searchParameters: {},
       } as AtlasSearchBasicHeadlessResponseDto);
 
-      const res = await service.getAnalysisArchetype(projectId);
-      expect(res).toEqual({});
+      await expect(service.getAnalysisArchetype(projectId)).rejects.toThrow(
+        'No published archetypes found for project proj-empty',
+      );
       expect(atlas.get).not.toHaveBeenCalled();
     });
   });
