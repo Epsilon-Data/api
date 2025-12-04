@@ -232,6 +232,8 @@ export class AtlasProcessor {
       }
 
       // cleanup relationships (child_nodes and columns)
+      // TODO: improve so not flooding the API with requests
+      // TODO: improve error handling
       await Promise.all(
         relationshipsToDelete.map((rel) =>
           this.atlas.delete(`/relationship/guid/${rel.relationshipGuid}`),
