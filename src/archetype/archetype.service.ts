@@ -136,14 +136,12 @@ export class ArchetypeService {
         templateInfo.nodes!.push(node);
 
         // add edge if parent exists
-        if (entity.relationshipAttributes?.parent_node) {
-          // skip if relationship is inactive
-          if (
-            entity.relationshipAttributes?.parent_node?.relationshipStatus !==
+        // skip if relationship is inactive (SHOULD always be active)
+        if (
+          entity.relationshipAttributes?.parent_node &&
+          entity.relationshipAttributes?.parent_node?.relationshipStatus ===
             'ACTIVE'
-          )
-            continue;
-
+        ) {
           const parentNodeId =
             entity.relationshipAttributes.parent_node.qualifiedName
               .split('@')
@@ -157,13 +155,11 @@ export class ArchetypeService {
         }
 
         // add column node and edge
-        if (entity.relationshipAttributes?.column) {
-          // skip if relationship is inactive
-          if (
-            entity.relationshipAttributes?.column?.relationshipStatus !==
-            'ACTIVE'
-          )
-            continue;
+        // only if the relationship is active
+        if (
+          entity.relationshipAttributes?.column &&
+          entity.relationshipAttributes?.column?.relationshipStatus === 'ACTIVE'
+        ) {
           const columnNodeId = entity.relationshipAttributes?.column?.guid;
           const columName = entity.relationshipAttributes.column.qualifiedName
             .split('@')

@@ -6,28 +6,26 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { DockerService } from 'src/docker/docker.service';
 import { customAlphabet } from 'nanoid';
 
-import {
-  ArchetypeNodeDto,
-  ArchetypeNodePermissionDto,
-  ArchetypeEdgeDto,
-  ArchetypeDto,
-  ArchetypeNodeType,
-} from 'src/archetype/dto';
+import { ArchetypeNodePermissionDto } from 'src/archetype/dto';
 
 import {
-  AtlasArchetypeAnalysisPermissionClassificationDto,
-  AtlasArchetypeEntityDto,
   AtlasArchetypeEntityResponseDto,
-  AtlasArchetypeNodeTypeName,
   AtlasArchetypeTypeName,
   AtlasExistingNode,
   AtlasPostEntityResponseDto,
   AtlasRelatedEntityRefDto,
-  AtlasSimpleClassificationDto,
   AtlasSubmitArchetypeEntityDto,
 } from 'src/atlas/dto';
 
 import { ArchetypeJobDataDto, DataBrokerJobDataDto } from './dto';
+import {
+  archetypeTemplateToAtlasEntities,
+  getDesiredChildNodeIdsForSource,
+  getDesiredColumnGuidForSource,
+  getPermissionClassification,
+  hasAnalysisPermClassification,
+  separateColumnsNodes,
+} from 'src/atlas/atlas-utils';
 
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
@@ -106,8 +104,8 @@ export class AtlasProcessor {
       // check if any nodes are added
       if (archetype.nodes?.length) {
         // 3. create archetype_node entities
-        const { columns, nodes } = this.separateColumnsNodes(archetype);
-        const { entities } = this.archetypeTemplateToAtlasEntities(
+        const { columns, nodes } = separateColumnsNodes(archetype);
+        const { entities } = archetypeTemplateToAtlasEntities(
           projectId,
           archetype,
           nodes,
@@ -145,7 +143,8 @@ export class AtlasProcessor {
     try {
       const updateEntities: AtlasSubmitArchetypeEntityDto[] = [];
       // separate columns from archetype_nodes
-      const { columns, nodes } = this.separateColumnsNodes(archetype);
+      const { columns, nodes } = separateColumnsNodes(archetype);
+
       // get all the node ids in update
       const nodeIds = new Set(nodes.map((n) => n.id));
 
@@ -155,33 +154,90 @@ export class AtlasProcessor {
         {
           'attr:qualifiedName': `${projectId}@${archetype.archetypeId}`,
           ignoreRelationships: false, // default false
-          minExtInfo: true, // default false
+          minExtInfo: false, // default false (needed for relationship updates)
         },
       );
 
       // lookup for existing entities
       const existingNodes: Record<string, AtlasExistingNode> = {};
+      const relationshipsToDelete: AtlasRelatedEntityRefDto[] = [];
 
-      // check if there is any existing linked entities
+      // iterate referredEntities
       if (Object.keys(entityRes?.referredEntities).length) {
-        for (const key in entityRes?.referredEntities) {
-          const entity = entityRes?.referredEntities[key];
-          // skip anything not a Node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
+        for (const key in entityRes.referredEntities) {
+          const entity = entityRes.referredEntities[key];
           const qualifiedName = entity.attributes.qualifiedName;
+          const sourceNodeId = qualifiedName.split('@').at(-1)!;
+
+          // skip anything not a archetype_node, not ACTIVE, or not in nodeIds (updated set of archetype_nodes)
           if (
             entity.typeName !== AtlasArchetypeTypeName.Node ||
             entity.status !== 'ACTIVE' ||
-            !nodeIds.has(qualifiedName.split('@').at(-1)!)
-          )
+            !nodeIds.has(sourceNodeId)
+          ) {
             continue;
+          }
 
-          // add all existing nodes and their classifications
           existingNodes[qualifiedName] = {
             guid: entity.guid,
             classifications: entity.classifications ?? [],
           };
+
+          // check existing child_nodes relationships
+          const relationshipMeta = entity.relationshipAttributes;
+          const existingChildRefs = relationshipMeta?.child_nodes ?? [];
+          const existingChildByNodeId = new Map<
+            string,
+            AtlasRelatedEntityRefDto
+          >();
+
+          for (const ref of existingChildRefs) {
+            if (ref.relationshipStatus === 'DELETED') continue;
+
+            const childQualifiedName = ref.qualifiedName;
+            const childNodeId = childQualifiedName.split('@').at(-1)!;
+            existingChildByNodeId.set(childNodeId, ref);
+          }
+
+          const desiredChildNodeIds = getDesiredChildNodeIdsForSource(
+            sourceNodeId,
+            archetype.edges,
+            nodeIds,
+          );
+          // check if there are child_nodes that shouldn't exist anymore
+          for (const [childNodeId, ref] of existingChildByNodeId.entries()) {
+            if (!desiredChildNodeIds.has(childNodeId)) {
+              relationshipsToDelete.push(ref);
+            }
+          }
+
+          const existingColumnRef = relationshipMeta?.column;
+          if (
+            existingColumnRef &&
+            existingColumnRef.relationshipStatus !== 'DELETED'
+          ) {
+            const desiredColumnGuid = getDesiredColumnGuidForSource(
+              sourceNodeId,
+              archetype.edges,
+              nodeIds,
+            );
+
+            // only delete if node does't have a column anymore
+            // if new column is added it will override with update
+            if (!desiredColumnGuid) {
+              relationshipsToDelete.push(existingColumnRef);
+            }
+          }
         }
       }
+
+      // cleanup relationships (child_nodes and columns)
+      await Promise.all(
+        relationshipsToDelete.map((rel) =>
+          this.atlas.delete(`/relationship/guid/${rel.relationshipGuid}`),
+        ),
+      );
+
       // update existing nodes classifications with permissions
       // TODO: improve so not flooding the API with requests
       // TODO: improve error handling
@@ -219,7 +275,7 @@ export class AtlasProcessor {
         },
       };
       const { entities, guidAssignments } = nodes.length
-        ? this.archetypeTemplateToAtlasEntities(
+        ? archetypeTemplateToAtlasEntities(
             projectId,
             archetype,
             nodes,
@@ -294,210 +350,6 @@ export class AtlasProcessor {
   }
 
   // private methods
-  private archetypeTemplateToAtlasEntities(
-    projectId: string,
-    archetype: ArchetypeDto,
-    nodes: ArchetypeNodeDto[],
-    columns: ArchetypeNodeDto[],
-    existingNodes: Record<
-      string,
-      {
-        guid: string;
-        classifications: AtlasArchetypeEntityDto['classifications'];
-      }
-    > = {},
-    isUpdate: boolean = false,
-    owner?: string,
-    templateGuid?: string,
-  ): { entities: AtlasSubmitArchetypeEntityDto[]; guidAssignments: string[] } {
-    // init negative guid
-    let negativeGuid = -2;
-
-    // nextGuid function
-    const nextGuid = () => String(negativeGuid--);
-
-    // Lookup for parent entities
-    const parentLookup: Record<string, string> = {};
-
-    // sort nodes by Id (needed for parent lookup)
-    nodes.sort((a, b) => a.id.localeCompare(b.id));
-
-    // get column edges if exists
-    const columnEdges =
-      archetype.edges?.filter((edge: ArchetypeEdgeDto) =>
-        columns.find((e) => e.id === edge.target),
-      ) || [];
-
-    const guidAssignments: string[] = [];
-
-    return {
-      entities: nodes.map((node: ArchetypeNodeDto) => {
-        // get column if exists
-        const columnGuid = columnEdges.find(
-          (e) => e.source === node.id,
-        )?.target;
-
-        // find parent node
-        const parentId = archetype.edges?.find(
-          (e) => e.target === node.id,
-        )?.source;
-
-        const parentIdQualifiedName = `${projectId}@${archetype.archetypeId}@${parentId}`;
-
-        const currentGuid = nextGuid(); // decrease neg guid
-
-        const qualifiedName = `${projectId}@${archetype.archetypeId}@${node.id}`;
-
-        // update lookup for parent-child relationship
-        // use qualifiedName if already existing node or negative guid if not
-        parentLookup[node.id] =
-          isUpdate && existingNodes[qualifiedName]
-            ? qualifiedName
-            : currentGuid;
-
-        if (isUpdate && !existingNodes[qualifiedName])
-          guidAssignments.push(currentGuid);
-        return {
-          // add GUID if new entity
-          ...(isUpdate && existingNodes[qualifiedName]
-            ? {}
-            : { guid: currentGuid }),
-          typeName: AtlasArchetypeTypeName.Node,
-          status: 'ACTIVE',
-          attributes: {
-            label: node.data.label,
-            // NOTE: needed for analysis SDK JSONSchema
-            name: node.data.label,
-            ...(isUpdate && existingNodes[qualifiedName] ? {} : { owner }),
-            level: node.data.level,
-            qualifiedName,
-            position: {
-              x: node.position.x,
-              y: node.position.y,
-            },
-          },
-          ...(isUpdate && existingNodes[qualifiedName] // existing classifications don't update
-            ? {}
-            : {
-                classifications: this.mergeClassifications(
-                  columnGuid ? true : false, // isLeaf node
-                  node.id,
-                  node.type,
-                  archetype.permissions || [],
-                ),
-              }),
-          relationshipAttributes: {
-            template: {
-              typeName: AtlasArchetypeTypeName.Template,
-              ...(templateGuid
-                ? {
-                    guid: templateGuid,
-                  }
-                : {
-                    uniqueAttributes: {
-                      qualifiedName: `${projectId}@${archetype.archetypeId}`,
-                    },
-                  }),
-            },
-            ...(parentId
-              ? {
-                  parent_node: {
-                    typeName: AtlasArchetypeTypeName.Node,
-                    ...(isUpdate && existingNodes[parentIdQualifiedName]
-                      ? {
-                          uniqueAttributes: {
-                            qualifiedName: parentLookup[parentId],
-                          },
-                        }
-                      : { guid: parentLookup[parentId] }),
-                  },
-                }
-              : {}),
-            ...(columnGuid
-              ? { column: { guid: columnGuid, typeName: 'rdbms_column' } }
-              : {}),
-          },
-        };
-      }),
-      guidAssignments,
-    };
-  }
-
-  private mergeClassifications(
-    isLeaf: boolean,
-    nodeId: string,
-    type: string,
-    permissions: ArchetypeNodePermissionDto[],
-  ): AtlasArchetypeEntityDto['classifications'] {
-    const classifications: AtlasArchetypeEntityDto['classifications'] = [];
-    classifications.push({
-      typeName: (isLeaf
-        ? 'leaf_node'
-        : type === 'root'
-          ? 'root_node'
-          : 'branch_node') as AtlasArchetypeNodeTypeName,
-      propagate: false,
-    } as AtlasSimpleClassificationDto);
-    const permission = permissions?.find((p) => p.id === nodeId)?.permission;
-    if (permission) {
-      classifications.push({
-        typeName: 'archetype_node_analysis_permissions',
-        propagate: true,
-        removePropagationsOnEntityDelete: true,
-        attributes: { access_level: permission },
-      } as AtlasArchetypeAnalysisPermissionClassificationDto);
-    }
-    return classifications;
-  }
-
-  private getPermissionClassification(
-    nodeId: string,
-    permissions: ArchetypeNodePermissionDto[],
-  ): AtlasArchetypeEntityDto['classifications'] {
-    const classifications: AtlasArchetypeEntityDto['classifications'] = [];
-    const permission = permissions.find((p) => p.id === nodeId)?.permission;
-    if (permission) {
-      classifications.push({
-        typeName: 'archetype_node_analysis_permissions',
-        propagate: true,
-        removePropagationsOnEntityDelete: true,
-        attributes: { access_level: permission },
-      } as AtlasArchetypeAnalysisPermissionClassificationDto);
-    }
-    return classifications;
-  }
-
-  private separateColumnsNodes(archetype: ArchetypeDto) {
-    // separate columns from actual archetype_nodes
-    if (archetype.nodes) {
-      const [columns, nodes] = archetype.nodes.reduce<
-        [ArchetypeNodeDto[], ArchetypeNodeDto[]]
-      >(
-        (acc, node) => {
-          if (node.type === ArchetypeNodeType.Column) acc[0].push(node);
-          else acc[1].push(node);
-          return acc;
-        },
-        [[], []],
-      );
-      return { columns, nodes };
-    }
-    return { columns: [], nodes: [] };
-  }
-
-  private hasAnalysisPermClassification(
-    guid: string,
-    classifications: AtlasArchetypeEntityDto['classifications'] | undefined,
-  ): boolean {
-    if (!guid || !classifications?.length) return false;
-    return classifications.some(
-      (c) =>
-        c.typeName === 'archetype_node_analysis_permissions' &&
-        c.entityGuid === guid &&
-        c.entityStatus === 'ACTIVE',
-    );
-  }
-
   private updateClassifications(
     archetypePermissions: ArchetypeNodePermissionDto[],
     existingNodes: Record<string, AtlasExistingNode>,
@@ -506,15 +358,12 @@ export class AtlasProcessor {
       ([qualifiedName, { guid, classifications }]) => {
         const nodeId = qualifiedName.split('@').at(-1)!;
         const permissions =
-          this.getPermissionClassification(
-            nodeId,
-            archetypePermissions || [],
-          ) || [];
+          getPermissionClassification(nodeId, archetypePermissions || []) || [];
         if (!permissions.length) return;
 
         try {
-          // check if classification already exists for the entity
-          if (this.hasAnalysisPermClassification(guid, classifications)) {
+          // check if classification already exists for this entity
+          if (hasAnalysisPermClassification(guid, classifications)) {
             void this.atlas.put<AtlasArchetypeEntityResponseDto>(
               `/entity/guid/${guid}/classifications`,
               permissions,
