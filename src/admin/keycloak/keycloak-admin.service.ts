@@ -542,6 +542,25 @@ export class KeycloakAdminService implements OnModuleInit {
     return { access_token: token || '' };
   }
 
+  // used by coordinator
+  async getAccessTokenClient(
+    clientId: string,
+    clientSecret: string,
+  ): Promise<{
+    access_token: string;
+    expires_in?: number;
+  }> {
+    await this.auth({
+      grantType: 'client_credentials',
+      clientId:
+        clientId ?? this.configService.get<string>('coordinator.clientId'),
+      clientSecret,
+    });
+
+    const token = await this.kcAdminClient.getAccessToken();
+    return { access_token: token || '' };
+  }
+
   //FIXME: not working properly
   async deleteResource(id: string) {
     this.logger.debug('Deleting resource', id);

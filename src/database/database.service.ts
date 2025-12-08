@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import {
+  AtlasArchetypeEntityResponseDto,
+  AtlasArchetypeTypeName,
   AtlasBulkEntityResponseDto,
   AtlasEntityDto,
   AtlasEntityHeaderDto,
@@ -188,6 +190,54 @@ export class DatabaseService {
     });
 
     return output;
+  }
+
+  async getDatasetDetails(
+    projectId: string,
+    archetypeId: string,
+    token?: string,
+  ) {
+    const qualifiedName = `${projectId}@${archetypeId}`;
+    const result: Record<string, object> = {};
+    const templateEntity =
+      await this.atlas.get<AtlasArchetypeEntityResponseDto>(
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          'attr:qualifiedName': qualifiedName,
+          ignoreRelationships: false, // default false
+          minExtInfo: false, // default false
+        },
+        token,
+      );
+    for (const key in templateEntity?.referredEntities) {
+      const node = templateEntity.referredEntities[key];
+
+      if (
+        node.status !== 'ACTIVE' &&
+        node.typeName !== AtlasArchetypeTypeName.Node
+      )
+        continue;
+      const objectName = node.attributes
+        .label!.replace(/\s+/g, '_')
+        .toLowerCase();
+      const label = node.attributes?.label;
+      // check if node has a column
+      if (node.relationshipAttributes?.column) {
+        const column = node.relationshipAttributes?.column;
+        // skip if relationship inactive
+        if (column.relationshipStatus !== 'ACTIVE') continue;
+        const { entity } = await this.atlas.get<AtlasEntityResponseDto>(
+          `/entity/guid/${column.guid}`,
+          undefined,
+          token,
+        );
+        result[objectName] = {
+          label,
+          table: entity.attributes.table,
+        };
+      }
+    }
+    return result;
   }
 
   private async getInstanceInfo(projectId: string, token?: string) {

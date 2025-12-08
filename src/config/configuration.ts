@@ -39,6 +39,9 @@ export default () => ({
     clientSecret:
       env.EPSILON_SDK_CLIENT_SECRET || '6nHzYqIlwcQDqDc2TuJtilucZxAH3O6N',
   },
+  coordinator: {
+    clientId: env.EPSILON_COORDINATOR_CLINET_ID || 'coordinator-client',
+  },
   atlas: {
     // default values for local dev
     uri: env.ATLAS_URI || 'http://localhost:21000',
