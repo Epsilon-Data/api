@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
-import { Prisma, RequestStatus } from '@prisma/client';
+import { Prisma, RequestStatus } from 'src/generated/prisma/client';
 import { SettingsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
 

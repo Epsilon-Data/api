@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { $Enums } from '@prisma/client';
+import { $Enums } from 'src/generated/prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,

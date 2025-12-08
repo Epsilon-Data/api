@@ -16,6 +16,7 @@ import {
   UserRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
 import { LoginDto } from 'src/analysis/dto';
+import { Logger } from '@nestjs/common';
 
 describe('KeycloakAdminService', () => {
   let service: KeycloakAdminService;
@@ -77,6 +78,9 @@ describe('KeycloakAdminService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    // catch thrown errors from the service
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 
     (mockConfigService.get as jest.Mock).mockImplementation((key: string) => {
       switch (key) {

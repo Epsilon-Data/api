@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/unbound-method */
@@ -10,8 +11,17 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Job } from 'bull';
 
 import { ArchetypeJobDataDto } from './dto';
-import { ArchetypeDto } from 'src/archetype/dto';
-import { AtlasArchetypeTypeName } from 'src/atlas/dto';
+import {
+  ArchetypeDto,
+  ArchetypeNodeDto,
+  ArchetypeNodeType,
+  ArchetypeStatus,
+} from 'src/archetype/dto';
+import {
+  AtlasArchetypeEntityResponseDto,
+  AtlasArchetypeTypeName,
+} from 'src/atlas/dto';
+import * as AtlasUtils from '../atlas/atlas-utils';
 
 jest.mock('nanoid', () => ({
   customAlphabet: jest.fn(() => jest.fn(() => 'irqwYwvo6E5n')),
@@ -374,7 +384,7 @@ describe('AtlasProcessor', () => {
         ],
       } as ArchetypeDto,
     } as ArchetypeJobDataDto,
-  } as unknown as Job;
+  } as Job;
 
   // update job mock no nodes, edges or permissions mock
   const updateJobNoNodes = {
@@ -402,15 +412,11 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufva8',
           name: 'Diagnosis',
+          type: 'LEAF',
         },
         guid: '8cde5346-4ee8-481d-a927-34b5bc29386b',
         status: 'ACTIVE',
         classifications: [
-          {
-            typeName: 'leaf_node',
-            entityGuid: '8cde5346-4ee8-481d-a927-34b5bc29386b',
-            entityStatus: 'ACTIVE',
-          },
           {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'DETAILED' },
@@ -426,6 +432,7 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuer7n',
           name: 'Blood pressure',
+          type: 'LEAF',
         },
         guid: '26ab17ff-e78a-4f8d-8ad5-f0cd06750853',
         status: 'ACTIVE',
@@ -434,11 +441,6 @@ describe('AtlasProcessor', () => {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'DETAILED' },
             entityGuid: '109cbab0-ae95-4843-bfc2-84a02db7dee7',
-            entityStatus: 'ACTIVE',
-          },
-          {
-            typeName: 'leaf_node',
-            entityGuid: '26ab17ff-e78a-4f8d-8ad5-f0cd06750853',
             entityStatus: 'ACTIVE',
           },
         ],
@@ -450,15 +452,11 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuf2ff',
           name: 'Age',
+          type: 'LEAF',
         },
         guid: '86131e90-738a-4f3f-a203-8e266a08e2b8',
         status: 'ACTIVE',
         classifications: [
-          {
-            typeName: 'leaf_node',
-            entityGuid: '86131e90-738a-4f3f-a203-8e266a08e2b8',
-            entityStatus: 'ACTIVE',
-          },
           {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'HIGH_LEVEL' },
@@ -474,6 +472,7 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuenar',
           name: 'Heart rate',
+          type: 'LEAF',
         },
         guid: '21d80975-c06c-4cca-ae20-8647e30dd296',
         status: 'ACTIVE',
@@ -482,11 +481,6 @@ describe('AtlasProcessor', () => {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'DETAILED' },
             entityGuid: '109cbab0-ae95-4843-bfc2-84a02db7dee7',
-            entityStatus: 'ACTIVE',
-          },
-          {
-            typeName: 'leaf_node',
-            entityGuid: '21d80975-c06c-4cca-ae20-8647e30dd296',
             entityStatus: 'ACTIVE',
           },
         ],
@@ -498,16 +492,11 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuewou',
           name: 'Demographics',
+          type: 'BRANCH',
         },
         guid: 'ed9fc6f6-9753-462e-b059-96b3c9c1aad5',
         status: 'ACTIVE',
-        classifications: [
-          {
-            typeName: 'branch_node',
-            entityGuid: 'ed9fc6f6-9753-462e-b059-96b3c9c1aad5',
-            entityStatus: 'ACTIVE',
-          },
-        ],
+        classifications: [],
       },
       '92c027a8-4630-4baa-b054-5e1b0d822356': {
         typeName: 'archetype_node',
@@ -516,15 +505,11 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuf6ps',
           name: 'Condition',
+          type: 'BRANCH',
         },
         guid: '92c027a8-4630-4baa-b054-5e1b0d822356',
         status: 'ACTIVE',
         classifications: [
-          {
-            typeName: 'branch_node',
-            entityGuid: '92c027a8-4630-4baa-b054-5e1b0d822356',
-            entityStatus: 'ACTIVE',
-          },
           {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'DETAILED' },
@@ -540,16 +525,11 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvu6ahr',
           name: 'Patient',
+          type: 'ROOT',
         },
         guid: 'f45fc893-28a1-46b0-8503-a75a1cbefa6f',
         status: 'ACTIVE',
-        classifications: [
-          {
-            typeName: 'root_node',
-            entityGuid: 'f45fc893-28a1-46b0-8503-a75a1cbefa6f',
-            entityStatus: 'ACTIVE',
-          },
-        ],
+        classifications: [],
       },
       '109cbab0-ae95-4843-bfc2-84a02db7dee7': {
         typeName: 'archetype_node',
@@ -558,6 +538,7 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuei98',
           name: 'Health',
+          type: 'BRANCH',
         },
         guid: '109cbab0-ae95-4843-bfc2-84a02db7dee7',
         status: 'ACTIVE',
@@ -565,11 +546,6 @@ describe('AtlasProcessor', () => {
           {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'DETAILED' },
-            entityGuid: '109cbab0-ae95-4843-bfc2-84a02db7dee7',
-            entityStatus: 'ACTIVE',
-          },
-          {
-            typeName: 'branch_node',
             entityGuid: '109cbab0-ae95-4843-bfc2-84a02db7dee7',
             entityStatus: 'ACTIVE',
           },
@@ -582,6 +558,7 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufnpk',
           name: 'Critical',
+          type: 'LEAF',
         },
         guid: 'c103fb23-9aa8-4699-9491-4c2b69f0bd0b',
         status: 'ACTIVE',
@@ -590,11 +567,6 @@ describe('AtlasProcessor', () => {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'DETAILED' },
             entityGuid: '92c027a8-4630-4baa-b054-5e1b0d822356',
-            entityStatus: 'ACTIVE',
-          },
-          {
-            typeName: 'leaf_node',
-            entityGuid: 'c103fb23-9aa8-4699-9491-4c2b69f0bd0b',
             entityStatus: 'ACTIVE',
           },
         ],
@@ -606,15 +578,11 @@ describe('AtlasProcessor', () => {
           qualifiedName:
             'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufchf',
           name: 'Medications',
+          type: 'LEAF',
         },
         guid: 'eb734494-b172-4069-9d37-96290b7a0691',
         status: 'ACTIVE',
         classifications: [
-          {
-            typeName: 'leaf_node',
-            entityGuid: 'eb734494-b172-4069-9d37-96290b7a0691',
-            entityStatus: 'ACTIVE',
-          },
           {
             typeName: 'archetype_node_analysis_permissions',
             attributes: { access_level: 'HIGH_LEVEL' },
@@ -649,6 +617,7 @@ describe('AtlasProcessor', () => {
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvu6ahr',
         position: { x: 300, y: -5 },
+        type: 'ROOT',
       },
       relationshipAttributes: {
         template: {
@@ -669,6 +638,7 @@ describe('AtlasProcessor', () => {
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuei98',
         position: { x: -62, y: 213.85938 },
+        type: 'BRANCH',
       },
       relationshipAttributes: {
         template: {
@@ -696,6 +666,7 @@ describe('AtlasProcessor', () => {
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuenar',
         position: { x: -226, y: 361.85938 },
+        type: 'LEAF',
       },
       relationshipAttributes: {
         template: {
@@ -727,6 +698,7 @@ describe('AtlasProcessor', () => {
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuewou',
         position: { x: 325, y: 229.85938 },
+        type: 'BRANCH',
       },
       relationshipAttributes: {
         template: {
@@ -754,6 +726,7 @@ describe('AtlasProcessor', () => {
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuf2ff',
         position: { x: 321, y: 366.85938 },
+        type: 'LEAF',
       },
       relationshipAttributes: {
         template: {
@@ -785,6 +758,7 @@ describe('AtlasProcessor', () => {
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuf6ps',
         position: { x: 628, y: 228.85938 },
+        type: 'BRANCH',
       },
       relationshipAttributes: {
         template: {
@@ -809,6 +783,7 @@ describe('AtlasProcessor', () => {
         label: 'Diagnosis',
         name: 'Diagnosis',
         level: 2,
+        type: 'LEAF',
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufva8',
         position: { x: 627, y: 360.85938 },
@@ -842,12 +817,12 @@ describe('AtlasProcessor', () => {
         name: 'Admission date',
         owner: 'test',
         level: 1,
+        type: 'LEAF',
         qualifiedName:
           'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvv5eju',
         position: { x: 881.703125, y: 228.789065 },
       },
       classifications: [
-        { typeName: 'leaf_node', propagate: false },
         {
           typeName: 'archetype_node_analysis_permissions',
           propagate: true,
@@ -1003,8 +978,8 @@ describe('AtlasProcessor', () => {
     prismaService = module.get<PrismaService>(PrismaService);
 
     // Spies for methods
-    spySeparate = jest.spyOn(service as any, 'separateColumnsNodes');
-    spyToAtlas = jest.spyOn(service as any, 'archetypeTemplateToAtlasEntities');
+    spySeparate = jest.spyOn(AtlasUtils, 'separateColumnsNodes');
+    spyToAtlas = jest.spyOn(AtlasUtils, 'archetypeTemplateToAtlasEntities');
 
     jest.clearAllMocks();
   });
@@ -1021,11 +996,12 @@ describe('AtlasProcessor', () => {
             name: 'Patient',
             owner: 'test',
             level: 0,
+            type: 'ROOT',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvu6ahr',
             position: { x: 300, y: -5 },
           },
-          classifications: [{ typeName: 'root_node', propagate: false }],
+          classifications: [],
           relationshipAttributes: {
             template: {
               typeName: 'archetype_template',
@@ -1042,12 +1018,12 @@ describe('AtlasProcessor', () => {
             name: 'Health',
             owner: 'test',
             level: 1,
+            type: 'BRANCH',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuei98',
             position: { x: -62, y: 213.859375 },
           },
           classifications: [
-            { typeName: 'branch_node', propagate: false },
             {
               typeName: 'archetype_node_analysis_permissions',
               propagate: true,
@@ -1072,11 +1048,12 @@ describe('AtlasProcessor', () => {
             name: 'Heart rate',
             owner: 'test',
             level: 2,
+            type: 'LEAF',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuenar',
             position: { x: -226, y: 361.859375 },
           },
-          classifications: [{ typeName: 'leaf_node', propagate: false }],
+          classifications: [],
           relationshipAttributes: {
             template: {
               typeName: 'archetype_template',
@@ -1098,11 +1075,12 @@ describe('AtlasProcessor', () => {
             name: 'Blood pressure',
             owner: 'test',
             level: 2,
+            type: 'LEAF',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuer7n',
             position: { x: 73, y: 362.859375 },
           },
-          classifications: [{ typeName: 'leaf_node', propagate: false }],
+          classifications: [],
           relationshipAttributes: {
             template: {
               typeName: 'archetype_template',
@@ -1124,11 +1102,12 @@ describe('AtlasProcessor', () => {
             name: 'Demographics',
             owner: 'test',
             level: 1,
+            type: 'BRANCH',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuewou',
             position: { x: 325, y: 229.859375 },
           },
-          classifications: [{ typeName: 'branch_node', propagate: false }],
+          classifications: [],
           relationshipAttributes: {
             template: {
               typeName: 'archetype_template',
@@ -1146,12 +1125,12 @@ describe('AtlasProcessor', () => {
             name: 'Age',
             owner: 'test',
             level: 2,
+            type: 'LEAF',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuf2ff',
             position: { x: 321, y: 366.859375 },
           },
           classifications: [
-            { typeName: 'leaf_node', propagate: false },
             {
               typeName: 'archetype_node_analysis_permissions',
               propagate: true,
@@ -1180,12 +1159,12 @@ describe('AtlasProcessor', () => {
             name: 'Condition',
             owner: 'test',
             level: 1,
+            type: 'BRANCH',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvuf6ps',
             position: { x: 628, y: 228.859375 },
           },
           classifications: [
-            { typeName: 'branch_node', propagate: false },
             {
               typeName: 'archetype_node_analysis_permissions',
               propagate: true,
@@ -1210,12 +1189,12 @@ describe('AtlasProcessor', () => {
             name: 'Medications',
             owner: 'test',
             level: 1,
+            type: 'LEAF',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufchf',
             position: { x: 1068.9608679668509, y: 230.859375 },
           },
           classifications: [
-            { typeName: 'leaf_node', propagate: false },
             {
               typeName: 'archetype_node_analysis_permissions',
               propagate: true,
@@ -1243,12 +1222,13 @@ describe('AtlasProcessor', () => {
             label: 'Critical',
             name: 'Critical',
             owner: 'test',
+            type: 'LEAF',
             level: 2,
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufnpk',
             position: { x: 568, y: 364.859375 },
           },
-          classifications: [{ typeName: 'leaf_node', propagate: false }],
+          classifications: [],
           relationshipAttributes: {
             template: {
               typeName: 'archetype_template',
@@ -1270,11 +1250,12 @@ describe('AtlasProcessor', () => {
             name: 'Diagnosis',
             owner: 'test',
             level: 2,
+            type: 'LEAF',
             qualifiedName:
               'e638b66b-c509-44fe-b754-5b7c63a4879f@irqwYwvo6E5n@mhvufva8',
             position: { x: 825, y: 363.859375 },
           },
-          classifications: [{ typeName: 'leaf_node', propagate: false }],
+          classifications: [],
           relationshipAttributes: {
             template: {
               typeName: 'archetype_template',
@@ -1306,17 +1287,28 @@ describe('AtlasProcessor', () => {
       // Verify real methods ran
       expect(spySeparate).toHaveBeenCalledTimes(1);
       expect(spyToAtlas).toHaveBeenCalledTimes(1);
-
       // Inspect actual return from helper
       const separateResult = spySeparate.mock.results[0].value;
       const atlasEntitiesResult = spyToAtlas.mock.results[0].value as Record<
         string,
         unknown
       >;
+      // check results
       expect(separateResult).toHaveProperty('nodes');
+      expect(separateResult.nodes).toEqual(
+        addJob.data.archetype.nodes.filter(
+          (node: ArchetypeNodeDto) => node.type != ArchetypeNodeType.Column,
+        ),
+      );
       expect(separateResult).toHaveProperty('columns');
+      expect(separateResult.columns).toEqual(
+        addJob.data.archetype.nodes.filter(
+          (node: ArchetypeNodeDto) => node.type === ArchetypeNodeType.Column,
+        ),
+      );
 
       expect(atlasEntitiesResult.entities).toEqual(postEntities);
+      // as its not an update then no explicit guidAssignemnts
       expect(atlasEntitiesResult.guidAssignments).toEqual([]);
 
       // Verify that the /entity/bulk call used those real entities
@@ -1343,6 +1335,7 @@ describe('AtlasProcessor', () => {
         }),
       );
     });
+
     it('should process update archetype as archetypeId present', async () => {
       // for /entity/uniqueAttribute/type/archetype_template`
       (atlasService.get as jest.Mock).mockResolvedValueOnce(
@@ -1371,7 +1364,7 @@ describe('AtlasProcessor', () => {
         {
           'attr:qualifiedName': `${updateJob.data.projectId}@${updateJob.data.archetype.archetypeId}`,
           ignoreRelationships: false,
-          minExtInfo: true,
+          minExtInfo: false,
         },
       );
     });
@@ -1420,7 +1413,7 @@ describe('AtlasProcessor', () => {
         {
           'attr:qualifiedName': `${updateJob.data.projectId}@${updateJob.data.archetype.archetypeId}`,
           ignoreRelationships: false,
-          minExtInfo: true,
+          minExtInfo: false,
         },
       );
 
@@ -1430,6 +1423,7 @@ describe('AtlasProcessor', () => {
         }),
       );
     });
+
     it('should process update archetype template info, but not nodes', async () => {
       // for /entity/uniqueAttribute/type/archetype_template`
       (atlasService.get as jest.Mock).mockResolvedValueOnce(
@@ -1445,7 +1439,7 @@ describe('AtlasProcessor', () => {
         {
           'attr:qualifiedName': `${updateJob.data.projectId}@${updateJob.data.archetype.archetypeId}`,
           ignoreRelationships: false,
-          minExtInfo: true,
+          minExtInfo: false,
         },
       );
 
@@ -1453,6 +1447,376 @@ describe('AtlasProcessor', () => {
       expect(atlasService.post).toHaveBeenCalledWith('/entity/bulk', {
         entities: postNoNodesEntities,
       });
+    });
+
+    it('should delete child_nodes relationships that are no longer represented in edges', async () => {
+      const projectId = 'proj-1';
+      const archetypeId = 'arch-1';
+
+      const archetype = {
+        projectId,
+        archetypeId,
+        name: 'Test archetype',
+        status: ArchetypeStatus.DRAFT,
+        nodes: [
+          {
+            id: 'node_root',
+            type: 'root',
+            data: { label: 'Patient', level: 0 },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'node_0',
+            type: 'category',
+            data: {},
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'node_1',
+            type: 'category',
+            data: { label: 'health', level: 1 },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'node_2',
+            type: 'category',
+            data: { label: 'condition', level: 2 },
+            position: { x: 0, y: 0 },
+          },
+        ],
+        edges: [
+          { id: 'edge_root_node_0', source: 'node_root', target: 'node_0' },
+          { id: 'edge_root_node_1', source: 'node_root', target: 'node_1' },
+          { id: 'edge_node_0_node_2', source: 'node_0', target: 'node_2' },
+        ],
+        permissions: [],
+      } as ArchetypeDto;
+
+      const job = {
+        data: {
+          owner: 'test',
+          projectId,
+          archetype,
+        } as ArchetypeJobDataDto,
+      } as unknown as Job;
+
+      // Atlas entity response: one archetype_node with two child_nodes
+      const entityRes: AtlasArchetypeEntityResponseDto = {
+        entity: {} as any, // do not care in this test
+        referredEntities: {
+          'guid-node-0': {
+            guid: 'guid-node-0',
+            typeName: AtlasArchetypeTypeName.Node,
+            status: 'ACTIVE',
+            attributes: {
+              qualifiedName: `${projectId}@${archetypeId}@node_0`,
+            } as any,
+            classifications: [],
+            relationshipAttributes: {
+              child_nodes: [
+                {
+                  guid: 'guid-node-1',
+                  typeName: AtlasArchetypeTypeName.Node,
+                  entityStatus: 'ACTIVE',
+                  displayText: 'Node 1',
+                  relationshipType: 'archetype_node_hierarchy',
+                  relationshipGuid: 'rel-node0-node1',
+                  relationshipStatus: 'ACTIVE',
+                  relationshipAttributes: {},
+                  qualifiedName: `${projectId}@${archetypeId}@node_1`,
+                },
+                {
+                  guid: 'guid-node-2',
+                  typeName: AtlasArchetypeTypeName.Node,
+                  entityStatus: 'ACTIVE',
+                  displayText: 'Node 2',
+                  relationshipType: 'archetype_node_hierarchy',
+                  relationshipGuid: 'rel-node0-node2',
+                  relationshipStatus: 'ACTIVE',
+                  relationshipAttributes: {},
+                  qualifiedName: `${projectId}@${archetypeId}@node_2`,
+                },
+              ],
+            } as any,
+            // other fields not relevant for this test:
+            isIncomplete: false,
+            createdBy: 'x',
+            updatedBy: 'x',
+            createTime: Date.now(),
+            updateTime: Date.now(),
+            version: 1,
+            labels: [],
+          } as any,
+        },
+      };
+
+      const spyDesired = jest.spyOn(
+        AtlasUtils,
+        'getDesiredChildNodeIdsForSource',
+      );
+
+      (atlasService.get as jest.Mock).mockResolvedValueOnce(entityRes);
+      (atlasService.post as jest.Mock).mockResolvedValueOnce({ success: true });
+      (atlasService.delete as jest.Mock).mockResolvedValue(undefined);
+      (prismaService.project.update as jest.Mock).mockResolvedValue({});
+
+      await service.handleUpdateArchetypeJob(job);
+
+      expect(spyDesired).toHaveBeenCalledTimes(1);
+
+      // Inspect actual return from helper
+      const desiredResult = spyDesired.mock.results[0].value;
+
+      expect(desiredResult).toEqual(new Set(['node_2']));
+
+      // Should delete ONLY the relationship for node_1, not node_2
+      expect(atlasService.delete).toHaveBeenCalledTimes(1);
+      expect(atlasService.delete).toHaveBeenCalledWith(
+        '/relationship/guid/rel-node0-node1',
+      );
+
+      // still calls bulk and project update
+      expect(atlasService.post).toHaveBeenCalledWith('/entity/bulk', {
+        entities: expect.any(Array),
+      });
+      expect(prismaService.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { projectId },
+        }),
+      );
+    });
+
+    it('should delete column relationship as column moved to another node', async () => {
+      const projectId = 'proj-1';
+      const archetypeId = 'arch-1';
+
+      const archetype = {
+        projectId,
+        archetypeId,
+        name: 'Test archetype',
+        status: ArchetypeStatus.DRAFT,
+        nodes: [
+          {
+            id: 'node_0',
+            type: 'root',
+            data: { label: 'Patient', level: 0 },
+            position: { x: 0, y: 0 },
+          },
+          // added child node
+          {
+            id: 'node_1',
+            type: 'category',
+            data: { label: 'health', level: 1 },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'col-guid-1',
+            type: 'column',
+            data: { label: 'column1', level: 2 },
+            position: { x: 0, y: 0 },
+          },
+        ],
+        edges: [
+          // child_node_edge
+          {
+            id: 'edge_node_0_node_1',
+            source: 'node_0',
+            target: 'node_1',
+          },
+          // column edge
+          {
+            id: 'edge_node_1_col-guid-1',
+            source: 'node_1',
+            target: 'col-guid-1',
+          },
+        ],
+        permissions: [],
+      } as ArchetypeDto;
+
+      const job = {
+        data: {
+          owner: 'test',
+          projectId,
+          archetype,
+        } as ArchetypeJobDataDto,
+      } as unknown as Job;
+
+      const entityRes: AtlasArchetypeEntityResponseDto = {
+        entity: {} as any,
+        referredEntities: {
+          'guid-node-0': {
+            guid: 'guid-node-0',
+            typeName: AtlasArchetypeTypeName.Node,
+            status: 'ACTIVE',
+            attributes: {
+              qualifiedName: `${projectId}@${archetypeId}@node_0`,
+            } as any,
+            classifications: [],
+            relationshipAttributes: {
+              column: {
+                // existing column
+                guid: 'col-guid-1',
+                typeName: 'rdbms_column',
+                entityStatus: 'ACTIVE',
+                displayText: 'Column 1',
+                relationshipType: 'archetype_node_column',
+                relationshipGuid: 'rel-node0-col1',
+                relationshipStatus: 'ACTIVE',
+                relationshipAttributes: {},
+                qualifiedName: 'db@test.table@col1',
+              },
+            },
+            isIncomplete: false,
+            createdBy: 'x',
+            updatedBy: 'x',
+            createTime: Date.now(),
+            updateTime: Date.now(),
+            version: 1,
+            labels: [],
+          } as any,
+        },
+      };
+
+      const spyDesiredColumn = jest.spyOn(
+        AtlasUtils,
+        'getDesiredColumnGuidForSource',
+      );
+
+      (atlasService.get as jest.Mock).mockResolvedValueOnce(entityRes);
+      (atlasService.post as jest.Mock).mockResolvedValueOnce({ success: true });
+      (atlasService.delete as jest.Mock).mockResolvedValue(undefined);
+      (prismaService.project.update as jest.Mock).mockResolvedValue({});
+
+      await service.handleUpdateArchetypeJob(job);
+
+      expect(spyDesiredColumn).toHaveBeenCalledTimes(1);
+
+      // Inspect actual return from helper
+      const desiredResult = spyDesiredColumn.mock.results[0].value;
+
+      expect(desiredResult).toEqual(undefined);
+
+      // Should delete existing column ref from root
+      expect(atlasService.delete).toHaveBeenCalledTimes(1);
+      expect(atlasService.delete).toHaveBeenCalledWith(
+        '/relationship/guid/rel-node0-col1',
+      );
+
+      // still calls bulk and project update
+      expect(atlasService.post).toHaveBeenCalledWith('/entity/bulk', {
+        entities: expect.any(Array),
+      });
+      expect(prismaService.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { projectId },
+        }),
+      );
+    });
+
+    it('should not delete column relationship if node still has a column edge (even if GUID changed)', async () => {
+      const projectId = 'proj-1';
+      const archetypeId = 'arch-1';
+
+      const archetype = {
+        projectId,
+        archetypeId,
+        name: 'Test archetype',
+        status: ArchetypeStatus.DRAFT,
+        nodes: [
+          {
+            id: 'node_0',
+            type: 'root',
+            data: { label: 'Patient', level: 0 },
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'col-guid-2',
+            type: 'column',
+            data: { label: 'column2', level: 1 },
+            position: { x: 0, y: 0 },
+          },
+        ],
+        // column edge: node_0 -> NEW column GUID
+        edges: [
+          {
+            id: 'edge_node_0_col-guid-2',
+            source: 'node_0',
+            target: 'col-guid-2', // new column GUID
+          },
+        ],
+        permissions: [],
+      } as ArchetypeDto;
+
+      const job = {
+        data: {
+          owner: 'test',
+          projectId,
+          archetype,
+        } as ArchetypeJobDataDto,
+      } as unknown as Job;
+
+      jest
+        .spyOn(AtlasUtils, 'archetypeTemplateToAtlasEntities')
+        .mockReturnValue({
+          entities: [],
+          guidAssignments: [],
+        });
+
+      const entityRes: AtlasArchetypeEntityResponseDto = {
+        entity: {} as any,
+        referredEntities: {
+          'guid-node-0': {
+            guid: 'guid-node-0',
+            typeName: AtlasArchetypeTypeName.Node,
+            status: 'ACTIVE',
+            attributes: {
+              qualifiedName: `${projectId}@${archetypeId}@node_0`,
+            } as any,
+            classifications: [],
+            relationshipAttributes: {
+              column: {
+                guid: 'col-guid-1', // old column
+                typeName: 'rdbms_column',
+                entityStatus: 'ACTIVE',
+                displayText: 'Column 1',
+                relationshipType: 'archetype_node_column',
+                relationshipGuid: 'rel-node0-col1',
+                relationshipStatus: 'ACTIVE',
+                relationshipAttributes: {},
+                qualifiedName: 'db@test.table@col1',
+              },
+            } as any,
+            isIncomplete: false,
+            createdBy: 'x',
+            updatedBy: 'x',
+            createTime: Date.now(),
+            updateTime: Date.now(),
+            version: 1,
+            labels: [],
+          } as any,
+        },
+      };
+
+      (atlasService.get as jest.Mock).mockResolvedValueOnce(entityRes);
+      (atlasService.post as jest.Mock).mockResolvedValueOnce({ success: true });
+      (atlasService.delete as jest.Mock).mockResolvedValue(undefined);
+      (prismaService.project.update as jest.Mock).mockResolvedValue({});
+
+      await service.handleUpdateArchetypeJob(job);
+
+      // Node still has a column edge (to col-guid-2), so we DO NOT delete the old rel explicitly;
+      // /entity/bulk will overwrite it.
+      expect(atlasService.delete).not.toHaveBeenCalled();
+
+      // still calls bulk and project update
+      expect(atlasService.post).toHaveBeenCalledWith('/entity/bulk', {
+        entities: expect.any(Array),
+      });
+      expect(prismaService.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { projectId },
+        }),
+      );
     });
   });
 
