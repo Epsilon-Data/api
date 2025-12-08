@@ -1,23 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { DatabaseTestDto } from './dto';
+import {
+  ConnectionDecisionDto,
+  ConnectionRequestResponseDto,
+  DatabaseTestDto,
+} from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { QueueService } from 'src/queue/queue.service';
-// import { KeycloakAdminService } from 'src/admin/keycloak/keycloak.admin.service';
-// import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
-// import { ConfigService } from '@nestjs/config';
-// import { Credentials } from '@epsilon-data/keycloak-admin-client';
+import { $Enums, Prisma } from 'src/generated/prisma/client';
+import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 @Injectable()
 export class ConnectionRequestService {
-  // credentials: Credentials;
   constructor(
     private prisma: PrismaService,
     private queue: QueueService,
   ) {}
 
-  async getList(userId: string) {
-    const requestList = await this.prisma.connection.findMany({
+  async getList(userId: string): Promise<ConnectionRequestResponseDto[]> {
+    return await this.prisma.connection.findMany({
       where: {
         request: {
           requestorId: userId,
@@ -35,13 +36,12 @@ export class ConnectionRequestService {
           select: {
             requestId: true,
             status: true,
+            createdDate: true,
             lastModified: true,
           },
         },
       },
     });
-
-    return requestList;
   }
 
   async testConnection(database: DatabaseTestDto) {
@@ -54,16 +54,47 @@ export class ConnectionRequestService {
       database: database.name,
       ssl: database.ssl ?? false,
     };
+    // on success it returns now() - current db datetime
     return await testConnection(connectionData);
   }
 
-  async approve(userId: string, requestId: string) {
-    // await this.queue.dataBrokerJob(userId, requestId);
-    return await this.prisma.request.update({
+  async approve(
+    user: CurrentUserInfo,
+    requestId: string,
+    projectId: string,
+    dto: ConnectionDecisionDto,
+  ) {
+    const status = dto.isApproved
+      ? $Enums.RequestStatus.APPROVED
+      : $Enums.RequestStatus.REJECTED;
+
+    // database credentials should exist so run database crawling
+    if (status === $Enums.RequestStatus.APPROVED && dto.tempDbDetails?.url) {
+      await this.prisma.project.update({
+        where: { projectId: projectId },
+        data: {
+          status: 'CRAWLING',
+          connection: {
+            update: {
+              tempDbDetails: dto.tempDbDetails as unknown as Prisma.JsonObject,
+            },
+          },
+        },
+      });
+      await this.queue.dataBrokerJob(
+        user.username,
+        projectId,
+        requestId,
+        dto.tempDbDetails,
+      );
+    }
+    await this.prisma.request.update({
       where: { requestId: requestId },
       data: {
-        status: 'APPROVED',
+        status,
       },
     });
+    // just return, no content
+    return;
   }
 }

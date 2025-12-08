@@ -1,4 +1,4 @@
-import { ModuleMetadata, Type } from '@nestjs/common';
+import { FactoryProvider, ModuleMetadata, Type } from '@nestjs/common';
 
 export const AUTH_CONFIG = 'AUTH_CONFIG';
 export const AUTH_MODULE_CONFIG_FACTORY = 'ADMIN_MODULE_CONFIG_FACTORY';
@@ -19,8 +19,10 @@ export interface AuthModuleConfigFactory {
 }
 
 export interface AuthModuleAsyncConfig extends Pick<ModuleMetadata, 'imports'> {
-  inject?: any[];
+  inject?: FactoryProvider['inject'];
   useExisting?: Type<AuthModuleConfigFactory>;
   useClass?: Type<AuthModuleConfigFactory>;
-  useFactory?: (...args: any[]) => Promise<AuthModuleConfig> | AuthModuleConfig;
+  useFactory?: (
+    ...args: unknown[]
+  ) => Promise<AuthModuleConfig> | AuthModuleConfig;
 }
