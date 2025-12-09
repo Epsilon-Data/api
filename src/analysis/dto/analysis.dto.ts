@@ -77,6 +77,15 @@ export class DatasetDto {
 
 export class AnalysisArchetypeResponseDto {
   @ApiProperty({
+    description: 'Id of the Archetype',
+    example: '3kHBQLNwl9qc',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  $id!: string;
+
+  @ApiProperty({
     description: 'JSON Schema meta-identifier (draft URI)',
     example: 'https://json-schema.org/draft/2020-12/schema',
   })

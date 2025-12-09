@@ -1,8 +1,14 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from './database.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
-import { AtlasQueryType } from 'src/atlas/dto';
+import { AtlasArchetypeTypeName, AtlasQueryType } from 'src/atlas/dto';
+import {
+  DatasetDataObjectDto,
+  DatasetDetailsResponseDto,
+  DatasetTableReferenceDto,
+} from './dto';
 
 describe('DatabaseService', () => {
   let moduleRef: TestingModule;
@@ -278,6 +284,205 @@ describe('DatabaseService', () => {
           table: `${schemaName}.table_b`,
         },
       ]);
+    });
+  });
+
+  describe('getDatasetDetails', () => {
+    it('should build dataObjects and tableReferences for an active node with column and foreign key', async () => {
+      const projectId = 'proj-1';
+      const archetypeId = 'arch-1';
+      const token = 'test-token';
+
+      // get template entity with one node
+      const nodeGuid = 'node-guid';
+      const columnGuid = 'col-guid';
+      const templateEntity = {
+        entity: {},
+        referredEntities: {
+          [nodeGuid]: {
+            status: 'ACTIVE',
+            typeName: AtlasArchetypeTypeName.Node,
+            attributes: {
+              label: 'Heart rate',
+            },
+            relationshipAttributes: {
+              column: {
+                guid: columnGuid,
+                relationshipStatus: 'ACTIVE',
+              },
+            },
+          },
+        },
+      };
+
+      // get column entity with table relationship
+      const tableGuid = 'table-guid';
+      const columnEntity = {
+        entity: {
+          attributes: {
+            name: 'heart_rate_value',
+          },
+          displayText: 'heart_rate_value_fallback',
+          relationshipAttributes: {
+            table: {
+              guid: tableGuid,
+              typeName: 'rdbms_table',
+              relationshipStatus: 'ACTIVE',
+              displayText: 'measurements',
+            },
+          },
+        },
+        referredEntities: {},
+      };
+
+      // get table entity with db and one foreign key
+      const tableEntity = {
+        entity: {
+          relationshipAttributes: {
+            db: {
+              relationshipStatus: 'ACTIVE',
+              displayText: 'research_db',
+            },
+          },
+        },
+        referredEntities: {
+          fk1: {
+            status: 'ACTIVE',
+            typeName: 'rdbms_foreign_key',
+            relationshipAttributes: {
+              references_table: {
+                relationshipStatus: 'ACTIVE',
+                displayText: 'participants',
+              },
+              key_columns: [
+                {
+                  relationshipStatus: 'ACTIVE',
+                  typeName: 'rdbms_column',
+                  displayText: 'participant_id',
+                },
+              ],
+              references_columns: [
+                {
+                  relationshipStatus: 'ACTIVE',
+                  typeName: 'rdbms_column',
+                  displayText: 'id',
+                },
+              ],
+            },
+          },
+        },
+      };
+
+      // Wire atlas.get calls in order
+      atlasService.get
+        .mockResolvedValueOnce(templateEntity) // first: template
+        .mockResolvedValueOnce(columnEntity) // second: column
+        .mockResolvedValueOnce(tableEntity); // third: table
+
+      const result = await service.getDatasetDetails(
+        projectId,
+        archetypeId,
+        token,
+      );
+
+      // Expect 3 calls
+      expect(atlasService.get).toHaveBeenCalledTimes(3);
+
+      // template call
+      expect(atlasService.get).toHaveBeenNthCalledWith(
+        1,
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          'attr:qualifiedName': `${projectId}@${archetypeId}`,
+          ignoreRelationships: false,
+          minExtInfo: false,
+        },
+        token,
+      );
+
+      // column entity call
+      expect(atlasService.get).toHaveBeenNthCalledWith(
+        2,
+        `/entity/guid/${columnGuid}`,
+        undefined,
+        token,
+      );
+
+      // table entity call
+      expect(atlasService.get).toHaveBeenNthCalledWith(
+        3,
+        `/entity/guid/${tableGuid}`,
+        undefined,
+        token,
+      );
+
+      // Check result shape
+      const expectedDataObjectKey = 'heart_rate'; // "Heart rate" - "heart_rate"
+
+      expect(
+        result.dataObjects[expectedDataObjectKey],
+      ).toEqual<DatasetDataObjectDto>({
+        label: 'Heart rate',
+        table: 'measurements',
+        column: 'heart_rate_value',
+      });
+
+      expect(
+        result.tableReferences['measurements'],
+      ).toEqual<DatasetTableReferenceDto>({
+        db: 'research_db',
+        foreignKeys: [
+          {
+            referenceTable: 'participants',
+            keyColumns: ['participant_id'],
+            refColumns: ['id'],
+          },
+        ],
+      });
+
+      // Ensure no extra keys
+      expect(Object.keys(result.dataObjects)).toEqual([expectedDataObjectKey]);
+      expect(Object.keys(result.tableReferences)).toEqual(['measurements']);
+    });
+
+    it('should skip nodes when column relationship is not ACTIVE', async () => {
+      const projectId = 'proj-1';
+      const archetypeId = 'arch-1';
+      const token = 'test-token';
+
+      const templateEntity = {
+        entity: {},
+        referredEntities: {
+          node1: {
+            status: 'ACTIVE',
+            typeName: AtlasArchetypeTypeName.Node,
+            attributes: {
+              label: 'Heart rate',
+            },
+            relationshipAttributes: {
+              column: {
+                guid: 'col-guid',
+                relationshipStatus: 'DELETED', // not ACTIVE - should skip
+              },
+            },
+          },
+        },
+      };
+
+      atlasService.get.mockResolvedValueOnce(templateEntity);
+
+      const result = await service.getDatasetDetails(
+        projectId,
+        archetypeId,
+        token,
+      );
+
+      // Only template call, no column/table lookups
+      expect(atlasService.get).toHaveBeenCalledTimes(1);
+      expect(result).toEqual<DatasetDetailsResponseDto>({
+        tableReferences: {},
+        dataObjects: {},
+      });
     });
   });
 });
