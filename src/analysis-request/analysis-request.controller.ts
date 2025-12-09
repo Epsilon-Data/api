@@ -137,6 +137,47 @@ export class AnalysisRequestController {
     return await this.analysisRequestService.getList(user.id);
   }
 
+  @Get(':projectId')
+  @ApiOperation({
+    summary: 'Get analysis request for a project',
+  })
+  @ApiOkResponse({
+    description: 'Analysis request for the given project',
+    type: AnalysisRequestSummaryInfoDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  async getByProject(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.analysisRequestService.getByProject(user.id, projectId);
+  }
+
   @Get(':requestId')
   @ApiOperation({
     summary: 'Get analysis request details',
@@ -365,7 +406,7 @@ export class AnalysisRequestController {
     description: 'Comment created successfully',
   })
   @ApiBadRequestResponse({
-    description: 'Invalid request data for database operation',
+    description: 'Invalid comment data for database operation',
     content: {
       'application/json': {
         schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
@@ -416,17 +457,17 @@ export class AnalysisRequestController {
     summary: 'Get comments of analysis request',
   })
   @ApiOkResponse({
-    description: 'List of user owned request are returned',
+    description: 'Comments of analysis request are returned',
     type: AnalysisRequestDetailsResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Invalid request data for database operation',
+    description: 'Invalid comment data for database operation',
     content: {
       'application/json': {
         schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
         example: {
           statusCode: 400,
-          message: 'Invalid request data for database operation',
+          message: 'Invalid comment data for database operation',
           error: 'DatabaseError',
         },
       },

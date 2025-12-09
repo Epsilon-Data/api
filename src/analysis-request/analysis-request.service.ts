@@ -116,6 +116,41 @@ export class AnalysisRequestService {
     return formatted;
   }
 
+  async getByProject(userId: string, projectId: string) {
+    const request = await this.prisma.analysis.findFirst({
+      where: { projectId: projectId, request: { requestorId: userId } },
+      select: {
+        requestId: true,
+        project: {
+          select: {
+            projectId: true,
+            name: true,
+            university: true,
+          },
+        },
+        request: {
+          select: {
+            status: true,
+            createdDate: true,
+            lastModified: true,
+          },
+        },
+      },
+    });
+
+    if (!request) return null;
+
+    return {
+      requestId: request.requestId,
+      projectId: request.project.projectId,
+      projectName: request.project.name,
+      projectUniversity: request.project.university,
+      status: request.request.status,
+      createdDate: request.request.createdDate,
+      lastModified: request.request.lastModified,
+    };
+  }
+
   async createRequest(userId: string, dto: AnalysisDto) {
     const request = {
       requestorName: dto.requestorName,
