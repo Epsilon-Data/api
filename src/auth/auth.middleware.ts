@@ -16,9 +16,12 @@ export class AuthMiddleware implements NestMiddleware {
   use(request: Request, response: Response, next: NextFunction) {
     const allowTokenAuth =
       request.method === 'GET' &&
-      request.originalUrl.startsWith(
+      (request.originalUrl.startsWith(
         `${this.configService.get<string>('apiBaseUrl')}/analysis`,
-      )
+      ) ||
+        request.originalUrl.startsWith(
+          `${this.configService.get<string>('apiBaseUrl')}/coordinator`,
+        ))
         ? true
         : false;
     return addToken(

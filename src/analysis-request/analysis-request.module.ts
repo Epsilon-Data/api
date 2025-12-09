@@ -5,5 +5,6 @@ import { AnalysisRequestController } from './analysis-request.controller';
 @Module({
   providers: [AnalysisRequestService],
   controllers: [AnalysisRequestController],
+  exports: [AnalysisRequestService],
 })
 export class AnalysisRequestModule {}

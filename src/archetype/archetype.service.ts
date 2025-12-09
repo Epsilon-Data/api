@@ -357,14 +357,6 @@ export class ArchetypeService {
       token,
     );
     if (res.approximateCount) {
-      const properties: Record<string, object> = {};
-      const schema = {
-        $schema: 'https://json-schema.org/draft/2020-12/schema#',
-        title: res.attributes?.values[0][0],
-        type: 'object',
-        properties,
-      };
-
       const templateGuid = res.attributes?.values[0][1];
       const templateEntity =
         await this.atlas.get<AtlasArchetypeEntityResponseDto>(
@@ -372,7 +364,17 @@ export class ArchetypeService {
           undefined,
           token,
         );
-
+      const properties: Record<string, object> = {};
+      const archetypeId = templateEntity.entity.attributes.qualifiedName
+        .split('@')
+        .at(-1) as string;
+      const schema = {
+        $id: archetypeId,
+        $schema: 'https://json-schema.org/draft/2020-12/schema#',
+        title: res.attributes?.values[0][0],
+        type: 'object',
+        properties,
+      };
       // TODO: handle errors
       for (const key in templateEntity?.referredEntities) {
         const node = templateEntity.referredEntities[key];
@@ -634,10 +636,14 @@ export class ArchetypeService {
     return ALLOWED_TRANSITIONS[current]?.includes(next) ?? false;
   }
 
-  private initJsonObject() {
-    const type = 'object';
-    const properties: Record<string, object> = {};
-    return { type, properties };
+  private initJsonObject(): {
+    type: 'object';
+    properties: Record<string, unknown>;
+  } {
+    return {
+      type: 'object',
+      properties: {},
+    };
   }
 
   private atlasTypeToJSONType(dataType: string): string {
@@ -665,7 +671,7 @@ export class ArchetypeService {
   }
 
   private isEntityAllowedByPermissions(entity: AtlasArchetypeEntityDto) {
-    // Level-0 → always allowed
+    // Level-0 always allowed
     if (entity.attributes?.level === 0) return true;
 
     let isActiveBranchNode = false;
@@ -690,7 +696,7 @@ export class ArchetypeService {
     // TODO: check this logic
     if (isActiveBranchNode) return true;
 
-    // No permission classifications → allow only for ACTIVE branch nodes
+    // No permission classifications, allow only for ACTIVE branch nodes
     if (perms.length === 0) {
       return isActiveBranchNode;
     }
@@ -718,22 +724,22 @@ export class ArchetypeService {
       (c) => c.attributes?.access_level === ArchetypePermission.NONE,
     );
 
-    // explicit NONE on this node → always deny
+    // explicit NONE on this node -  always deny
     if (hasExplicitDeny) {
       return false;
     }
 
-    // explicit non-NONE permission → allow even if inherited is NONE
+    // explicit non-NONE permission - allow even if inherited is NONE
     if (hasExplicitGrant) {
       return true;
     }
 
-    // no explicit perms, but inherited NONE exists → deny
+    // no explicit perms, but inherited NONE exists - deny
     if (hasInheritedDeny) {
       return false;
     }
 
-    // permissions exist, none are NONE → allow
+    // permissions exist, none are NONE -  allow
     return true;
   }
 }

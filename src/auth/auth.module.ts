@@ -27,16 +27,16 @@ import { AuthConfigService } from 'src/config/auth-config.service';
 @Global()
 @Module({
   imports: [ConfigModule],
-  controllers: [],
-  exports: [KeycloakService],
   providers: [AuthConfigService, KeycloakService],
+  exports: [KeycloakService],
 })
 export class AuthModule implements NestModule {
   constructor(private configService: ConfigService) {}
   configure(consumer: MiddlewareConsumer) {
     const excludes = [
       { path: 'health', method: RequestMethod.GET },
-      { path: 'analysis/auth', method: RequestMethod.ALL }, // analysis sdk auth path
+      { path: 'analysis/auth', method: RequestMethod.POST }, // analysis sdk auth path
+      { path: 'coordinator/auth', method: RequestMethod.POST }, // coordinator client auth path
     ];
 
     // only add docs if dev

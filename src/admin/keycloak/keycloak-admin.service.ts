@@ -38,6 +38,7 @@ import {
   KeycloakConflictError,
   KeycloakUnavailableError,
 } from './keycloak-admin.errors';
+import { ClientLoginDto } from 'src/coordinator/dto';
 
 export type UserQueryParams = {
   readonly email?: string;
@@ -536,6 +537,23 @@ export class KeycloakAdminService implements OnModuleInit {
       clientId: this.configService.get<string>('sdk.clientId')!,
       username: login.username,
       password: login.password,
+    });
+
+    const token = await this.kcAdminClient.getAccessToken();
+    return { access_token: token || '' };
+  }
+
+  // used by coordinator
+  async getAccessTokenClient(login: ClientLoginDto): Promise<{
+    access_token: string;
+    expires_in?: number;
+  }> {
+    await this.auth({
+      grantType: 'client_credentials',
+      clientId:
+        login.clientId ??
+        this.configService.get<string>('coordinator.clientId'),
+      clientSecret: login.clientSecret,
     });
 
     const token = await this.kcAdminClient.getAccessToken();

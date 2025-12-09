@@ -179,3 +179,121 @@ export class TableColumnRefDto {
   @IsString()
   table!: string;
 }
+
+export class DatasetForeignKeyDto {
+  @ApiProperty({
+    description: 'Name of the referenced table',
+    example: 'public.participants',
+  })
+  @IsDefined()
+  @IsString()
+  referenceTable!: string;
+
+  @ApiProperty({
+    description:
+      'Columns in the current table participating in the foreign key',
+    example: ['participant_id'],
+  })
+  @IsDefined()
+  @IsArray()
+  @IsString({ each: true })
+  keyColumns!: string[];
+
+  @ApiProperty({
+    description:
+      'Columns in the referenced table that the foreign key points to',
+    example: ['id'],
+  })
+  @IsDefined()
+  @IsArray()
+  @IsString({ each: true })
+  refColumns!: string[];
+}
+
+export class DatasetTableReferenceDto {
+  @ApiProperty({
+    description: 'Database name in which the table resides',
+    example: 'public',
+  })
+  @IsDefined()
+  @IsString()
+  db!: string;
+
+  @ApiProperty({
+    description: 'Foreign keys defined on this table',
+    type: () => [DatasetForeignKeyDto],
+    example: [
+      {
+        referenceTable: 'participants',
+        keyColumns: ['participant_id'],
+        refColumns: ['id'],
+      },
+    ],
+  })
+  @IsDefined()
+  @IsArray()
+  foreignKeys!: DatasetForeignKeyDto[];
+}
+
+export class DatasetDataObjectDto {
+  @ApiProperty({
+    description: 'Label of the data element from the archetype node',
+    example: 'Heart rate',
+  })
+  @IsDefined()
+  @IsString()
+  label!: string;
+
+  @ApiProperty({
+    description: 'Table name this data object comes from',
+    example: 'measurements',
+  })
+  @IsDefined()
+  @IsString()
+  table!: string;
+
+  @ApiProperty({
+    description: 'Column name in the table that stores this data object',
+    example: 'heart_rate_value',
+  })
+  @IsDefined()
+  @IsString()
+  column!: string;
+}
+
+export class DatasetDetailsResponseDto {
+  @ApiProperty({
+    description:
+      'Map of table name - table metadata (database name and foreign keys)',
+    example: {
+      measurements: {
+        db: 'public',
+        foreignKeys: [
+          {
+            referenceTable: 'public.participants',
+            keyColumns: ['participant_id'],
+            refColumns: ['id'],
+          },
+        ],
+      },
+    },
+  })
+  @IsDefined()
+  @IsObject()
+  tableReferences!: Record<string, DatasetTableReferenceDto>;
+
+  @ApiProperty({
+    description:
+      'Map of data object name - data object details (label, table, column)',
+    example: {
+      heart_rate: {
+        label: 'Heart rate',
+        table: 'measurements',
+        column: 'heart_rate_value',
+      },
+    },
+  })
+  @IsDefined()
+  @IsObject()
+  dataObjects!: Record<string, DatasetDataObjectDto>;
+}

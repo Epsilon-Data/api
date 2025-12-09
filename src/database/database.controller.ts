@@ -169,6 +169,11 @@ export class DatabaseController {
     },
   })
   async columns(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    const result = await this.databaseSourceService.getDatasetDetails(
+      'b19e1e6c-f2eb-494d-8e7f-8cfa38469a99',
+      '3kHBQLNwl9qc',
+    );
+    console.log(JSON.stringify(result));
     return await this.databaseSourceService.columns(projectId);
   }
 

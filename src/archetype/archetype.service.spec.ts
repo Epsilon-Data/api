@@ -955,6 +955,7 @@ describe('ArchetypeService', () => {
       const token = 'test-token';
       const archetypeId = 'Xa7BAIWZCA8u';
       const templateGuid = '329fedeb-c6ac-4b37-996c-f658c2cdeafd';
+      const templateQN = `${projectId}@${archetypeId}`;
       const templateName = 'My Archetype Title';
 
       // mock for getting GUID and name of PUBLISHED template
@@ -983,7 +984,9 @@ describe('ArchetypeService', () => {
         entity: {
           guid: templateGuid,
           typeName: AtlasArchetypeTypeName.Template,
+
           attributes: {
+            qualifiedName: templateQN,
             name: templateName,
             status: 'PUBLISHED',
           },
@@ -1085,6 +1088,7 @@ describe('ArchetypeService', () => {
       atlas.get.mockResolvedValueOnce(columnEntity);
 
       const schema = (await service.getAnalysisArchetype(projectId, token)) as {
+        $id: string;
         $schema: 'https://json-schema.org/draft/2020-12/schema#';
         title: string;
         type: 'object';
@@ -1135,6 +1139,7 @@ describe('ArchetypeService', () => {
         token,
       );
 
+      expect(schema.$id).toBe(archetypeId);
       // Schema basics
       expect(schema.$schema).toBe(
         'https://json-schema.org/draft/2020-12/schema#',

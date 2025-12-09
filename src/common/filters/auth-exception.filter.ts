@@ -52,7 +52,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
     }
 
     if (isKeycloakNetworkError(exception)) {
-      // Map Keycloak error → HTTP response
+      // Map Keycloak error -  HTTP response
       const status =
         exception.response?.status && exception.response.status >= 400
           ? exception.response.status
