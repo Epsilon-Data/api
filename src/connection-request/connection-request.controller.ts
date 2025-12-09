@@ -3,37 +3,49 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   InternalServerErrorException,
   Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   ServiceUnavailableException,
   UnauthorizedException,
+  UseGuards,
   // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection-request.service';
-import { DatabaseTestDto } from './dto';
+import {
+  ConnectionDecisionDto,
+  ConnectionRequestResponseDto,
+  DatabaseTestDto,
+} from './dto';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiInternalServerErrorResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
-// import { Scopes } from 'src/auth/scopes.decorator';
-// import { Resource } from 'src/auth/resource.decorator';
-// import { ResourceGuard } from 'src/auth/resource.guard';
-// import { ScopesGuard } from 'src/common/guards/scopes.guard';
+import { Resource } from 'src/common/decorators/resource.decorator';
+import { Scopes } from 'src/common/decorators/scopes.decorator';
+import { ResourceGuard } from 'src/common/guards/resource.guard';
+import { GenericErrorResponseDto } from 'src/common/dto';
 
 @ApiTags('Connection Request')
 @ApiBearerAuth()
-// @Resource('project')
+@Resource('project')
 @Controller('connection-request')
 export class ConnectionRequestController {
   constructor(private connectionRequestService: ConnectionRequestService) {}
@@ -41,6 +53,37 @@ export class ConnectionRequestController {
   @Get()
   @ApiOperation({
     summary: 'Get list of logged in user connection requests',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid database / config (e.g. DB does not exist)',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'List of user submitted connection requests are returned',
+    type: ConnectionRequestResponseDto,
+    isArray: true,
   })
   getList(@CurrentUser() user: CurrentUserInfo) {
     return this.connectionRequestService.getList(user.id);
@@ -58,12 +101,32 @@ export class ConnectionRequestController {
   })
   @ApiBadRequestResponse({
     description: 'Invalid database / config (e.g. DB does not exist)',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
   })
   @ApiServiceUnavailableResponse({
     description: 'Database host unreachable / connection refused',
   })
   @ApiInternalServerErrorResponse({
     description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
   })
   async testConnection(@Body() database: DatabaseTestDto) {
     try {
@@ -104,15 +167,66 @@ export class ConnectionRequestController {
     }
   }
 
-  // TODO: protect with resource guard of projects + connect scope
-  @Post(':requestId')
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit', 'connect')
+  @Patch(':projectId/:requestId')
   @ApiOperation({
     summary: 'Approve connection request',
   })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'Connection request approved',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Request not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   async approve(
     @CurrentUser() user: CurrentUserInfo,
-    @Param('requestId') requestId: string,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: ConnectionDecisionDto,
   ) {
-    return await this.connectionRequestService.approve(user.id, requestId);
+    return await this.connectionRequestService.approve(
+      user,
+      requestId,
+      projectId,
+      dto,
+    );
   }
 }

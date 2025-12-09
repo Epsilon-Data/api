@@ -1,4 +1,4 @@
-import { ModuleMetadata, Type } from '@nestjs/common';
+import { FactoryProvider, ModuleMetadata, Type } from '@nestjs/common';
 
 export const ADMIN_CONFIG = 'ADMIN_CONFIG';
 export const KEYCLOAK_ADMIN_INSTANCE = 'KEYCLOAK_ADMIN_INSTANCE';
@@ -17,10 +17,10 @@ export interface AdminModuleConfigFactory {
 
 export interface AdminModuleAsyncConfig
   extends Pick<ModuleMetadata, 'imports'> {
-  inject?: any[];
+  inject?: FactoryProvider['inject'];
   useExisting?: Type<AdminModuleConfigFactory>;
   useClass?: Type<AdminModuleConfigFactory>;
   useFactory?: (
-    ...args: any[]
+    ...args: unknown[]
   ) => Promise<AdminModuleConfig> | AdminModuleConfig;
 }
