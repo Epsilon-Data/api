@@ -367,7 +367,7 @@ export class ArchetypeService {
       const properties: Record<string, object> = {};
       const archetypeId = templateEntity.entity.attributes.qualifiedName
         .split('@')
-        .at(-1);
+        .at(-1) as string;
       const schema = {
         $id: archetypeId,
         $schema: 'https://json-schema.org/draft/2020-12/schema#',

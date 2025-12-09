@@ -1,14 +1,11 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { AnalysisService } from './analysis.service';
+import { Module } from '@nestjs/common';
 import { AnalysisController } from './analysis.controller';
 import { AdminModule } from 'src/admin/admin.module';
-import { ArchetypeService } from 'src/archetype/archetype.service';
-import { DatabaseModule } from 'src/database/database.module';
-import { AnalysisRequestService } from 'src/analysis-request/analysis-request.service';
+import { ArchetypeModule } from 'src/archetype/archetype.module';
+import { AnalysisRequestModule } from 'src/analysis-request/analysis-request.module';
 
 @Module({
-  imports: [AdminModule, forwardRef(() => DatabaseModule)],
+  imports: [AdminModule, ArchetypeModule, AnalysisRequestModule],
   controllers: [AnalysisController],
-  providers: [AnalysisService, ArchetypeService, AnalysisRequestService],
 })
 export class AnalysisModule {}

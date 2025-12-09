@@ -20,6 +20,7 @@ import configuration from './config/configuration';
 import { AdminConfigService } from './config/admin-config.service';
 import { AuthConfigService } from './config/auth-config.service';
 import { AnalysisModule } from './analysis/analysis.module';
+import { CoordinatorModule } from './coordinator/coordinator.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AnalysisModule } from './analysis/analysis.module';
     DatabaseModule,
     AtlasModule,
     DockerModule,
+    CoordinatorModule,
   ],
   controllers: [AppController],
   providers: [AdminConfigService, AuthConfigService],

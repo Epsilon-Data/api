@@ -19,7 +19,6 @@ import { AdminConfigService } from 'src/config/admin-config.service';
 @Module({
   imports: [ConfigModule],
   controllers: [AdminController],
-  exports: [],
   providers: [AdminConfigService],
 })
 export class AdminModule {
