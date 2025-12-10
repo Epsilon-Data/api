@@ -107,6 +107,19 @@ export class AnalysisRequestController {
     type: AnalysisRequestSummaryInfoDto,
     isArray: true,
   })
+  @ApiNotFoundResponse({
+    description: 'Project not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
   @ApiBadRequestResponse({
     description: 'Invalid request data for database operation',
     content: {
