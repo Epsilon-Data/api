@@ -138,11 +138,7 @@ export class AnalysisRequestService {
       },
     });
 
-    if (!request) {
-      throw new NotFoundException(
-        `No requests found for requestor ID '${userId}' for project ID${projectId}`,
-      );
-    }
+    if (!request) return null;
 
     return {
       requestId: request.requestId,
