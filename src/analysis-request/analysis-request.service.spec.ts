@@ -15,6 +15,7 @@ describe('AnalysisRequestService', () => {
       findMany: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      findFirst: jest.Mock;
     };
     request: {
       update: jest.Mock;
@@ -37,6 +38,7 @@ describe('AnalysisRequestService', () => {
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        findFirst: jest.fn(),
       },
       request: {
         update: jest.fn(),
@@ -247,6 +249,94 @@ describe('AnalysisRequestService', () => {
           lastModified: requestList[1].request.lastModified,
         },
       ]);
+    });
+  });
+
+  describe('getByProject', () => {
+    it('should return mapped request summary for a given project', async () => {
+      const userId = 'user-1';
+      const projectId = 'proj-123';
+
+      const prismaResult = {
+        requestId: 'req-1',
+        project: {
+          projectId: projectId,
+          name: 'Project Name',
+          university: 'Monash University',
+        },
+        request: {
+          status: $Enums.RequestStatus.PENDING,
+          createdDate: new Date('2025-01-01T00:00:00.000Z'),
+          lastModified: new Date('2025-01-02T00:00:00.000Z'),
+        },
+      };
+
+      prisma.analysis.findFirst.mockResolvedValue(prismaResult);
+
+      const result = await service.getByProject(userId, projectId);
+
+      expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
+        where: { projectId: projectId, request: { requestorId: userId } },
+        select: {
+          requestId: true,
+          project: {
+            select: {
+              projectId: true,
+              name: true,
+              university: true,
+            },
+          },
+          request: {
+            select: {
+              status: true,
+              createdDate: true,
+              lastModified: true,
+            },
+          },
+        },
+      });
+
+      expect(result).toEqual({
+        requestId: prismaResult.requestId,
+        projectId: prismaResult.project.projectId,
+        projectName: prismaResult.project.name,
+        projectUniversity: prismaResult.project.university,
+        status: prismaResult.request.status,
+        createdDate: prismaResult.request.createdDate,
+        lastModified: prismaResult.request.lastModified,
+      });
+    });
+
+    it('should throw NotFoundException when no request is found for the project and user', async () => {
+      const userId = 'user-1';
+      const projectId = 'proj-123';
+
+      prisma.analysis.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getByProject(userId, projectId),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
+        where: { projectId: projectId, request: { requestorId: userId } },
+        select: {
+          requestId: true,
+          project: {
+            select: {
+              projectId: true,
+              name: true,
+              university: true,
+            },
+          },
+          request: {
+            select: {
+              status: true,
+              createdDate: true,
+              lastModified: true,
+            },
+          },
+        },
+      });
     });
   });
 
