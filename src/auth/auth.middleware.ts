@@ -4,19 +4,31 @@ import type { AuthModuleConfig } from './config.interface';
 import { Request, Response, NextFunction } from 'express';
 
 import { addToken } from '@epsilon-data/epsilon-api-middleware';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
-  constructor(@Inject(AUTH_CONFIG) private config: AuthModuleConfig) {
-    this.config = config;
-  }
+  constructor(
+    @Inject(AUTH_CONFIG) private readonly config: AuthModuleConfig,
+    private configService: ConfigService,
+  ) {}
 
   use(request: Request, response: Response, next: NextFunction) {
+    const allowTokenAuth =
+      request.method === 'GET' &&
+      (request.originalUrl.startsWith(
+        `${this.configService.get<string>('apiBaseUrl')}/analysis`,
+      ) ||
+        request.originalUrl.startsWith(
+          `${this.configService.get<string>('apiBaseUrl')}/coordinator`,
+        ))
+        ? true
+        : false;
     return addToken(
       this.config.encryptionKey,
       this.config.cookiePrefix,
       this.config.trustedWebOrigins,
-      this.config.allowTokenAuth,
+      allowTokenAuth,
     )(request, response, next);
   }
 }

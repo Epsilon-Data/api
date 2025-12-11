@@ -198,7 +198,7 @@ export class DockerService {
       return data.State.Running === true;
     } catch (err) {
       if (err.statusCode === 404) {
-        console.log(`Container ${containerId} not found`);
+        this.logger.error(`Container ${containerId} not found`);
         return false;
       }
       throw err; // rethrow for other errors

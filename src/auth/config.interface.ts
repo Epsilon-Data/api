@@ -1,4 +1,4 @@
-import { ModuleMetadata, Type } from '@nestjs/common';
+import { FactoryProvider, ModuleMetadata, Type } from '@nestjs/common';
 
 export const AUTH_CONFIG = 'AUTH_CONFIG';
 export const AUTH_MODULE_CONFIG_FACTORY = 'ADMIN_MODULE_CONFIG_FACTORY';
@@ -7,7 +7,6 @@ export const KEYCLOAK_INSTANCE = 'KEYCLOAK_INSTANCE';
 export type AuthModuleConfig = {
   issuerBaseURL: string;
   audience: string;
-  scopePrefix: string;
   cookiePrefix: string;
   encryptionKey: string;
   trustedWebOrigins: string[];
@@ -19,12 +18,11 @@ export interface AuthModuleConfigFactory {
   createKeycloakConnectOptions(): Promise<AuthModuleConfig> | AuthModuleConfig;
 }
 
-// export type AuthModuleAsyncConfig = Pick<ModuleMetadata, 'imports'> &
-//   Pick<FactoryProvider<AuthModuleConfig>, 'useFactory' | 'inject'>;
-
 export interface AuthModuleAsyncConfig extends Pick<ModuleMetadata, 'imports'> {
-  inject?: any[];
+  inject?: FactoryProvider['inject'];
   useExisting?: Type<AuthModuleConfigFactory>;
   useClass?: Type<AuthModuleConfigFactory>;
-  useFactory?: (...args: any[]) => Promise<AuthModuleConfig> | AuthModuleConfig;
+  useFactory?: (
+    ...args: unknown[]
+  ) => Promise<AuthModuleConfig> | AuthModuleConfig;
 }

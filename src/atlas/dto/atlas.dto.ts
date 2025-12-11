@@ -25,10 +25,10 @@ export enum AtlasQueryType {
   DSL = 'DSL',
 }
 
-export enum AtlasArchetypeNodeTypeName {
-  Root = 'root_node',
-  Branch = 'branch_node',
-  Leaf = 'leaf_node',
+export enum AtlasArchetypeNodeType {
+  ROOT = 'ROOT',
+  BRANCH = 'BRANCH',
+  LEAF = 'LEAF',
 }
 export enum AtlasArchetypeTypeName {
   Template = 'archetype_template',
@@ -76,6 +76,10 @@ export class AtlasArchetypeNodeAttributesDto {
   @IsOptional()
   @IsString()
   label?: string;
+
+  @IsOptional()
+  @IsEnum(AtlasArchetypeNodeType)
+  type?: AtlasArchetypeNodeType;
 
   @IsOptional()
   @IsString()

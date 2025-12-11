@@ -18,7 +18,7 @@ import {
 } from 'class-validator';
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
-import { $Enums, Prisma } from '@prisma/client';
+import { $Enums, Prisma } from 'src/generated/prisma/client';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   ConnectionDto,

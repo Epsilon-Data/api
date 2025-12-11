@@ -13,16 +13,9 @@ import {
   ConditionalScopeFn,
   META_CONDITIONAL_SCOPES,
 } from '../decorators/scopes.decorator';
-import { KeycloakAuthzRequestDto, PermissionDto } from 'src/auth/keycloak/dto';
+import { KeycloakAuthzRequestDto, PermissionDto } from 'src/auth/dto';
 import { Request, Response } from 'express';
-
-// import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
-// type RouteParamMetadata = {
-//   index: number;
-//   data: any;
-//   pipes: any[];
-//   type: string;
-// };
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class ResourceGuard implements CanActivate {
@@ -31,24 +24,6 @@ export class ResourceGuard implements CanActivate {
   constructor(private keycloakConnect: KeycloakService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // const defaultEnforcerOpts: KeycloakConnect.EnforcerOptions = {
-    //   response_mode: 'permissions',
-    //   // resource_server_id: 'epsilon-token-handler',
-    //   // claims: (request: any) => {
-    //   //   const httpUri = request.url;
-    //   //   const userAgent = request.headers['user-agent'];
-
-    //   //   this.logger.verbose(
-    //   //     `Enforcing claims, http.uri: ${httpUri}, user.agent: ${userAgent}`,
-    //   //   );
-
-    //   //   return {
-    //   //     'http.uri': [httpUri],
-    //   //     'user.agent': userAgent,
-    //   //   };
-    //   // },
-    // };
-
     // get context
     const ctx = context.switchToHttp();
     const request = ctx.getRequest<
@@ -63,6 +38,14 @@ export class ResourceGuard implements CanActivate {
     if (!request) {
       return true;
     }
+
+    const userId = request?.auth?.payload?.sub;
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    // if no user and set to public bypass
+    if (!userId && isPublic) return true;
 
     // get resource meta
     const metaResource =
@@ -83,10 +66,9 @@ export class ResourceGuard implements CanActivate {
       META_CONDITIONAL_SCOPES,
       context.getHandler(),
     );
-    const conditionalScopesResult =
-      conditionalScopes != null || conditionalScopes != undefined
-        ? conditionalScopes(request, request.auth?.token || '')
-        : [];
+    const conditionalScopesResult = conditionalScopes
+      ? conditionalScopes(request, request.auth?.token || '')
+      : [];
 
     // combine scopes
     const scopes = [...explicitScopes, ...conditionalScopesResult];
@@ -104,7 +86,7 @@ export class ResourceGuard implements CanActivate {
       response_mode: 'permissions', // can be 'decision'
     };
 
-    const res = await this.keycloakConnect.checkPermission(
+    const isAllowed = await this.keycloakConnect.checkPermission(
       authzRequest,
       request,
     );
@@ -112,22 +94,6 @@ export class ResourceGuard implements CanActivate {
     if (response.headersSent) {
       throw UnauthorizedException(`Invalid scopes`);
     }
-    return res?.result || false;
+    return isAllowed;
   }
 }
-
-// const createEnforcerContext =
-//   (request: any, response: any, options?: KeycloakConnect.EnforcerOptions) =>
-//   (keycloak: KeycloakConnect.Keycloak, permissions: string[]) =>
-//     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-//     new Promise<boolean>((resolve, _) =>
-//       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-//       keycloak.enforcer(permissions, options)(request, response, (_: any) => {
-//         // console.log(response);
-//         if (request.resourceDenied) {
-//           resolve(false);
-//         } else {
-//           resolve(true);
-//         }
-//       }),
-//     );

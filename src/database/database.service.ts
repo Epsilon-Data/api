@@ -2,16 +2,23 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import {
+  AtlasArchetypeEntityResponseDto,
+  AtlasArchetypeTypeName,
   AtlasBulkEntityResponseDto,
   AtlasEntityDto,
   AtlasEntityHeaderDto,
   AtlasEntityResponseDto,
+  AtlasRelatedEntityRefDto,
   AtlasSearchDslResponseDto,
 } from 'src/atlas/dto';
 import {
   ColumnInfoDto,
   DatabaseSummaryResponseDto,
   DatabaseTableDto,
+  DatasetDataObjectDto,
+  DatasetDetailsResponseDto,
+  DatasetForeignKeyDto,
+  DatasetTableReferenceDto,
 } from './dto';
 
 @Injectable()
@@ -188,6 +195,130 @@ export class DatabaseService {
     });
 
     return output;
+  }
+
+  async getDatasetDetails(
+    projectId: string,
+    archetypeId: string,
+    token?: string,
+  ): Promise<DatasetDetailsResponseDto> {
+    const qualifiedName = `${projectId}@${archetypeId}`;
+    const result: DatasetDetailsResponseDto = {
+      tableReferences: {} as Record<string, DatasetTableReferenceDto>,
+      dataObjects: {} as Record<string, DatasetDataObjectDto>,
+    };
+    const templateEntity =
+      await this.atlas.get<AtlasArchetypeEntityResponseDto>(
+        `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+        {
+          'attr:qualifiedName': qualifiedName,
+          ignoreRelationships: false, // default false
+          minExtInfo: false, // default false
+        },
+        token,
+      );
+    for (const key in templateEntity?.referredEntities) {
+      const node = templateEntity.referredEntities[key];
+
+      if (
+        node.status !== 'ACTIVE' &&
+        node.typeName !== AtlasArchetypeTypeName.Node
+      )
+        continue;
+      // check if node has a column
+      if (node.relationshipAttributes?.column) {
+        // skip if relationship inactive
+        const column = node.relationshipAttributes?.column;
+        if (column.relationshipStatus !== 'ACTIVE') continue;
+        // get label and object name
+        const label = node.attributes?.label as string;
+        const objectName = label.replace(/\s+/g, '_').toLowerCase();
+
+        // get column info
+        const columnEntity = await this.atlas.get<AtlasEntityResponseDto>(
+          `/entity/guid/${column.guid}`,
+          undefined,
+          token,
+        );
+
+        const table = columnEntity.entity.relationshipAttributes
+          ?.table as AtlasRelatedEntityRefDto;
+        if (table.relationshipStatus !== 'ACTIVE') continue; // shouldn't happen
+        const tableName = table.displayText;
+        // add data object reference
+        result.dataObjects[objectName] = {
+          label,
+          table: tableName,
+          column:
+            (columnEntity.entity.attributes?.name as string) ??
+            columnEntity.entity.displayText,
+        };
+
+        // check if table ref already existing
+        if (!result.tableReferences[tableName]) {
+          const tableEntity = await this.atlas.get<AtlasEntityResponseDto>(
+            `/entity/guid/${table.guid}`,
+            undefined,
+            token,
+          );
+          // get db name
+          const db = tableEntity.entity.relationshipAttributes
+            ?.db as AtlasRelatedEntityRefDto;
+          if (db.relationshipStatus !== 'ACTIVE') continue; // shouldn't happen
+
+          const foreignKeys: DatasetForeignKeyDto[] = [];
+          // iterate foreign keys
+          const referred = tableEntity.referredEntities ?? {};
+          for (const key in referred) {
+            const entity = referred[key];
+            // only look at foreign keys
+            if (
+              entity?.status !== 'ACTIVE' ||
+              entity?.typeName !== 'rdbms_foreign_key'
+            )
+              continue;
+            const refTable = entity.relationshipAttributes
+              ?.references_table as AtlasRelatedEntityRefDto;
+            if (refTable.relationshipStatus !== 'ACTIVE') continue; // shouldn't happen
+
+            const keyColumns = (
+              entity.relationshipAttributes
+                ?.key_columns as AtlasRelatedEntityRefDto[]
+            )
+              .filter(
+                (e) =>
+                  e.relationshipStatus === 'ACTIVE' &&
+                  e.typeName === 'rdbms_column',
+              )
+              .map((c) => c.displayText);
+
+            const refColumns = (
+              entity.relationshipAttributes
+                ?.references_columns as AtlasRelatedEntityRefDto[]
+            )
+              .filter(
+                (e) =>
+                  e.relationshipStatus === 'ACTIVE' &&
+                  e.typeName === 'rdbms_column',
+              )
+              .map((c) => c.displayText);
+
+            // add foreign key
+            foreignKeys.push({
+              referenceTable: refTable.displayText,
+              refColumns,
+              keyColumns,
+            });
+          }
+
+          result.tableReferences[tableName] = {
+            db: db.displayText,
+            foreignKeys,
+          };
+        }
+      }
+    }
+    return result;
   }
 
   private async getInstanceInfo(projectId: string, token?: string) {

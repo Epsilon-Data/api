@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
-// import { APP_GUARD } from '@nestjs/core';
 
 import { AuthModule } from './auth/auth.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { ConnectionRequestModule } from './connection-request/connection-request.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { DatabaseModule } from './database/database.module';
@@ -18,26 +17,20 @@ import { QueueModule } from './queue/queue.module';
 import { ArchetypeModule } from './archetype/archetype.module';
 import { NotificationModule } from './notification/notification.module';
 import configuration from './config/configuration';
-import { AdminConfigService } from './config/admin.config.service';
-import { AuthConfigService } from './config/auth.config.service';
+import { AdminConfigService } from './config/admin-config.service';
+import { AuthConfigService } from './config/auth-config.service';
 import { AnalysisModule } from './analysis/analysis.module';
+import { CoordinatorModule } from './coordinator/coordinator.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ load: [configuration], isGlobal: true }),
     AuthModule.forRootAsync({
       imports: [ConfigModule],
-      inject: [ConfigService],
       useExisting: AuthConfigService,
     }),
-    ConnectionRequestModule,
-    PrismaModule,
-    DatabaseModule,
-    AtlasModule,
-    DockerModule,
     AdminModule.forRootAsync({
       imports: [ConfigModule],
-      inject: [ConfigService],
       useExisting: AdminConfigService,
     }),
     ProjectModule,
@@ -48,7 +41,14 @@ import { AnalysisModule } from './analysis/analysis.module';
     ArchetypeModule,
     NotificationModule,
     AnalysisModule,
+    ConnectionRequestModule,
+    PrismaModule,
+    DatabaseModule,
+    AtlasModule,
+    DockerModule,
+    CoordinatorModule,
   ],
   controllers: [AppController],
+  providers: [AdminConfigService, AuthConfigService],
 })
 export class AppModule {}

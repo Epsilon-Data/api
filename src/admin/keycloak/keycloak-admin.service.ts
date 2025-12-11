@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   KeycloakAdminClient,
   UserRepresentation,
@@ -13,58 +13,32 @@ import {
   DecisionStrategy,
   Logic,
 } from '@epsilon-data/keycloak-admin-client';
-import { ADMIN_CONFIG, KEYCLOAK_ADMIN_INSTANCE } from '../config.interface';
+import {
+  ADMIN_CONFIG,
+  KEYCLOAK_ADMIN_INSTANCE,
+} from '../admin-config.interface';
 
-import type { AdminModuleConfig } from '../config.interface';
+import type { AdminModuleConfig } from '../admin-config.interface';
 
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from 'src/analysis/dto';
+import {
+  resourcePrefix,
+  analysisPolicyPrefix,
+  analysisPermissionPrefix,
+  analysisPermissions,
+} from 'src/utils/options.util';
 
-// FIXME: add to consts and DTOs
-const resourcePrefix = 'project:';
-const projectScopes = [
-  {
-    name: 'view',
-  },
-  {
-    name: 'stats',
-  },
-  {
-    name: 'edit',
-  },
-  {
-    name: 'approve',
-  },
-  {
-    name: 'analysis',
-  },
-  {
-    name: 'delete',
-  },
-  {
-    name: 'connect',
-  },
-];
-const ownerPolicyPrefix = 'Owner of ';
-const ownerPermissionPrefix = 'Owner ';
-const ownerPermissions = [
-  'view',
-  'edit',
-  'delete',
-  'approve',
-  'analysis',
-  'stats',
-];
-const groupPrefix = 'Collaborators of ';
-const groupPolicyPrefix = 'Collaborators on ';
-const groupPermissionPrefix = 'Collaborators ';
-const groupPermissions = ['view', 'edit', 'approve', 'analysis', 'stats'];
-const custodianPolicyPrefix = 'Custodian of ';
-const custodianPermissionPrefix = `Custodian `;
-const custodianPermissions = ['view', 'edit', 'connect'];
-const analysisPolicyPrefix = 'Analysis of ';
-const analysisPermissionPrefix = `Analysis `;
-const analysisPermissions = ['analysis'];
+import {
+  KeycloakAdminError,
+  KeycloakBadRequestError,
+  KeycloakUnauthorizedError,
+  KeycloakForbiddenError,
+  KeycloakNotFoundError,
+  KeycloakConflictError,
+  KeycloakUnavailableError,
+} from './keycloak-admin.errors';
+import { ClientLoginDto } from 'src/coordinator/dto';
 
 export type UserQueryParams = {
   readonly email?: string;
@@ -76,22 +50,48 @@ export type UserQueryParams = {
   readonly username?: string;
 };
 
+type UserWithLastLogin = UserRepresentation & {
+  lastLogin: Date | null;
+};
+
 export interface ExtendedPolicyRepresentation extends PolicyRepresentation {
   groups?: string[];
 }
+
 @Injectable()
-export class KeycloakAdminService {
+export class KeycloakAdminService implements OnModuleInit {
   private readonly logger = new Logger('KeycloakAdminService');
-  // TODO: get client for resource service
-  // private client
-  // private kcAdminClient: KeycloakAdminClient;
+  private defaultClient: ClientRepresentation;
 
   constructor(
-    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     @Inject(KEYCLOAK_ADMIN_INSTANCE)
     private kcAdminClient: KeycloakAdminClient,
+    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     private configService: ConfigService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.logger.log('Initialising KeycloakAdminService…');
+
+    try {
+      const credentials: Credentials = {
+        grantType: 'client_credentials',
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+      };
+      await this.auth(credentials);
+      // set defaultClient
+      this.defaultClient = await this.getClientById();
+
+      this.logger.log('KeycloakAdminService initialised successfully');
+    } catch (err) {
+      this.logger.error(
+        'Failed to initialise KeycloakAdminService',
+        err as Error,
+      );
+      throw err; // Fatal error on startup
+    }
+  }
 
   async auth(credentials: Credentials) {
     return await this.kcAdminClient.auth(credentials);
@@ -105,8 +105,7 @@ export class KeycloakAdminService {
         await this.mapRealmRolesToUser(userId.id, userRoles);
       return userId;
     } catch (error) {
-      this.logger.error('Error in createUser', error);
-      throw error;
+      return this.handleKeycloakError('createUser', error);
     }
   }
   async setUserActions(userId: string) {
@@ -117,7 +116,7 @@ export class KeycloakAdminService {
         actions: ['UPDATE_PASSWORD'],
       });
     } catch (error) {
-      this.logger.error('Error in setUserActions', error);
+      return this.handleKeycloakError('setUserActions', error);
     }
   }
 
@@ -150,7 +149,9 @@ export class KeycloakAdminService {
     }
   }
 
-  async getAllUsersAndLastLogin(query?: UserQueryParams) {
+  async getAllUsersAndLastLogin(
+    query?: UserQueryParams,
+  ): Promise<UserWithLastLogin[]> {
     try {
       const usersQuery = this.kcAdminClient.users.find(
         {
@@ -177,7 +178,7 @@ export class KeycloakAdminService {
         };
       });
     } catch (error) {
-      this.logger.error('Error in getAllUsersAndLastLogin', error);
+      return this.handleKeycloakError('getAllUsersAndLastLogin', error);
     }
   }
   async getAllUsers(query?: UserQueryParams) {
@@ -190,27 +191,30 @@ export class KeycloakAdminService {
         { catchNotFound: false },
       );
     } catch (error) {
-      this.logger.error('Error in getAllUsers', error);
+      return this.handleKeycloakError('getAllUsers', error);
     }
   }
 
-  async getClientByName() {
+  async getClientById(clientId?: string) {
+    const requestedClientId =
+      clientId ?? this.configService.get<string>('auth.clientId');
     try {
       const clients = await this.kcAdminClient.clients.find(
         {
-          clientId: 'epsilon-token-handler',
+          clientId: requestedClientId,
           realm: this.config.realm,
         },
         { catchNotFound: false },
       );
-      if (clients.length) {
-        return clients[0];
-      } else {
-        throw new Error('Keycloak client does not exist!');
+      if (!clients.length) {
+        throw new KeycloakNotFoundError(
+          `Keycloak client '${requestedClientId}' does not exist`,
+        );
       }
+
+      return clients[0];
     } catch (error) {
-      this.logger.error('Error in getClientByName', error);
-      throw error;
+      return this.handleKeycloakError('getClientById', error);
     }
   }
 
@@ -218,10 +222,10 @@ export class KeycloakAdminService {
     try {
       return await this.kcAdminClient.clients.find();
     } catch (error) {
-      this.logger.error('Error in getClients', error);
+      return this.handleKeycloakError('getClients', error);
     }
   }
-  async getUserInfoById(id: string) {
+  async getUserInfoById(id: string): Promise<UserWithLastLogin> {
     try {
       const userQuery = this.kcAdminClient.users.findOne(
         {
@@ -246,9 +250,11 @@ export class KeycloakAdminService {
           ...user,
           lastLogin: lastLoginEvent ? new Date(lastLoginEvent.time!) : null,
         };
+      } else {
+        throw new KeycloakNotFoundError(`Keycloak user '${id}' does not exist`);
       }
     } catch (error) {
-      this.logger.error('Error in getUserInfoById', error);
+      return this.handleKeycloakError('getUserInfoById', error);
     }
   }
 
@@ -262,8 +268,7 @@ export class KeycloakAdminService {
         { catchNotFound: false },
       );
     } catch (error) {
-      this.logger.error('Error in getUserById', error);
-      throw error;
+      return this.logKeycloakError('getUserById', error);
     }
   }
 
@@ -277,7 +282,7 @@ export class KeycloakAdminService {
         { catchNotFound: false },
       );
     } catch (error) {
-      this.logger.error('Error in getAllUsers', error);
+      return this.logKeycloakError('checkUser', error);
     }
   }
 
@@ -288,7 +293,7 @@ export class KeycloakAdminService {
         user,
       );
     } catch (error) {
-      this.logger.error('Error in updateUser', error);
+      return this.handleKeycloakError('updateUser', error);
     }
   }
 
@@ -299,7 +304,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in deleteUser', error);
+      return this.handleKeycloakError('deleteUser', error);
     }
   }
 
@@ -312,7 +317,7 @@ export class KeycloakAdminService {
       )) as ResourceRepresentation;
       return { id: roleRepresentation?.id as string };
     } catch (error) {
-      this.logger.error('Error in createRole', error);
+      return this.handleKeycloakError('createRole', error);
     }
   }
   async createGroup(group: GroupRepresentation) {
@@ -322,8 +327,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in createGroup', error);
-      throw error;
+      return this.handleKeycloakError('createGroup', error);
     }
   }
   async addUserToGroup(id: string, groupId: string) {
@@ -334,8 +338,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in addUserToGroup', error);
-      throw error;
+      return this.handleKeycloakError('addUserToGroup', error);
     }
   }
   async getGroupById(id: string) {
@@ -345,8 +348,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in getGroupById', error);
-      throw error;
+      return this.handleKeycloakError('getGroupById', error);
     }
   }
   async getGroupByName(name: string) {
@@ -357,8 +359,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in getGroupById', error);
-      throw error;
+      return this.handleKeycloakError('getGroupByName', error);
     }
   }
   async getRoleById(id: string) {
@@ -368,8 +369,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in getRoleById', error);
-      throw error;
+      return this.handleKeycloakError('getRoleById', error);
     }
   }
 
@@ -380,8 +380,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in getRoleByName', error);
-      throw error;
+      return this.handleKeycloakError('getRoleByName', error);
     }
   }
 
@@ -395,8 +394,7 @@ export class KeycloakAdminService {
         role,
       );
     } catch (error) {
-      this.logger.error('Error in updateRole', error);
-      throw error;
+      return this.handleKeycloakError('updateRole', error);
     }
   }
 
@@ -407,7 +405,7 @@ export class KeycloakAdminService {
         realm: this.config.realm,
       });
     } catch (error) {
-      this.logger.error('Error in deleteRole', error);
+      return this.handleKeycloakError('deleteRole', error);
     }
   }
 
@@ -417,174 +415,18 @@ export class KeycloakAdminService {
       .sort((a, b) => (b.time || 0) - (a.time || 0))[0];
   }
 
-  async newResource(
-    id: string,
-    ownerId: string,
-    collaborators?: string[],
-    custodian?: string,
-  ) {
-    try {
-      // get owner username
-      const owner = await this.getUserById(ownerId);
-      if (!owner)
-        throw new Error(
-          `Owner with id ${ownerId} doesn't exists. This should not happen!`,
-        );
-      const ownerUsername = owner.username!;
-
-      // get client
-      const client = await this.getClientByName();
-
-      // create resource
-      await this.createResource(client, {
-        name: `${resourcePrefix}${id}`,
-        type: 'project',
-        displayName: `${resourcePrefix}${id}`,
-        // TODO: make this URL same as frontend
-        uris: [`project/${id}`],
-        scopes: projectScopes,
-      });
-
-      // create owner policy
-      await this.createPolicy(client, 'user', {
-        name: `${ownerPolicyPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        users: [ownerUsername],
-      });
-
-      // create owner permission
-      await this.createPermission(client, 'scope', {
-        name: `${ownerPermissionPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        resources: [`${resourcePrefix}${id}`],
-        // TODO: add these as constants
-        scopes: custodian ? ownerPermissions : [...ownerPermissions, 'connect'],
-        policies: [`${ownerPolicyPrefix}${id}`],
-      });
-
-      // create group
-      const createGroup = await this.createGroup({
-        name: `${groupPrefix}${id}`,
-      });
-
-      // add owner to group
-      await this.addUserToGroup(ownerId, createGroup.id);
-
-      // create group policy
-      await this.createPolicy(client, 'group', {
-        name: `${groupPolicyPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        groups: [createGroup.id],
-      });
-
-      // create group permission
-      await this.createPermission(client, 'scope', {
-        name: `${groupPermissionPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        resources: [`${resourcePrefix}${id}`],
-        scopes: groupPermissions,
-        policies: [`${groupPolicyPrefix}${id}`],
-      });
-
-      // create analysis policy
-      await this.createPolicy(client, 'user', {
-        name: `${analysisPolicyPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-      });
-
-      // create analysis permission
-      await this.createPermission(client, 'scope', {
-        name: `${analysisPermissionPrefix}${id}`,
-        decisionStrategy: DecisionStrategy.UNANIMOUS,
-        logic: Logic.POSITIVE,
-        resources: [`${resourcePrefix}${id}`],
-        scopes: analysisPermissions,
-        policies: [`${analysisPolicyPrefix}${id}`],
-      });
-
-      // invite collaborators and add them to the group
-      // TODO: improve this
-      if (collaborators) {
-        const collabQueries = collaborators.map(async (email) => {
-          const users = (await this.checkUser({ email })) || [];
-          if (!users.length) {
-            // TODO: add realm roles to user
-            const user = await this.createUser({
-              username: email,
-              email,
-              enabled: true,
-              groups: [`${groupPrefix}${id}`],
-            });
-            return await this.setUserActions(user.id);
-          } else {
-            return users.map(async (user: UserRepresentation) => {
-              await this.addUserToGroup(user.id!, createGroup.id);
-            });
-          }
-        });
-        await Promise.all(collabQueries);
-      }
-
-      if (custodian) {
-        // temp username
-        let custodianUserName = custodian.split('@')[0];
-        const users = (await this.checkUser({ email: custodian })) || [];
-        if (!users.length) {
-          // TODO: add realmroles to user
-          const user = await this.createUser({
-            username: custodianUserName,
-            email: custodian,
-            enabled: true,
-            groups: [`${groupPrefix}${id}`],
-          });
-          await this.setUserActions(user.id);
-        } else {
-          const user = users[0];
-          custodianUserName = user.username!;
-          await this.addUserToGroup(user.id!, createGroup.id);
-        }
-        // create custodian policy
-        await this.createPolicy(client, 'user', {
-          name: `${custodianPolicyPrefix}${id}`,
-          decisionStrategy: DecisionStrategy.UNANIMOUS,
-          logic: Logic.POSITIVE,
-          users: [custodianUserName],
-        });
-
-        // create custodian permission
-        await this.createPermission(client, 'scope', {
-          name: `${custodianPermissionPrefix}${id}`,
-          decisionStrategy: DecisionStrategy.UNANIMOUS,
-          logic: Logic.POSITIVE,
-          resources: [`${resourcePrefix}${id}`],
-          scopes: custodianPermissions,
-          policies: [`${custodianPolicyPrefix}${id}`],
-        });
-      }
-    } catch (error) {
-      this.logger.error(`Error creating resource`, error);
-    }
-  }
-
   async createResource(
     client: ClientRepresentation,
     resource: ResourceRepresentation,
   ) {
-    this.logger.debug('Creating resource...');
+    this.logger.debug(`Creating ${resource.name} resource...`);
     try {
       return this.kcAdminClient.clients.createResource(
-        // TODO: needs changing to token-handler
         { id: client.id!, realm: this.config.realm },
         resource,
       );
     } catch (error) {
-      this.logger.error('Error in createResource', error);
-      throw error;
+      return this.handleKeycloakError('createResource', error);
     }
   }
   async createScope(scope: ClientScopeRepresentation) {
@@ -592,8 +434,7 @@ export class KeycloakAdminService {
       // get new scope id
       return await this.kcAdminClient.clientScopes.create(scope);
     } catch (error) {
-      this.logger.error('Error in createScope', error);
-      throw error;
+      return this.handleKeycloakError('createScope', error);
     }
   }
   async createPolicy(
@@ -611,8 +452,7 @@ export class KeycloakAdminService {
         policy,
       );
     } catch (error) {
-      this.logger.error('Error in createPolicy', error);
-      throw error;
+      return this.handleKeycloakError('createPolicy', error);
     }
   }
 
@@ -621,8 +461,6 @@ export class KeycloakAdminService {
       `Modifying policy ${analysisPolicyPrefix}${projectId}, adding user ${userId}`,
     );
     try {
-      // get client
-      const client = await this.getClientByName();
       const user = await this.getUserById(userId);
       if (!user)
         throw new Error(
@@ -630,7 +468,7 @@ export class KeycloakAdminService {
         );
       const username = user.username!;
       const existingPolicy = await this.kcAdminClient.clients.findPolicyByName({
-        id: client.id!,
+        id: this.defaultClient.id!,
         realm: this.config.realm,
         name: `${analysisPolicyPrefix}${projectId}`,
       });
@@ -651,14 +489,14 @@ export class KeycloakAdminService {
         };
       }
       await this.kcAdminClient.clients.createOrUpdatePolicy({
-        id: client.id!,
+        id: this.defaultClient.id!,
         policyName: `${analysisPolicyPrefix}${projectId}`,
         policy: policy,
       });
 
       if (!existingPolicy)
         // create analysis permission as the existing Policy didn't exist
-        await this.createPermission(client, 'scope', {
+        await this.createPermission(this.defaultClient, 'scope', {
           name: `${analysisPermissionPrefix}${projectId}`,
           decisionStrategy: DecisionStrategy.UNANIMOUS,
           logic: Logic.POSITIVE,
@@ -667,8 +505,7 @@ export class KeycloakAdminService {
           policies: [`${analysisPolicyPrefix}${projectId}`],
         });
     } catch (error) {
-      this.logger.error('Error in addUserToUserPolicy', error);
-      throw error;
+      return this.handleKeycloakError('addUserToUserPolicy', error);
     }
   }
   async createPermission(
@@ -686,12 +523,11 @@ export class KeycloakAdminService {
         policy,
       );
     } catch (error) {
-      this.logger.error('Error in createPermission', error);
-      throw error;
+      return this.handleKeycloakError('createPermission', error);
     }
   }
 
-  // TODO: perhaps change from doing the auth for each operation
+  // used by sdk-client
   async getAccessToken(login: LoginDto): Promise<{
     access_token: string;
     expires_in?: number;
@@ -707,15 +543,33 @@ export class KeycloakAdminService {
     return { access_token: token || '' };
   }
 
+  // used by coordinator
+  async getAccessTokenClient(login: ClientLoginDto): Promise<{
+    access_token: string;
+    expires_in?: number;
+  }> {
+    await this.auth({
+      grantType: 'client_credentials',
+      clientId:
+        login.clientId ??
+        this.configService.get<string>('coordinator.clientId'),
+      clientSecret: login.clientSecret,
+    });
+
+    const token = await this.kcAdminClient.getAccessToken();
+    return { access_token: token || '' };
+  }
+
   //FIXME: not working properly
   async deleteResource(id: string) {
     this.logger.debug('Deleting resource', id);
     try {
-      const client = await this.getClientByName();
-      if (client) {
-        this.logger.debug(`Deleting resource ${id}, for client ${client.id}`);
+      if (this.defaultClient) {
+        this.logger.debug(
+          `Deleting resource ${id}, for client ${this.defaultClient.id}`,
+        );
         const deleteResource = await this.kcAdminClient.clients.delResource({
-          id: client.id!,
+          id: this.defaultClient.id!,
           resourceId: id,
           realm: this.config.realm,
         });
@@ -725,8 +579,78 @@ export class KeycloakAdminService {
         return deleteResource;
       }
     } catch (error) {
-      this.logger.error('Error in deleteResource', error);
+      return this.handleKeycloakError('createPermission', error);
+    }
+  }
+
+  private handleKeycloakError(context: string, error: unknown): never {
+    // log error
+    this.logKeycloakError(context, error);
+
+    // error already typed
+    if (error instanceof KeycloakAdminError) {
       throw error;
     }
+
+    const err = error as {
+      response?: { status?: number; data?: unknown };
+      code?: string;
+      message?: string;
+    };
+    const status: number | undefined = err?.response?.status;
+    const code: string | undefined = err?.code;
+
+    // Network / connection level errors (Keycloak down, DNS, timeout, etc.)
+    if (!status) {
+      if (
+        code === 'ECONNREFUSED' ||
+        code === 'ECONNRESET' ||
+        code === 'ETIMEDOUT'
+      ) {
+        throw new KeycloakUnavailableError('Keycloak is unreachable', error);
+      }
+
+      throw new KeycloakAdminError('Unknown Keycloak error', error);
+    }
+
+    switch (status) {
+      case 400:
+        throw new KeycloakBadRequestError(`Bad request in ${context}`, error);
+      case 401:
+        throw new KeycloakUnauthorizedError(
+          `Unauthorized Keycloak request in ${context}`,
+          error,
+        );
+      case 403:
+        throw new KeycloakForbiddenError(
+          `Forbidden Keycloak request in ${context}`,
+          error,
+        );
+      case 404:
+        throw new KeycloakNotFoundError(
+          `Keycloak resource not found in ${context}`,
+          error,
+        );
+      case 409:
+        throw new KeycloakConflictError(
+          `Keycloak resource conflict in ${context}`,
+          error,
+        );
+      default:
+        if (status >= 500) {
+          throw new KeycloakUnavailableError(
+            `Keycloak server error (${status}) in ${context}`,
+            error,
+          );
+        }
+
+        throw new KeycloakAdminError(
+          `Unexpected Keycloak error (${status}) in ${context}`,
+          error,
+        );
+    }
+  }
+  private logKeycloakError(context: string, error: unknown): void {
+    this.logger.error(`Keycloak error in ${context}`, error as Error);
   }
 }

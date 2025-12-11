@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { $Enums, Prisma } from '@prisma/client';
+import { $Enums, Prisma } from 'src/generated/prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -315,4 +315,24 @@ export class ConnectionRequestResponseDto {
   @ValidateNested()
   @Type(() => ConnectionRequestProjectInfoDto)
   project: ConnectionRequestProjectInfoDto;
+}
+
+export class ConnectionDecisionDto {
+  @ApiProperty({
+    description: 'Approval decision for the connection request',
+    example: true,
+  })
+  @IsDefined()
+  @IsBoolean()
+  isApproved!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Database connection details',
+    type: DatabaseInfoDto,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  tempDbDetails?: DatabaseInfoDto;
 }

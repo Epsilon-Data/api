@@ -19,33 +19,28 @@ export default () => ({
       env.EPSILON_AUTH_URI || 'http://keycloak:8080/realms/epsilon',
     // TODO: check changing for client-id
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
-    scopePrefix: env.EPSILON_AUTH_SCOPE_PREFIX || 'api.test',
     cookiePrefix: env.EPSILON_AUTH_COOKIE_PREFIX || 'epsilon',
     encryptionKey:
       env.EPSILON_AUTH_COOKIE_ENCRYPTION_KEY ||
       'e2c8470d07a8dcdcd07267e353e32805d87dd560ce93e2fae5c1869b7118e5a9',
     clientId: env.EPSILON_AUTH_CLIENT_ID || 'epsilon-token-handler',
+    allowTokenAuth: false,
   },
   admin: {
     issuerBaseURL: env.EPSILON_AUTH_ISSUER_BASE_URL || 'http://keycloak:8080',
     realm: env.EPSILON_AUTH_REALM || 'epsilon',
     audience: env.EPSILON_AUTH_AUDIENCE || 'epsilon.api',
-    scopePrefix: env.EPSILON_ADMIN_AUTH_SCOPE_PREFIX || 'api.permissions',
     clientId: env.EPSILON_ADMIN_API_CLIENT_ID || 'epsilon-admin-api',
     clientSecret:
       env.EPSILON_ADMIN_API_CLIENT_SECRET || '25WNchjDUsl9LWL6gZLLUaTQ1uIWMYMn',
-    cookiePrefix: env.EPSILON_AUTH_COOKIE_PREFIX || 'epsilon',
-    encryptionKey:
-      env.EPSILON_AUTH_COOKIE_ENCRYPTION_KEY ||
-      'e2c8470d07a8dcdcd07267e353e32805d87dd560ce93e2fae5c1869b7118e5a9',
-    trustedWebOrigins: [
-      env.EPSILON_AUTH_TRUSTED_WEB_ORIGIN || 'http://keycloak:3000',
-    ],
   },
   sdk: {
     clientId: env.EPSILON_SDK_CLIENT_ID || 'sdk-client',
     clientSecret:
       env.EPSILON_SDK_CLIENT_SECRET || '6nHzYqIlwcQDqDc2TuJtilucZxAH3O6N',
+  },
+  coordinator: {
+    clientId: env.EPSILON_COORDINATOR_CLINET_ID || 'coordinator-client',
   },
   atlas: {
     // default values for local dev

@@ -60,7 +60,7 @@ pnpm i # installs all dependent packages under node_modules
 Apply prisma migrations:
 
 ```bash
-export DATABASE_URL="postgresql://epsilon_admin:supersecret@localhost:6543/epsilon" && npx prisma migrate dev
+pnpm prisma migrate dev
 ```
 
 Install all necessary prisma packages when prompted.
@@ -80,13 +80,13 @@ Access [MinIO Console](http://localhost:9002/) to manage the server in browser.
 To apply your own migrations:
 
 ```bash
-npx prisma migrate dev --name <MIGRATION_NAME_HERE>
+pnpm prisma migrate dev --name <MIGRATION_NAME_HERE>
 ```
 
 (Optional) Visual editor for data in pg_platform:
 
 ```bash
-npx prisma studio
+pnpm prisma studio
 ```
 
 ⚠️ **Baseline Database Migrations**⚠️
@@ -102,7 +102,7 @@ mkdir -p prisma/migrations/0_init
 3. Generate migration and save it to a file:
 
 ```bash
-npx prisma migrate diff \
+pnpm prisma migrate diff \
 --from-empty \
 --to-schema-datamodel prisma/schema.prisma \
 --script > prisma/migrations/0_init/migration.sql
@@ -111,13 +111,13 @@ npx prisma migrate diff \
 4. Add `0_init` migration to `_prisma_migrations` table and marks as applied:
 
 ```bash
-npx prisma migrate resolve --applied 0_init
+pnpm prisma migrate resolve --applied 0_init
 ```
 
 5. Check migration matches with current database:
 
 ```bash
-npx prisma migrate dev
+pnpm prisma migrate dev
 ```
 
 ## Before raising PR

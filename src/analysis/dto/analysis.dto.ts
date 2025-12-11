@@ -4,6 +4,7 @@ import {
   IsDate,
   IsDefined,
   IsNotEmpty,
+  IsObject,
   IsString,
   IsUUID,
 } from 'class-validator';
@@ -72,4 +73,80 @@ export class DatasetDto {
   @IsDefined()
   @Transform(({ value }) => transformDateString(value))
   lastModified!: Date;
+}
+
+export class AnalysisArchetypeResponseDto {
+  @ApiProperty({
+    description: 'Id of the Archetype',
+    example: '3kHBQLNwl9qc',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  $id!: string;
+
+  @ApiProperty({
+    description: 'JSON Schema meta-identifier (draft URI)',
+    example: 'https://json-schema.org/draft/2020-12/schema',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  $schema!: string;
+
+  @ApiProperty({
+    description: 'Human-readable title for the archetype schema',
+    example: 'Heart Rate Monitoring Archetype',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @ApiProperty({
+    description: 'Top-level JSON Schema type',
+    example: 'object',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  type!: string;
+
+  @ApiProperty({
+    description:
+      'JSON Schema properties map. Keys are field names, values are JSON Schema fragments describing each field.',
+    type: 'object',
+    additionalProperties: true,
+    example: {
+      condition: {
+        type: 'object',
+        properties: {
+          diagnosis: {
+            type: 'object',
+            description: 'Diagnosis',
+          },
+          critical: {
+            type: 'boolean',
+            description: 'Critical',
+          },
+        },
+      },
+      health: {
+        type: 'object',
+        properties: {
+          blood_pressure: {
+            type: 'object',
+            description: 'Blood pressure',
+          },
+          heart_rate: {
+            type: 'integer',
+            description: 'Heart rate',
+          },
+        },
+      },
+    },
+  })
+  @IsDefined()
+  @IsObject()
+  properties!: Record<string, object>;
 }

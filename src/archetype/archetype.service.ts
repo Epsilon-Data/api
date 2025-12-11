@@ -7,7 +7,7 @@ import {
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { $Enums } from '@prisma/client';
+import { $Enums } from 'src/generated/prisma/client';
 import {
   ALLOWED_TRANSITIONS,
   ArchetypeDto,
@@ -28,6 +28,7 @@ import {
   AtlasSearchBasicHeadlessResponseDto,
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
+import { AnalysisArchetypeResponseDto } from 'src/analysis/dto';
 
 @Injectable()
 export class ArchetypeService {
@@ -135,14 +136,12 @@ export class ArchetypeService {
         templateInfo.nodes!.push(node);
 
         // add edge if parent exists
-        if (entity.relationshipAttributes?.parent_node) {
-          // skip if relationship is inactive
-          if (
-            entity.relationshipAttributes?.parent_node?.relationshipStatus !==
+        // skip if relationship is inactive (SHOULD always be active)
+        if (
+          entity.relationshipAttributes?.parent_node &&
+          entity.relationshipAttributes?.parent_node?.relationshipStatus ===
             'ACTIVE'
-          )
-            continue;
-
+        ) {
           const parentNodeId =
             entity.relationshipAttributes.parent_node.qualifiedName
               .split('@')
@@ -156,13 +155,11 @@ export class ArchetypeService {
         }
 
         // add column node and edge
-        if (entity.relationshipAttributes?.column) {
-          // skip if relationship is inactive
-          if (
-            entity.relationshipAttributes?.column?.relationshipStatus !==
-            'ACTIVE'
-          )
-            continue;
+        // only if the relationship is active
+        if (
+          entity.relationshipAttributes?.column &&
+          entity.relationshipAttributes?.column?.relationshipStatus === 'ACTIVE'
+        ) {
           const columnNodeId = entity.relationshipAttributes?.column?.guid;
           const columName = entity.relationshipAttributes.column.qualifiedName
             .split('@')
@@ -326,7 +323,10 @@ export class ArchetypeService {
     return templateInfo;
   }
 
-  async getAnalysisArchetype(projectId: string, token?: string) {
+  async getAnalysisArchetype(
+    projectId: string,
+    token?: string,
+  ): Promise<AnalysisArchetypeResponseDto> {
     // get ID of PUBLISHED archetype
     const body = {
       typeName: AtlasArchetypeTypeName.Template,
@@ -357,14 +357,6 @@ export class ArchetypeService {
       token,
     );
     if (res.approximateCount) {
-      const properties: Record<string, object> = {};
-      const schema = {
-        $schema: 'https://json-schema.org/draft/2020-12/schema#',
-        title: res.attributes?.values[0][0],
-        type: 'object',
-        properties,
-      };
-
       const templateGuid = res.attributes?.values[0][1];
       const templateEntity =
         await this.atlas.get<AtlasArchetypeEntityResponseDto>(
@@ -372,7 +364,17 @@ export class ArchetypeService {
           undefined,
           token,
         );
-
+      const properties: Record<string, object> = {};
+      const archetypeId = templateEntity.entity.attributes.qualifiedName
+        .split('@')
+        .at(-1) as string;
+      const schema = {
+        $id: archetypeId,
+        $schema: 'https://json-schema.org/draft/2020-12/schema#',
+        title: res.attributes?.values[0][0],
+        type: 'object',
+        properties,
+      };
       // TODO: handle errors
       for (const key in templateEntity?.referredEntities) {
         const node = templateEntity.referredEntities[key];
@@ -447,7 +449,9 @@ export class ArchetypeService {
       }
       return schema;
     }
-    return {};
+    throw new NotFoundException(
+      `No published archetypes found for project ${projectId}`,
+    );
   }
 
   // Commands
@@ -632,10 +636,14 @@ export class ArchetypeService {
     return ALLOWED_TRANSITIONS[current]?.includes(next) ?? false;
   }
 
-  private initJsonObject() {
-    const type = 'object';
-    const properties: Record<string, object> = {};
-    return { type, properties };
+  private initJsonObject(): {
+    type: 'object';
+    properties: Record<string, unknown>;
+  } {
+    return {
+      type: 'object',
+      properties: {},
+    };
   }
 
   private atlasTypeToJSONType(dataType: string): string {
@@ -663,7 +671,7 @@ export class ArchetypeService {
   }
 
   private isEntityAllowedByPermissions(entity: AtlasArchetypeEntityDto) {
-    // Level-0 → always allowed
+    // Level-0 always allowed
     if (entity.attributes?.level === 0) return true;
 
     let isActiveBranchNode = false;
@@ -684,7 +692,11 @@ export class ArchetypeService {
       }
     }
 
-    // No permission classifications → allow only for ACTIVE branch nodes
+    // always allow branches
+    // TODO: check this logic
+    if (isActiveBranchNode) return true;
+
+    // No permission classifications, allow only for ACTIVE branch nodes
     if (perms.length === 0) {
       return isActiveBranchNode;
     }
@@ -712,22 +724,22 @@ export class ArchetypeService {
       (c) => c.attributes?.access_level === ArchetypePermission.NONE,
     );
 
-    // explicit NONE on this node → always deny
+    // explicit NONE on this node -  always deny
     if (hasExplicitDeny) {
       return false;
     }
 
-    // explicit non-NONE permission → allow even if inherited is NONE
+    // explicit non-NONE permission - allow even if inherited is NONE
     if (hasExplicitGrant) {
       return true;
     }
 
-    // no explicit perms, but inherited NONE exists → deny
+    // no explicit perms, but inherited NONE exists - deny
     if (hasInheritedDeny) {
       return false;
     }
 
-    // permissions exist, none are NONE → allow
+    // permissions exist, none are NONE -  allow
     return true;
   }
 }
