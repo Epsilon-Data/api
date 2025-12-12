@@ -109,7 +109,6 @@ export class ProjectController {
     @CurrentUser() user: CurrentUserInfo,
     @Body() dto: CreateProjectDto,
   ) {
-    // TODO: we need to make sure that we actually use usernames because these will be needed for atlas authorization as emails will change which break ownership lookups and Ranger policies
     return await this.projectService.createProject(user, dto);
   }
 

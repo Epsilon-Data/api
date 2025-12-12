@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -18,10 +19,8 @@ import {
   ApiUnauthorizedResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import {
   AnalysisArchetypeResponseDto,
-  AuthTokenResponseDto,
   DatasetDto,
   LoginDto,
 } from './dto/analysis.dto';
@@ -34,6 +33,10 @@ import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { AnalysisRequestService } from 'src/analysis-request/analysis-request.service';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
+import { KeycloakTokenResponseDto } from 'src/auth/dto';
+import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+import { Credentials } from '@epsilon-data/keycloak-admin-client';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Analysis')
 @ApiBearerAuth()
@@ -42,8 +45,9 @@ import { Scopes } from 'src/common/decorators/scopes.decorator';
 export class AnalysisController {
   constructor(
     private readonly archetypeService: ArchetypeService,
-    private readonly keycloakService: KeycloakAdminService,
+    private readonly keycloakService: KeycloakService,
     private readonly analysisRequestService: AnalysisRequestService,
+    private configService: ConfigService,
   ) {}
 
   @Public()
@@ -51,8 +55,8 @@ export class AnalysisController {
   @ApiOperation({ summary: 'Get access token for SDK (Public endpoint)' })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    description: 'List of user owned projects are returned',
-    type: AuthTokenResponseDto,
+    description: 'Access token response is returned',
+    type: KeycloakTokenResponseDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
@@ -67,8 +71,28 @@ export class AnalysisController {
       },
     },
   })
+  @ApiInternalServerErrorResponse({
+    description: 'Authorisation service error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Authorisation service is currently unavailable',
+          error: 'AuthorisationServiceError',
+        },
+      },
+    },
+  })
   async getAccessToken(@Body() login: LoginDto) {
-    return await this.keycloakService.getAccessToken(login);
+    const credentials: Credentials = {
+      grantType: login.password ? 'password' : 'refresh_token',
+      clientId: this.configService.get<string>('sdk.clientId')!,
+      username: login.username,
+      password: login.password,
+      refreshToken: login.refreshToken,
+    };
+    return await this.keycloakService.getAccessToken(credentials);
   }
 
   @Get('datasets')

@@ -334,6 +334,7 @@ export class ProjectService {
       project.projectId,
       project.ownerId,
       memberEmails.length ? memberEmails : undefined,
+      project.connection?.orgAdminEmail ?? undefined,
     );
 
     if (createRequest) {
@@ -358,7 +359,7 @@ export class ProjectService {
           },
         });
         await this.queue.dataBrokerJob(
-          user.username,
+          user.id,
           project.projectId,
           requestId,
           dto.connection.tempDbDetails,

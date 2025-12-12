@@ -3,6 +3,8 @@ import {
   AuthorizationServerException,
   Grant,
 } from '@epsilon-data/epsilon-api-middleware';
+
+import { Credentials } from '@epsilon-data/keycloak-admin-client';
 import {
   Inject,
   Injectable,
@@ -16,15 +18,59 @@ import { AUTH_CONFIG } from '../config.interface';
 import {
   KeycloakAuthzRequestDto,
   KeycloakPermissionDto,
+  KeycloakTokenResponseDto,
   PermissionDto,
 } from '../dto';
 import { Request } from 'express';
-
+// TODO: worth moving all these methods to token-handler
 @Injectable()
 export class KeycloakService {
   private readonly logger = new Logger('KeycloakService');
 
   constructor(@Inject(AUTH_CONFIG) private config: AuthModuleConfig) {}
+
+  async getAccessToken(credentials: Credentials) {
+    const params = {
+      grant_type: credentials.grantType,
+      client_id: credentials.clientId,
+      ...(credentials.grantType === 'client_credentials'
+        ? { client_secret: credentials.clientSecret }
+        : {}),
+      ...(credentials.grantType === 'password'
+        ? { username: credentials.username, password: credentials.password }
+        : {}),
+      ...(credentials.grantType === 'refresh_token'
+        ? { refresh_token: credentials.refreshToken }
+        : {}),
+    };
+
+    const data = querystring.stringify(params);
+    const res = (await fetch(
+      `${this.config.issuerBaseURL}/protocol/openid-connect/token`,
+      {
+        method: 'POST',
+        body: data,
+      },
+    )) as unknown as Response;
+    // Read text if it exists
+    const text = await res.text();
+
+    if (res.status >= 500) {
+      throw AuthorizationServerException(
+        `Server error response in a Permission request: ${text}`,
+      );
+    }
+
+    if (res.status >= 400) {
+      throw AuthorizationClientException(
+        // Add exception
+        Grant.AuthorizationCode,
+        res.status,
+        text,
+      );
+    }
+    return JSON.parse(text) as KeycloakTokenResponseDto[];
+  }
 
   async checkPermission(
     authzRequest: KeycloakAuthzRequestDto,
