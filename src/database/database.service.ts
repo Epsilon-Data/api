@@ -13,6 +13,7 @@ import {
 } from 'src/atlas/dto';
 import {
   ColumnInfoDto,
+  DatabaseCredentialsDto,
   DatabaseSummaryResponseDto,
   DatabaseTableDto,
   DatasetDataObjectDto,
@@ -404,5 +405,20 @@ export class DatabaseService {
     });
     // this.queue.dataBrokerJob(userId, request.requestId, { databaseId: dbId });
     return dbId;
+  }
+
+  async getCredentialsByProjectId(
+    projectId: string,
+  ): Promise<DatabaseCredentialsDto | null> {
+    const connection = await this.prisma.connection.findUnique({
+      where: { projectId },
+      select: { tempDbDetails: true },
+    });
+
+    if (!connection?.tempDbDetails) {
+      return null;
+    }
+
+    return connection.tempDbDetails as DatabaseCredentialsDto;
   }
 }

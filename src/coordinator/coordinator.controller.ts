@@ -28,7 +28,10 @@ import { AuthTokenResponseDto } from 'src/analysis/dto';
 import { GenericErrorResponseDto } from 'src/common/dto';
 import { ClientLoginDto } from './dto';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
-import { DatasetDetailsResponseDto } from 'src/database/dto';
+import {
+  DatabaseCredentialsDto,
+  DatasetDetailsResponseDto,
+} from 'src/database/dto';
 
 @ApiTags('Coordinator')
 @ApiBearerAuth()
@@ -66,6 +69,29 @@ export class CoordinatorController {
   })
   async getAccessToken(@Body() login: ClientLoginDto) {
     return await this.keycloakService.getAccessTokenClient(login);
+  }
+
+  @Get(':projectId/credentials')
+  @UseGuards(new ScopesGuard('epsilon.coordinator'))
+  @ApiOperation({ summary: 'Get database credentials by project ID' })
+  @ApiOkResponse({
+    description: 'Database credentials for the project returned',
+    type: DatabaseCredentialsDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'No credentials found for the project',
+    type: GenericErrorResponseDto,
+    schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+    example: {
+      statusCode: 404,
+      message: 'No database credentials found for this project',
+      error: 'NotFoundError',
+    },
+  })
+  async getDatabaseCredentials(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.databaseService.getCredentialsByProjectId(projectId);
   }
 
   @Get(':projectId/:archetypeId')

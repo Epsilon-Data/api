@@ -297,3 +297,61 @@ export class DatasetDetailsResponseDto {
   @IsObject()
   dataObjects!: Record<string, DatasetDataObjectDto>;
 }
+
+export class DatabaseCredentialsDto {
+  @ApiProperty({
+    description: 'User assigned database name',
+    example: 'Health database',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    description: 'Database engine/type',
+    example: 'postgres',
+  })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiProperty({
+    description: 'Hostname or IP address of the database server',
+    example: 'db.internal.company.local',
+  })
+  @IsOptional()
+  @IsString()
+  host?: string;
+
+  @ApiProperty({
+    description: 'Port the database listens on',
+    example: '5432',
+  })
+  @IsOptional()
+  @IsString()
+  port?: string;
+
+  @ApiProperty({
+    description: 'Full connection URL',
+    example: 'postgres://user:pass@db.internal.company.local:5432/analytics_dw',
+  })
+  @IsOptional()
+  @IsString()
+  url?: string;
+
+  @ApiProperty({
+    description: 'Database username',
+    example: 'etl_service',
+  })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @ApiProperty({
+    description: 'Database password',
+    example: '**********',
+  })
+  @IsOptional()
+  @IsString()
+  password?: string;
+}
