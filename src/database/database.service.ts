@@ -221,7 +221,7 @@ export class DatabaseService {
       const node = templateEntity.referredEntities[key];
 
       if (
-        node.status !== 'ACTIVE' &&
+        node.status !== 'ACTIVE' ||
         node.typeName !== AtlasArchetypeTypeName.Node
       )
         continue;

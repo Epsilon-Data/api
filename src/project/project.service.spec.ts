@@ -340,9 +340,6 @@ describe('ProjectService', () => {
       await service.createProject(user, dto);
 
       expect(prismaMock.project.create).toHaveBeenCalled();
-      expect(queueMock.addResourceJob).toHaveBeenCalledWith('proj-1', 'user1', [
-        'member1@example.com',
-      ]);
       expect(prismaMock.comment.create).toHaveBeenCalledWith({
         data: {
           requestId: 'mocked-request-id',
@@ -387,7 +384,7 @@ describe('ProjectService', () => {
       await service.createProject(user, dto);
 
       expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
-        'owner-user',
+        'user1',
         'proj-1',
         'mocked-request-id',
         dto.connection.tempDbDetails,

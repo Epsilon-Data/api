@@ -5,44 +5,37 @@ import {
   IsDefined,
   IsNotEmpty,
   IsObject,
+  IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
 import { transformDateString } from 'src/utils/class.util';
 
 export class LoginDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Username used to log in (can also be an email)',
     example: 'owner.user@example.com',
   })
   @IsString()
-  @IsDefined()
-  @IsNotEmpty()
+  @IsOptional()
   username!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Plain-text password for the user',
     example: '*********',
   })
   @IsString()
-  @IsDefined()
-  @IsNotEmpty()
+  @IsOptional()
   password!: string;
-}
-
-export class AuthTokenResponseDto {
-  @ApiProperty({
-    description: 'The JWT access token issued after successful authentication',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-  })
-  access_token!: string;
 
   @ApiPropertyOptional({
-    description:
-      'Token lifetime in seconds (optional depending on identity provider)',
-    example: 3600,
+    description: 'JWT refresh token',
+    example:
+      'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2tleWNsb2FrLmV4YW1wbGUuY29tL3JlYWxtcy9teS1yZWFsbSIsImF6cCI6ImJhY2tlbmQtY29vcmRpbmF0b3IiLCJzY29wZSI6ImJhY2tlbmQ6c3luYyJ9.signature',
   })
-  expires_in?: number;
+  @IsString()
+  @IsOptional()
+  refreshToken!: string;
 }
 
 export class DatasetDto {

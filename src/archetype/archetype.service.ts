@@ -583,7 +583,7 @@ export class ArchetypeService {
   }
 
   async createArchetype(
-    username: string,
+    owner: string,
     projectId: string,
     archetype: ArchetypeDto,
   ) {
@@ -591,11 +591,11 @@ export class ArchetypeService {
       throw new BadRequestException(
         `ProjectId and Archetype projectId mismatch`,
       );
-    return await this.queue.addArchetypeJob(username, projectId, archetype);
+    return await this.queue.addArchetypeJob(owner, projectId, archetype);
   }
 
   async updateArchetype(
-    username: string,
+    userId: string,
     projectId: string,
     archetypeId: string,
     archetype: ArchetypeDto,
@@ -605,7 +605,7 @@ export class ArchetypeService {
         `ProjectId and Archetype projectId mismatch`,
       );
     return await this.queue.updateArchetypeJob(
-      username,
+      userId,
       projectId,
       archetypeId,
       archetype,

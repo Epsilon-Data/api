@@ -321,6 +321,7 @@ export class KeycloakAdminService implements OnModuleInit {
     }
   }
   async createGroup(group: GroupRepresentation) {
+    this.logger.debug(`Creating ${group.name} group...`);
     try {
       return await this.kcAdminClient.groups.create({
         ...group,

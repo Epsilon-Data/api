@@ -307,15 +307,13 @@ describe('AnalysisRequestService', () => {
       });
     });
 
-    it('should throw NotFoundException when no request is found for the project and user', async () => {
+    it('should return null request is found for the project and user', async () => {
       const userId = 'user-1';
       const projectId = 'proj-123';
 
       prisma.analysis.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getByProject(userId, projectId),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(await service.getByProject(userId, projectId)).toEqual(null);
 
       expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
         where: { projectId: projectId, request: { requestorId: userId } },

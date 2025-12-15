@@ -50,8 +50,6 @@ export class KeycloakProcessor {
       job.data as AddResourceJobDataDto;
     this.logger.log(`Handling 'process-add-resource' for resource id ${id}...`);
     try {
-      // auth
-      // add keycloak resource
       // TODO: better error handling
       const credentials: Credentials = {
         grantType: 'client_credentials',
@@ -96,7 +94,6 @@ export class KeycloakProcessor {
         decisionStrategy: DecisionStrategy.UNANIMOUS,
         logic: Logic.POSITIVE,
         resources: [`${resourcePrefix}${id}`],
-        // TODO: add these as constants
         scopes: custodian ? ownerPermissions : [...ownerPermissions, 'connect'],
         policies: [`${ownerPolicyPrefix}${id}`],
       });
@@ -145,14 +142,11 @@ export class KeycloakProcessor {
       });
 
       // invite collaborators and add them to the group
-      // TODO: improve this
       if (collaborators) {
         const collabQueries = collaborators.map(async (email) => {
           const users = (await this.keycloak.checkUser({ email })) || [];
           if (!users.length) {
-            // TODO: add realm roles to user
             const user = await this.keycloak.createUser({
-              username: email,
               email,
               enabled: true,
               groups: [`${groupPrefix}${id}`],
@@ -166,16 +160,13 @@ export class KeycloakProcessor {
         });
         await Promise.all(collabQueries);
       }
-
       if (custodian) {
         // temp username
-        let custodianUserName = custodian.split('@')[0];
+        let custodianUserName = custodian;
         const users =
           (await this.keycloak.checkUser({ email: custodian })) || [];
         if (!users.length) {
-          // TODO: add realmroles to user
           const user = await this.keycloak.createUser({
-            username: custodianUserName,
             email: custodian,
             enabled: true,
             groups: [`${groupPrefix}${id}`],

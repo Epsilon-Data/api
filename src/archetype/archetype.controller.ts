@@ -247,11 +247,7 @@ export class ArchetypeController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() archetype: ArchetypeDto,
   ) {
-    return this.archetypeService.createArchetype(
-      user.username,
-      projectId,
-      archetype,
-    );
+    return this.archetypeService.createArchetype(user.id, projectId, archetype);
   }
 
   @UseGuards(ResourceGuard)

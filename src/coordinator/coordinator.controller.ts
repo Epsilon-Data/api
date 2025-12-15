@@ -21,14 +21,16 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators/public.decorator';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { DatabaseService } from 'src/database/database.service';
-import { AuthTokenResponseDto } from 'src/analysis/dto';
 import { GenericErrorResponseDto } from 'src/common/dto';
 import { ClientLoginDto } from './dto';
 import { ScopesGuard } from 'src/common/guards/scopes.guard';
 import { DatasetDetailsResponseDto } from 'src/database/dto';
+import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
+import { Credentials } from '@epsilon-data/keycloak-admin-client';
+import { ConfigService } from '@nestjs/config';
+import { KeycloakTokenResponseDto } from 'src/auth/dto';
 
 @ApiTags('Coordinator')
 @ApiBearerAuth()
@@ -37,7 +39,8 @@ import { DatasetDetailsResponseDto } from 'src/database/dto';
 export class CoordinatorController {
   constructor(
     private readonly databaseService: DatabaseService,
-    private readonly keycloakService: KeycloakAdminService,
+    private readonly keycloakService: KeycloakService,
+    private configService: ConfigService,
   ) {}
 
   @Public()
@@ -48,8 +51,8 @@ export class CoordinatorController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    description: 'List of user owned projects are returned',
-    type: AuthTokenResponseDto,
+    description: 'Access token object is returned',
+    type: KeycloakTokenResponseDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
@@ -64,8 +67,28 @@ export class CoordinatorController {
       },
     },
   })
+  @ApiInternalServerErrorResponse({
+    description: 'Authorisation service error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Authorisation service is currently unavailable',
+          error: 'AuthorisationServiceError',
+        },
+      },
+    },
+  })
   async getAccessToken(@Body() login: ClientLoginDto) {
-    return await this.keycloakService.getAccessTokenClient(login);
+    const credentials: Credentials = {
+      grantType: 'client_credentials',
+      clientId:
+        login.clientId ??
+        this.configService.get<string>('coordinator.clientId'),
+      clientSecret: login.clientSecret,
+    };
+    return await this.keycloakService.getAccessToken(credentials);
   }
 
   @Get(':projectId/:archetypeId')
