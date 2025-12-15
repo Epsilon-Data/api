@@ -9,6 +9,7 @@ const trustedWebOrigins = () =>
     .map((origin) => origin.trim());
 
 export default () => ({
+  appUrl: process.env.APP_URL || 'http://localhost:3000',
   isDev: process.env.NODE_ENV === 'development' ? true : false,
   apiBaseUrl: env.API_BASE_URL || '/api/v1/hub',
   apiPort: parseInt(env.API_SERVICE_PORT || '3334'),
