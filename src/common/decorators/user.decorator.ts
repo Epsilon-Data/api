@@ -20,6 +20,7 @@ export const CurrentUser = createParamDecorator(
     const given_name = req?.auth?.payload?.given_name?.toString?.();
     const family_name = req?.auth?.payload?.family_name?.toString?.();
     const email = req?.auth?.payload?.email?.toString?.();
+    console.log(req?.auth);
     return { id, username, email, given_name, family_name };
   },
 );

@@ -15,7 +15,6 @@ import {
   UpdateProjectDto,
 } from './dto';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
-import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
@@ -28,6 +27,7 @@ import {
 } from 'src/connection-request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
 import { Prisma } from 'src/generated/prisma/client';
+import { VaultService } from 'src/vault/vault.service';
 
 @Injectable()
 export class ProjectService {
@@ -36,7 +36,7 @@ export class ProjectService {
     private prisma: PrismaService,
     private queue: QueueService,
     private fileStorage: FileStorageService,
-    private readonly keycloakAdminService: KeycloakAdminService,
+    private readonly vaultService: VaultService,
   ) {}
 
   // Queries
@@ -267,7 +267,11 @@ export class ProjectService {
   }
 
   // Commands
-  async createProject(user: CurrentUserInfo, dto: CreateProjectDto) {
+  async createProject(
+    user: CurrentUserInfo,
+    dto: CreateProjectDto,
+    accessToken: string,
+  ) {
     const { packageId, customId } = this.createIds(dto.name, dto.customId);
     const ownerId = user.id; //using current logged in user details rather than post
     // check if members are added
@@ -297,6 +301,7 @@ export class ProjectService {
     // check if database credential request is needed
     const createRequest = dto.connection.orgAdminEmail ? true : false;
     const requestId = uuidv4();
+
     // check if any DB temp details
     const tempDbDetails = dto.connection.tempDbDetails
       ? (dto.connection.tempDbDetails as unknown as Prisma.JsonObject)
@@ -352,6 +357,17 @@ export class ProjectService {
     } else {
       // database credentials should exist so run database crawling
       if (dto.connection.tempDbDetails?.url) {
+        // add secrets
+        const vaultToken = await this.vaultService.auth(accessToken);
+        const entityId = await this.vaultService.getEntityId(vaultToken);
+        await this.vaultService.writeSecret(
+          vaultToken,
+          entityId,
+          project.projectId,
+          {
+            ...dto.connection.tempDbDetails,
+          },
+        );
         await this.prisma.project.update({
           where: { projectId: project.projectId },
           data: {

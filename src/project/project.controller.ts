@@ -106,10 +106,15 @@ export class ProjectController {
     },
   })
   async createProject(
+    @Req() request: Request,
     @CurrentUser() user: CurrentUserInfo,
     @Body() dto: CreateProjectDto,
   ) {
-    return await this.projectService.createProject(user, dto);
+    return await this.projectService.createProject(
+      user,
+      dto,
+      request.auth?.token || '',
+    );
   }
 
   @Get()
