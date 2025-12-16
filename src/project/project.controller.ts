@@ -288,7 +288,11 @@ export class ProjectController {
     @CurrentUser() user: CurrentUserInfo,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    return await this.projectService.getProjectRequests(projectId, user.email);
+    return await this.projectService.getProjectRequests(
+      projectId,
+      user.id,
+      user.email,
+    );
   }
 
   @UseGuards(ResourceGuard)
