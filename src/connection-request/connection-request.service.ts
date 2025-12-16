@@ -46,6 +46,44 @@ export class ConnectionRequestService {
     });
   }
 
+  async getDetails(
+    email: string,
+    requestId: string,
+  ): Promise<ConnectionRequestResponseDto> {
+    return await this.prisma.connection.findUniqueOrThrow({
+      where: {
+        requestId: requestId,
+        orgAdminEmail: email,
+      },
+      select: {
+        project: {
+          select: {
+            projectId: true,
+            name: true,
+            description: true,
+            university: true,
+            faculty: true,
+            ethicsId: true,
+            startDate: true,
+            endDate: true,
+            participantsNum: true,
+            lead: true,
+            members: true,
+          },
+        },
+        request: {
+          select: {
+            comments: true,
+            requestId: true,
+            status: true,
+            createdDate: true,
+            lastModified: true,
+          },
+        },
+      },
+    });
+  }
+
   async testConnection(database: DatabaseTestDto) {
     const connectionData = {
       driver: database.type,

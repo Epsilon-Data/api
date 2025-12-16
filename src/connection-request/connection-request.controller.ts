@@ -91,6 +91,63 @@ export class ConnectionRequestController {
     return this.connectionRequestService.getList(user.id);
   }
 
+  @Get(':requestId')
+  @ApiOperation({
+    summary: 'Get connection request details',
+  })
+  @ApiOkResponse({
+    description: 'Connection request details are returned',
+    type: ConnectionRequestResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Request not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  async getDetails(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+  ) {
+    return await this.connectionRequestService.getDetails(
+      user.email,
+      requestId,
+    );
+  }
+
   @Post('test')
   @ApiOperation({
     summary: 'Test connection credentials',
