@@ -11,7 +11,7 @@ describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
 
   let prismaMock: {
-    connection: { findMany: jest.Mock };
+    connection: { findMany: jest.Mock; findUniqueOrThrow: jest.Mock };
     project: { update: jest.Mock };
     request: { update: jest.Mock };
   };
@@ -30,6 +30,7 @@ describe('ConnectionRequestService', () => {
     prismaMock = {
       connection: {
         findMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
       },
       project: {
         update: jest.fn(),
@@ -116,6 +117,85 @@ describe('ConnectionRequestService', () => {
       });
 
       expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('getDetails', () => {
+    const email = 'admin@example.com';
+    const requestId = 'req-123';
+
+    it('should return request details for given email and requestId', async () => {
+      const expectedResult = {
+        project: {
+          projectId: 'proj-1',
+          name: 'Project Name',
+          description: 'A test project',
+          university: 'Test University',
+          faculty: 'Engineering',
+          ethicsId: 'ETH-001',
+          startDate: new Date('2025-01-01T00:00:00Z'),
+          endDate: new Date('2025-12-31T00:00:00Z'),
+          participantsNum: 100,
+          lead: 'Lead Researcher',
+          members: ['Member 1', 'Member 2'],
+        },
+        request: {
+          comments: 'Some comments',
+          requestId: 'req-123',
+          status: $Enums.RequestStatus.PENDING,
+          createdDate: new Date('2025-02-01T00:00:00Z'),
+          lastModified: new Date('2025-02-02T00:00:00Z'),
+        },
+      };
+
+      prismaMock.connection.findUniqueOrThrow.mockResolvedValue(expectedResult);
+
+      const result = await service.getDetails(email, requestId);
+
+      expect(prismaMock.connection.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          orgAdminEmail: email,
+        },
+        select: {
+          project: {
+            select: {
+              projectId: true,
+              name: true,
+              description: true,
+              university: true,
+              faculty: true,
+              ethicsId: true,
+              startDate: true,
+              endDate: true,
+              participantsNum: true,
+              lead: true,
+              members: true,
+            },
+          },
+          request: {
+            select: {
+              comments: true,
+              requestId: true,
+              status: true,
+              createdDate: true,
+              lastModified: true,
+            },
+          },
+        },
+      });
+
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should throw if record is not found', async () => {
+      prismaMock.connection.findUniqueOrThrow.mockRejectedValue(
+        new Error('Not found'),
+      );
+
+      await expect(service.getDetails(email, requestId)).rejects.toThrow(
+        'Not found',
+      );
     });
   });
 
