@@ -335,6 +335,8 @@ describe('AnalysisRequestService', () => {
           },
         },
       });
+
+      expect(result).toBeNull();
     });
   });
 
