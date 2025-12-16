@@ -113,7 +113,9 @@ export class KeycloakAdminService implements OnModuleInit {
     try {
       await this.kcAdminClient.users.executeActionsEmail({
         id: userId,
+        clientId: this.configService.get<string>('auth.clientId'),
         actions: ['UPDATE_PASSWORD'],
+        redirectUri: this.configService.get<string>('appUrl'),
       });
     } catch (error) {
       return this.handleKeycloakError('setUserActions', error);
