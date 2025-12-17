@@ -404,10 +404,15 @@ export class ProjectController {
     description: 'Project details updated',
   })
   updateProject(
+    @Req() request: Request,
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() dto: UpdateProjectDto,
   ) {
-    return this.projectService.updateProject(projectId, dto);
+    return this.projectService.updateProject(
+      projectId,
+      dto,
+      request.auth?.token || '',
+    );
   }
 
   @UseGuards(ResourceGuard)

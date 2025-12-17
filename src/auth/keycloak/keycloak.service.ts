@@ -11,7 +11,6 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import fetch from 'node-fetch';
 import * as querystring from 'querystring';
 import type { AuthModuleConfig } from '../config.interface';
 import { AUTH_CONFIG } from '../config.interface';

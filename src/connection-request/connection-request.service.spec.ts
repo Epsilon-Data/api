@@ -2,9 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConnectionRequestService } from './connection-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
-import { $Enums, Prisma } from 'src/generated/prisma/client';
+import { $Enums } from 'src/generated/prisma/client';
 
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+import { VaultService } from 'src/vault/vault.service';
 
 describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
@@ -18,6 +19,12 @@ describe('ConnectionRequestService', () => {
   let queueMock: {
     dataBrokerJob: jest.Mock;
   };
+
+  const vaultMock = {
+    auth: jest.fn(),
+    transitEncrypt: jest.fn(),
+    writeProjectCiphertext: jest.fn(),
+  } as unknown as VaultService;
 
   beforeEach(async () => {
     prismaMock = {
@@ -46,6 +53,10 @@ describe('ConnectionRequestService', () => {
         {
           provide: QueueService,
           useValue: queueMock,
+        },
+        {
+          provide: VaultService,
+          useValue: vaultMock,
         },
       ],
     }).compile();
@@ -135,17 +146,18 @@ describe('ConnectionRequestService', () => {
       prismaMock.project.update.mockResolvedValue({});
       prismaMock.request.update.mockResolvedValue({});
 
-      const result = await service.approve(user, requestId, projectId, dto);
+      const result = await service.approve(
+        user,
+        requestId,
+        projectId,
+        dto,
+        'test-token',
+      );
 
       expect(prismaMock.project.update).toHaveBeenCalledWith({
         where: { projectId },
         data: {
           status: 'CRAWLING',
-          connection: {
-            update: {
-              tempDbDetails: tempDbDetails as unknown as Prisma.JsonObject,
-            },
-          },
         },
       });
 
@@ -178,7 +190,13 @@ describe('ConnectionRequestService', () => {
 
       prismaMock.request.update.mockResolvedValue({});
 
-      const result = await service.approve(user, requestId, projectId, dto);
+      const result = await service.approve(
+        user,
+        requestId,
+        projectId,
+        dto,
+        'test-token',
+      );
 
       expect(prismaMock.project.update).not.toHaveBeenCalled();
       expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
@@ -205,7 +223,13 @@ describe('ConnectionRequestService', () => {
 
       prismaMock.request.update.mockResolvedValue({});
 
-      const result = await service.approve(user, requestId, projectId, dto);
+      const result = await service.approve(
+        user,
+        requestId,
+        projectId,
+        dto,
+        'test-token',
+      );
 
       expect(prismaMock.project.update).not.toHaveBeenCalled();
       expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();

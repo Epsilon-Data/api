@@ -9,6 +9,7 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { Prisma, RequestStatus } from 'src/generated/prisma/client';
 import { SettingsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
+import { VaultService } from 'src/vault/vault.service';
 
 // mock nanoid + uuid to make tests deterministic
 jest.mock('nanoid', () => ({
@@ -57,6 +58,12 @@ describe('ProjectService', () => {
     auth: jest.fn(),
   } as unknown as KeycloakAdminService;
 
+  const vaultMock = {
+    auth: jest.fn(),
+    transitEncrypt: jest.fn(),
+    writeProjectCiphertext: jest.fn(),
+  } as unknown as VaultService;
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -67,6 +74,7 @@ describe('ProjectService', () => {
         { provide: QueueService, useValue: queueMock },
         { provide: FileStorageService, useValue: fileStorageMock },
         { provide: KeycloakAdminService, useValue: keycloakMock },
+        { provide: VaultService, useValue: vaultMock },
       ],
     }).compile();
 
@@ -337,7 +345,7 @@ describe('ProjectService', () => {
         },
       });
 
-      await service.createProject(user, dto);
+      await service.createProject(user, dto, 'test-token');
 
       expect(prismaMock.project.create).toHaveBeenCalled();
       expect(prismaMock.comment.create).toHaveBeenCalledWith({
@@ -381,7 +389,7 @@ describe('ProjectService', () => {
         },
       });
 
-      await service.createProject(user, dto);
+      await service.createProject(user, dto, 'test-token');
 
       expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
         'user1',
@@ -456,7 +464,7 @@ describe('ProjectService', () => {
 
       (prismaMock.project.update as jest.Mock).mockResolvedValue({});
 
-      await service.updateProject(projectId, dto);
+      await service.updateProject(projectId, dto, 'test-token');
 
       expect(prismaMock.project.update).toHaveBeenCalledWith({
         where: { projectId },
@@ -472,11 +480,6 @@ describe('ProjectService', () => {
           lastModified: expect.any(Date),
           participantsNum: dto.participantsNum,
           dbKeywords: dto.dbKeywords,
-          connection: {
-            update: {
-              tempDbDetails: dto.connection.tempDbDetails,
-            },
-          },
         },
       });
     });

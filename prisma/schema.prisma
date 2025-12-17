@@ -34,7 +34,6 @@ model Connection {
   requestId     String?  @unique @db.Uuid
   projectId     String   @unique @db.Uuid
   orgAdminEmail String?  @db.Text
-  tempDbDetails Json?    @db.Json
   request       Request? @relation(fields: [requestId], references: [requestId], onDelete: NoAction, onUpdate: NoAction, map: "fk_connection_request_id")
   project       Project  @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_connection_project_id")
 }

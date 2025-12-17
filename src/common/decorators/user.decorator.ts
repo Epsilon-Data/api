@@ -12,7 +12,7 @@ export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext) => {
     const req = ctx.switchToHttp().getRequest<
       Request & {
-        auth?: { payload?: Record<string, unknown> };
+        auth?: { payload?: Record<string, unknown>; token: string };
       }
     >();
     const id = req?.auth?.payload?.sub?.toString?.();
@@ -20,7 +20,6 @@ export const CurrentUser = createParamDecorator(
     const given_name = req?.auth?.payload?.given_name?.toString?.();
     const family_name = req?.auth?.payload?.family_name?.toString?.();
     const email = req?.auth?.payload?.email?.toString?.();
-    console.log(req?.auth);
     return { id, username, email, given_name, family_name };
   },
 );

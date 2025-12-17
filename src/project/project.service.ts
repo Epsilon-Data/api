@@ -202,11 +202,6 @@ export class ProjectService {
         lastModified: true,
         dbKeywords: true,
         createdDate: true,
-        connection: {
-          select: {
-            tempDbDetails: true, // TODO: need to move database and nature out from there
-          },
-        },
       },
     });
     if (!projectInfo) {
@@ -216,12 +211,6 @@ export class ProjectService {
     // TODO: get member names from keycloak
     // const members = projectInfo.members as string[];
     // if (members.length)
-
-    const { name, type } =
-      projectInfo.connection?.tempDbDetails &&
-      typeof projectInfo.connection?.tempDbDetails === 'object'
-        ? (projectInfo.connection?.tempDbDetails as Partial<DatabaseInfoDto>)
-        : {};
     return {
       projectId: projectInfo.projectId,
       status: projectInfo.status,
@@ -238,10 +227,6 @@ export class ProjectService {
       participantsNum: projectInfo.participantsNum,
       dbKeywords: projectInfo.dbKeywords,
       members: projectInfo.members,
-      // TODO: need to fix these things
-      connection: {
-        tempDbDetails: { name, type },
-      },
     };
   }
 
@@ -302,10 +287,6 @@ export class ProjectService {
     const createRequest = dto.connection.orgAdminEmail ? true : false;
     const requestId = uuidv4();
 
-    // check if any DB temp details
-    const tempDbDetails = dto.connection.tempDbDetails
-      ? (dto.connection.tempDbDetails as unknown as Prisma.JsonObject)
-      : undefined;
     const project = await this.prisma.project.create({
       data: {
         ...request,
@@ -313,7 +294,6 @@ export class ProjectService {
           create: {
             // if no orgAdminEmail provider make owner admin
             orgAdminEmail: dto.connection.orgAdminEmail ?? user.email,
-            tempDbDetails,
             ...(createRequest && {
               request: {
                 create: {
@@ -357,16 +337,10 @@ export class ProjectService {
     } else {
       // database credentials should exist so run database crawling
       if (dto.connection.tempDbDetails?.url) {
-        // add secrets
-        const vaultToken = await this.vaultService.auth(accessToken);
-        const entityId = await this.vaultService.getEntityId(vaultToken);
-        await this.vaultService.writeSecret(
-          vaultToken,
-          entityId,
+        await this.addSecrets(
+          accessToken,
           project.projectId,
-          {
-            ...dto.connection.tempDbDetails,
-          },
+          dto.connection.tempDbDetails,
         );
         await this.prisma.project.update({
           where: { projectId: project.projectId },
@@ -386,7 +360,11 @@ export class ProjectService {
     return;
   }
 
-  async updateProject(projectId: string, dto: UpdateProjectDto) {
+  async updateProject(
+    projectId: string,
+    dto: UpdateProjectDto,
+    accessToken: string,
+  ) {
     // should not update on invalid projectId
     if (projectId !== dto.projectId)
       throw new BadRequestException(`Update projectIds do not match`);
@@ -419,22 +397,18 @@ export class ProjectService {
     );
 
     // Check if connection details are updated
-    const connection =
-      dto.connection?.tempDbDetails !== undefined
-        ? {
-            connection: {
-              update: {
-                tempDbDetails: dto.connection
-                  .tempDbDetails as unknown as Prisma.JsonObject,
-              },
-            },
-          }
-        : {};
+    if (dto.connection?.tempDbDetails) {
+      await this.addSecrets(
+        accessToken,
+        dto.projectId,
+        dto.connection.tempDbDetails,
+      );
+    }
+
     return await this.prisma.project.update({
       where: { projectId: projectId },
       data: {
         ...data,
-        ...connection,
       },
     });
   }
@@ -494,5 +468,29 @@ export class ProjectService {
       .replace(/^_+|_+$/g, '');
     const packageId = `${packageName}_${customId.slice(0, 6)}`;
     return { packageId, customId };
+  }
+
+  private async addSecrets(
+    accessToken: string,
+    projectId: string,
+    dbDetails: DatabaseInfoDto,
+  ) {
+    // add secrets
+    const token = await this.vaultService.auth(accessToken);
+
+    // encrypt with transit (user token only needs encrypt)
+    const ciphertext = await this.vaultService.transitEncrypt(
+      token,
+      'connector-db',
+      {
+        ...dbDetails,
+      },
+    );
+    // store project-scoped copy for Coordinator (EC2)
+    await this.vaultService.writeProjectCiphertext(
+      token,
+      projectId,
+      ciphertext,
+    );
   }
 }
