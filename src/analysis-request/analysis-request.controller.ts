@@ -516,6 +516,6 @@ export class AnalysisRequestController {
     @CurrentUser() user: CurrentUserInfo,
     @Param('requestId', ParseUUIDPipe) requestId: string,
   ) {
-    return await this.analysisRequestService.getComments(user.id, requestId);
+    return await this.analysisRequestService.getComments(requestId);
   }
 }
