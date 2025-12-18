@@ -110,7 +110,7 @@ export class ConnectionRequestService {
       : $Enums.RequestStatus.REJECTED;
 
     // database credentials should exist so run database crawling
-    if (status === $Enums.RequestStatus.APPROVED && dto.tempDbDetails?.url) {
+    if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
       await this.prisma.project.update({
         where: { projectId: projectId },
         data: {
@@ -125,7 +125,7 @@ export class ConnectionRequestService {
         token,
         'connector-db',
         {
-          ...dto.tempDbDetails,
+          ...dto.dbDetails,
         },
       );
       // store project-scoped copy for Coordinator (EC2)
@@ -138,7 +138,7 @@ export class ConnectionRequestService {
         user.username,
         projectId,
         requestId,
-        dto.tempDbDetails,
+        dto.dbDetails,
       );
     }
     await this.prisma.request.update({

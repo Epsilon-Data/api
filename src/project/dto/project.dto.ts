@@ -488,7 +488,7 @@ export class ProjectDetailsResponseDto {
   })
   @IsOptional()
   @IsJSON()
-  tempDbDetails?: Prisma.JsonValue | null;
+  dbDetails?: Prisma.JsonValue | null;
 
   @ApiProperty({
     description: 'Number of project participants',

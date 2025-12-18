@@ -395,7 +395,7 @@ describe('ProjectService', () => {
       expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
     });
 
-    it('should trigger dataBrokerJob when no orgAdminEmail and tempDbDetails.url present', async () => {
+    it('should trigger dataBrokerJob when no orgAdminEmail and dbDetails.url present', async () => {
       // create dto mock
       const dto = {
         name: 'My Project',
@@ -410,7 +410,7 @@ describe('ProjectService', () => {
         members: [{ email: 'member1@example.com', role: 'collaborator' }],
         dbKeywords: ['keyword1', 'keyword2'],
         connection: {
-          tempDbDetails: {
+          dbDetails: {
             url: 'postgres://...',
             type: 'postgres',
             name: 'User added Database Name',
@@ -431,7 +431,7 @@ describe('ProjectService', () => {
         'user1',
         'proj-1',
         'mocked-request-id',
-        dto.connection.tempDbDetails,
+        dto.connection.dbDetails,
       );
       expect(queueMock.addResourceJob).toHaveBeenCalled();
     });
@@ -490,7 +490,7 @@ describe('ProjectService', () => {
         participantsNum: 100,
         dbKeywords: ['updated'],
         connection: {
-          tempDbDetails: {
+          dbDetails: {
             url: 'postgres://updated',
             type: 'postgres',
             name: 'Database update',

@@ -178,7 +178,7 @@ export class ConnectionDto {
   @IsObject()
   @ValidateNested()
   @Type(() => DatabaseInfoDto)
-  tempDbDetails?: DatabaseInfoDto;
+  dbDetails?: DatabaseInfoDto;
 
   @ApiPropertyOptional({
     description: 'Miscellaneous extra information provided by the user',
@@ -227,7 +227,7 @@ export class ConnectionRequestDto {
   })
   @IsOptional()
   @IsJSON()
-  tempDbDetails?: Prisma.JsonValue | null;
+  dbDetails?: Prisma.JsonValue | null;
 }
 export class RequestDto {
   @ApiProperty({
@@ -416,5 +416,5 @@ export class ConnectionDecisionDto {
   @IsObject()
   @ValidateNested()
   @Type(() => DatabaseInfoDto)
-  tempDbDetails?: DatabaseInfoDto;
+  dbDetails?: DatabaseInfoDto;
 }

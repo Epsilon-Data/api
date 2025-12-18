@@ -211,8 +211,8 @@ describe('ConnectionRequestService', () => {
     const requestId = 'req-1';
     const projectId = 'proj-1';
 
-    it('should approve request, update project to CRAWLING and enqueue job when tempDbDetails.url exists', async () => {
-      const tempDbDetails = {
+    it('should approve request, update project to CRAWLING and enqueue job when dbDetails.url exists', async () => {
+      const dbDetails = {
         url: 'pg://test_admin:supersecret@localhost:5433/test',
         name: 'test',
         type: 'postgres',
@@ -220,7 +220,7 @@ describe('ConnectionRequestService', () => {
 
       const dto = {
         isApproved: true,
-        tempDbDetails,
+        dbDetails,
       };
 
       prismaMock.project.update.mockResolvedValue({});
@@ -245,7 +245,7 @@ describe('ConnectionRequestService', () => {
         user.username,
         projectId,
         requestId,
-        tempDbDetails,
+        dbDetails,
       );
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
@@ -258,10 +258,10 @@ describe('ConnectionRequestService', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should approve request but NOT update project or enqueue job when tempDbDetails.url is missing', async () => {
+    it('should approve request but NOT update project or enqueue job when dbDetails.url is missing', async () => {
       const dto = {
         isApproved: true,
-        tempDbDetails: {
+        dbDetails: {
           name: 'test',
           type: 'postgres',
           // no url
@@ -294,7 +294,7 @@ describe('ConnectionRequestService', () => {
     it('should reject request and not update project or enqueue job', async () => {
       const dto = {
         isApproved: false,
-        tempDbDetails: {
+        dbDetails: {
           name: 'Example DB',
           type: 'postgresql',
           url: 'pg://should-not-be-used',

@@ -442,11 +442,11 @@ export class ProjectService {
       }
     } else {
       // database credentials should exist so run database crawling
-      if (dto.connection.tempDbDetails?.url) {
+      if (dto.connection.dbDetails?.url) {
         await this.addSecrets(
           accessToken,
           project.projectId,
-          dto.connection.tempDbDetails,
+          dto.connection.dbDetails,
         );
         await this.prisma.project.update({
           where: { projectId: project.projectId },
@@ -458,7 +458,7 @@ export class ProjectService {
           user.id,
           project.projectId,
           requestId,
-          dto.connection.tempDbDetails,
+          dto.connection.dbDetails,
         );
       }
     }
@@ -503,11 +503,11 @@ export class ProjectService {
     );
 
     // Check if connection details are updated
-    if (dto.connection?.tempDbDetails) {
+    if (dto.connection?.dbDetails) {
       await this.addSecrets(
         accessToken,
         dto.projectId,
-        dto.connection.tempDbDetails,
+        dto.connection.dbDetails,
       );
     }
 
