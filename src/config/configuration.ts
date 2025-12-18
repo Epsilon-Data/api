@@ -9,8 +9,8 @@ const trustedWebOrigins = () =>
     .map((origin) => origin.trim());
 
 export default () => ({
-  appUrl: process.env.APP_URL || 'http://localhost:3000',
-  isDev: process.env.NODE_ENV === 'development' ? true : false,
+  appUrl: env.APP_URL || 'http://localhost:3000',
+  isDev: env.NODE_ENV === 'development' ? true : false,
   apiBaseUrl: env.API_BASE_URL || '/api/v1/hub',
   apiPort: parseInt(env.API_SERVICE_PORT || '3334'),
   brokerImage: env.BROKER_IMAGE || 'ghcr.io/epsilon-data/data-broker:latest',
@@ -66,4 +66,5 @@ export default () => ({
   tokenEndpoint:
     env.EPSILON_TOKEN_ENDPOINT ||
     'http://keycloak:8080/realms/epsilon/protocol/openid-connect/token',
+  keystoreUrl: env.VAULT_API_ADDR || 'http://0.0.0.0:8200',
 });

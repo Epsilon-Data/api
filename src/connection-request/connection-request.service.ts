@@ -7,14 +7,16 @@ import {
 } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { QueueService } from 'src/queue/queue.service';
-import { $Enums, Prisma } from 'src/generated/prisma/client';
+import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+import { VaultService } from 'src/vault/vault.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
     private queue: QueueService,
+    private readonly vaultService: VaultService,
   ) {}
 
   async getList(userId: string): Promise<ConnectionRequestResponseDto[]> {
@@ -63,6 +65,7 @@ export class ConnectionRequestService {
     requestId: string,
     projectId: string,
     dto: ConnectionDecisionDto,
+    accessToken: string,
   ) {
     const status = dto.isApproved
       ? $Enums.RequestStatus.APPROVED
@@ -74,13 +77,25 @@ export class ConnectionRequestService {
         where: { projectId: projectId },
         data: {
           status: 'CRAWLING',
-          connection: {
-            update: {
-              tempDbDetails: dto.tempDbDetails as unknown as Prisma.JsonObject,
-            },
-          },
         },
       });
+      //add secrets
+      const token = await this.vaultService.auth(accessToken);
+
+      // encrypt with transit (user token only needs encrypt)
+      const ciphertext = await this.vaultService.transitEncrypt(
+        token,
+        'connector-db',
+        {
+          ...dto.tempDbDetails,
+        },
+      );
+      // store project-scoped copy for Coordinator (EC2)
+      await this.vaultService.writeProjectCiphertext(
+        token,
+        projectId,
+        ciphertext,
+      );
       await this.queue.dataBrokerJob(
         user.username,
         projectId,

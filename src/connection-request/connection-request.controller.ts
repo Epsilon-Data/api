@@ -10,10 +10,10 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   ServiceUnavailableException,
   UnauthorizedException,
   UseGuards,
-  // UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection-request.service';
 import {
@@ -42,6 +42,8 @@ import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
 import { GenericErrorResponseDto } from 'src/common/dto';
+
+import type { Request } from 'express';
 
 @ApiTags('Connection Request')
 @ApiBearerAuth()
@@ -217,6 +219,7 @@ export class ConnectionRequestController {
     },
   })
   async approve(
+    @Req() request: Request,
     @CurrentUser() user: CurrentUserInfo,
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -227,6 +230,7 @@ export class ConnectionRequestController {
       requestId,
       projectId,
       dto,
+      request.auth?.token || '',
     );
   }
 }

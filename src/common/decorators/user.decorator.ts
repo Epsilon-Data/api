@@ -12,7 +12,7 @@ export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext) => {
     const req = ctx.switchToHttp().getRequest<
       Request & {
-        auth?: { payload?: Record<string, unknown> };
+        auth?: { payload?: Record<string, unknown>; token: string };
       }
     >();
     const id = req?.auth?.payload?.sub?.toString?.();
