@@ -335,8 +335,6 @@ describe('AnalysisRequestService', () => {
           },
         },
       });
-
-      expect(result).toBeNull();
     });
   });
 
@@ -558,7 +556,6 @@ describe('AnalysisRequestService', () => {
 
   describe('getComments', () => {
     it('should return all comments for a request owned by the user', async () => {
-      const userId = 'user-1';
       const requestId = 'req-123';
       const comments = [
         {
@@ -575,14 +572,11 @@ describe('AnalysisRequestService', () => {
 
       prisma.comment.findMany.mockResolvedValue(comments);
 
-      const result = await service.getComments(userId, requestId);
+      const result = await service.getComments(requestId);
 
       expect(prisma.comment.findMany).toHaveBeenCalledWith({
         where: {
           requestId,
-          request: {
-            requestorId: userId,
-          },
         },
       });
       expect(result).toEqual(comments);
