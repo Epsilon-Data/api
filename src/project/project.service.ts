@@ -124,6 +124,9 @@ export class ProjectService {
         project: {
           select: {
             name: true,
+            lead: true,
+            university: true,
+            email: true,
           },
         },
         requestId: true,
@@ -159,105 +162,29 @@ export class ProjectService {
       },
     });
 
-    const analysisDetailsMap = new Map<
-      string,
-      { name: string; email: string; orgName: string }
-    >();
-
-    for (const a of analyses) {
-      const requestorId = a.request.requestorId;
-      if (!requestorId) continue;
-
-      analysisDetailsMap.set(requestorId, {
-        name: a.requestorName ?? null,
-        email: a.requestorEmail ?? null,
-        orgName: a.requestorOrgName ?? null,
-      });
-    }
-
-    const idsNeedingKeycloak = new Set<string>();
-
-    for (const c of connections) {
-      const requestorId = c.request?.requestorId;
-      if (!requestorId) continue;
-
-      if (!analysisDetailsMap.has(requestorId)) {
-        idsNeedingKeycloak.add(requestorId);
-      }
-    }
-
-    const keycloakMap = new Map<
-      string,
-      { name: string; email: string; orgName: string }
-    >();
-
-    await Promise.all(
-      Array.from(idsNeedingKeycloak).map(async (id) => {
-        const user = await this.keycloak.getUserById(id);
-        if (!user) return;
-
-        const firstName = user.firstName ?? '';
-        const lastName = user.lastName ?? '';
-        const name =
-          (firstName + ' ' + lastName).trim() || user.username || '-';
-        const email = user.email ?? '-';
-
-        // TODO: organisation attribute in Keycloak
-        const orgName = '-';
-
-        keycloakMap.set(id, {
-          name,
-          email,
-          orgName,
-        });
-      }),
-    );
-    const getRequestorDetails = (
-      requestorId: string,
-    ): { name: string; email: string; orgName: string } => {
-      const fromAnalysis = analysisDetailsMap.get(requestorId);
-      if (fromAnalysis) return fromAnalysis;
-
-      const fromKeycloak = keycloakMap.get(requestorId);
-      if (fromKeycloak) return fromKeycloak;
-
-      return { name: '-', email: '-', orgName: '-' };
-    };
-
     requestList.analysis = analyses.map((a) => {
-      const requestorId = a.request.requestorId;
-      const details = getRequestorDetails(requestorId);
-
       return {
         requestId: a.requestId,
         projectName: a.projectName,
         status: a.request.status,
-        requestorName: details.name,
-        requestorEmail: details.email,
-        requestorOrgName: details.orgName,
+        requestorName: a.requestorName,
+        requestorEmail: a.requestorEmail,
+        requestorOrgName: a.requestorOrgName,
         createdDate: a.request.createdDate,
       };
     });
 
-    requestList.connection = connections
-      .map((c) => {
-        const requestorId = c.request?.requestorId;
-        if (requestorId) {
-          const details = getRequestorDetails(requestorId);
-
-          return {
-            requestId: c.requestId,
-            projectName: c.project.name,
-            status: c.request?.status,
-            requestorName: details.name,
-            requestorEmail: details.email,
-            requestorOrgName: details.orgName,
-            createdDate: c.request?.createdDate,
-          };
-        }
-        return undefined;
-      })
-      .filter((item): item is ProjectRequestsResponseDto => item !== undefined);
+    requestList.connection = connections.map((c) => {
+      return {
+        requestId: c.requestId || '',
+        projectName: c.project.name,
+        status: c.request?.status || 'PENDING',
+        requestorName: c.project.lead,
+        requestorEmail: c.project.email,
+        requestorOrgName: c.project.university,
+        createdDate: c.request?.createdDate || new Date(),
+      };
+    });
 
     return requestList;
   }
@@ -371,6 +298,7 @@ export class ProjectService {
       : undefined;
     const request = {
       ownerId,
+      email: user.email,
       customId,
       packageId,
       name: dto.name,

@@ -481,15 +481,6 @@ export class ProjectDetailsResponseDto {
   @Transform(({ value }) => transformDateString(value))
   endDate!: Date;
 
-  @ApiPropertyOptional({
-    description: 'Database connection details',
-    type: Object,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsJSON()
-  dbDetails?: Prisma.JsonValue | null;
-
   @ApiProperty({
     description: 'Number of project participants',
     example: 148,
