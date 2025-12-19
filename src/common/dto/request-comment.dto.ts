@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsDate,
   IsDefined,
   IsNotEmpty,
@@ -64,4 +65,15 @@ export class RequestCommentDto {
   @IsDefined()
   @IsNotEmpty()
   content!: string;
+}
+
+export class GetRequestCommentsDto {
+  @ApiProperty({
+    description:
+      'Indicates whether the requester (true) or receiver (false) is making the request',
+    example: true,
+  })
+  @IsBoolean()
+  @IsDefined()
+  isRequestor!: boolean;
 }

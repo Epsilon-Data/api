@@ -10,6 +10,7 @@ import { QueueService } from 'src/queue/queue.service';
 import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { VaultService } from 'src/vault/vault.service';
+import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
 
 @Injectable()
 export class ConnectionRequestService {
@@ -149,5 +150,35 @@ export class ConnectionRequestService {
     });
     // just return, no content
     return;
+  }
+
+  async getComments(
+    userId: string,
+    requestId: string,
+    dto: GetRequestCommentsDto,
+  ): Promise<RequestCommentDto[]> {
+    if (dto.isRequestor) {
+      return await this.prisma.comment.findMany({
+        where: {
+          requestId: requestId,
+          request: {
+            requestorId: userId,
+          },
+        },
+      });
+    }
+
+    return await this.prisma.comment.findMany({
+      where: {
+        requestId: requestId,
+        request: {
+          connection: {
+            project: {
+              ownerId: userId,
+            },
+          },
+        },
+      },
+    });
   }
 }
