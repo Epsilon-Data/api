@@ -12,7 +12,7 @@ import {
 } from './dto';
 import { $Enums, Prisma } from 'src/generated/prisma/client';
 import { ProjectMember } from 'src/project/dto';
-import { RequestCommentDto } from 'src/common/dto';
+import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { DatasetDto } from 'src/analysis/dto';
 
@@ -262,10 +262,32 @@ export class AnalysisRequestService {
     return;
   }
 
-  async getComments(requestId: string): Promise<RequestCommentDto[]> {
+  async getComments(
+    userId: string,
+    requestId: string,
+    dto: GetRequestCommentsDto,
+  ): Promise<RequestCommentDto[]> {
+    if (dto.isRequestor) {
+      return await this.prisma.comment.findMany({
+        where: {
+          requestId: requestId,
+          request: {
+            requestorId: userId,
+          },
+        },
+      });
+    }
+
     return await this.prisma.comment.findMany({
       where: {
         requestId: requestId,
+        request: {
+          analysis: {
+            project: {
+              ownerId: userId,
+            },
+          },
+        },
       },
     });
   }

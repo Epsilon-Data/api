@@ -6,6 +6,7 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { $Enums } from 'src/generated/prisma/client';
 import { AnalysisDecisionDto, AnalysisDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
+import { GetRequestCommentsDto } from 'src/common/dto';
 
 describe('AnalysisRequestService', () => {
   let service: AnalysisRequestService;
@@ -555,28 +556,68 @@ describe('AnalysisRequestService', () => {
   });
 
   describe('getComments', () => {
-    it('should return all comments for a request owned by the user', async () => {
+    const comments = [
+      {
+        authorName: 'User 1',
+        content: 'First comment',
+        createdDate: new Date(),
+      },
+      {
+        authorName: 'User 2',
+        content: 'Second comment',
+        createdDate: new Date(),
+      },
+    ];
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should return all comments for a request when user is the requestor', async () => {
+      const userId = 'user-1';
       const requestId = 'req-123';
-      const comments = [
-        {
-          authorName: 'User 1',
-          content: 'First comment',
-          createdDate: new Date(),
-        },
-        {
-          authorName: 'User 2',
-          content: 'Second comment',
-          createdDate: new Date(),
-        },
-      ];
+      const dto: GetRequestCommentsDto = {
+        requestId,
+        isRequestor: true,
+      };
 
       prisma.comment.findMany.mockResolvedValue(comments);
 
-      const result = await service.getComments(requestId);
+      const result = await service.getComments(userId, requestId, dto);
 
       expect(prisma.comment.findMany).toHaveBeenCalledWith({
         where: {
           requestId,
+          request: {
+            requestorId: userId,
+          },
+        },
+      });
+      expect(result).toEqual(comments);
+    });
+
+    it('should return all comments for a request when user is the project owner (receiver end)', async () => {
+      const userId = 'owner-1';
+      const requestId = 'req-456';
+      const dto: GetRequestCommentsDto = {
+        requestId,
+        isRequestor: false,
+      };
+
+      prisma.comment.findMany.mockResolvedValue(comments);
+
+      const result = await service.getComments(userId, requestId, dto);
+
+      expect(prisma.comment.findMany).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          request: {
+            analysis: {
+              project: {
+                ownerId: userId,
+              },
+            },
+          },
         },
       });
       expect(result).toEqual(comments);
