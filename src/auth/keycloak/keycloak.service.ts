@@ -48,6 +48,9 @@ export class KeycloakService {
       `${this.config.issuerBaseURL}/protocol/openid-connect/token`,
       {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
         body: data,
       },
     )) as unknown as Response;
