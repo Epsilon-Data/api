@@ -237,9 +237,8 @@ describe('ProjectService', () => {
           requestId: 'conn-1',
           project: {
             name: 'Project 1',
-            email: 'project@example.com',
-            lead: 'Project Lead',
-            university: 'Project Uni',
+            lead: 'Alice Analysis',
+            university: 'Org A',
           },
           request: {
             requestorId: 'user-a',
@@ -271,6 +270,8 @@ describe('ProjectService', () => {
         analysisRequests,
       );
 
+      (keycloakMock.getUserById as jest.Mock).mockResolvedValue(null);
+
       const result = await service.getProjectRequests(projectId, userId, email);
 
       expect(prismaMock.connection.findMany).toHaveBeenCalledWith({
@@ -281,7 +282,6 @@ describe('ProjectService', () => {
           project: {
             select: {
               name: true,
-              email: true,
               lead: true,
               university: true,
             },
@@ -325,9 +325,9 @@ describe('ProjectService', () => {
             requestId: 'conn-1',
             projectName: 'Project 1',
             status: RequestStatus.PENDING,
-            requestorName: 'Project Lead',
-            requestorEmail: 'project@example.com',
-            requestorOrgName: 'Project Uni',
+            requestorName: 'Alice Analysis',
+            requestorEmail: 'alice@example.com',
+            requestorOrgName: 'Org A',
             createdDate: now,
           },
         ],

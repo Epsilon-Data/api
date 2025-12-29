@@ -60,7 +60,6 @@ model Analysis {
 model Project {
   projectId       String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
   ownerId         String        @db.Uuid
-  email           String        @db.Text
   customId        String        @db.VarChar(12)
   packageId       String        @db.Text
   name            String        @db.Text
