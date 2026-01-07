@@ -464,12 +464,6 @@ export class KeycloakAdminService implements OnModuleInit {
       `Modifying policy ${analysisPolicyPrefix}${projectId}, adding user ${userId}`,
     );
     try {
-      const user = await this.getUserById(userId);
-      if (!user)
-        throw new Error(
-          `User with id ${userId} doesn't exists. This should not happen!`,
-        );
-      const username = user.username!;
       const existingPolicy = await this.kcAdminClient.clients.findPolicyByName({
         id: this.defaultClient.id!,
         realm: this.config.realm,
@@ -480,13 +474,29 @@ export class KeycloakAdminService implements OnModuleInit {
         decisionStrategy: DecisionStrategy.UNANIMOUS,
         type: 'user',
         logic: Logic.POSITIVE,
-        users: [username],
       };
       if (existingPolicy) {
-        const existingUsers = new Set(existingPolicy.users ?? []);
-        existingUsers.add(username);
+        existingPolicy.config ??= {};
+
+        let parsedUsers: unknown;
+
+        try {
+          parsedUsers =
+            typeof existingPolicy.config.users === 'string'
+              ? JSON.parse(existingPolicy.config.users)
+              : [];
+        } catch {
+          parsedUsers = [];
+        }
+
+        const usersArray = Array.isArray(parsedUsers)
+          ? parsedUsers.filter((u): u is string => typeof u === 'string')
+          : [];
+
+        const existingUsers = new Set<string>(usersArray);
+        existingUsers.add(userId);
         policy = {
-          ...existingPolicy,
+          ...policy,
           type: existingPolicy.type ?? 'user',
           users: Array.from(existingUsers),
         };
