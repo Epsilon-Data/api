@@ -12,6 +12,7 @@ import {
   HttpStatus,
   HttpCode,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import {
@@ -39,6 +40,7 @@ import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
 import { GenericErrorResponseDto, GetRequestCommentsDto } from 'src/common/dto';
 import { RequestCommentDto } from 'src/common/dto';
+import { SerializeNullInterceptor } from 'src/common/interceptors/serialize-null.interceptor';
 
 @ApiTags('Analysis Request')
 @ApiBearerAuth()
@@ -139,6 +141,7 @@ export class AnalysisRequestController {
   }
 
   @Get(':projectId')
+  @UseInterceptors(SerializeNullInterceptor)
   @ApiOperation({
     summary: 'Get analysis request for a project',
   })
