@@ -54,6 +54,7 @@ export class ProjectService {
         university: true,
         lead: true,
         faculty: true,
+        createdDate: true,
       },
     });
   }
@@ -78,6 +79,7 @@ export class ProjectService {
         customId: true,
         name: true,
         lastModified: true,
+        createdDate: true,
         lead: true,
         status: true,
         university: true,
@@ -101,6 +103,7 @@ export class ProjectService {
         createdDate: true,
         university: true,
         faculty: true,
+        dbKeywords: true,
       },
     });
   }
