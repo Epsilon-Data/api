@@ -192,7 +192,7 @@ export class AnalysisRequestController {
     return await this.analysisRequestService.getByProject(user.id, projectId);
   }
 
-  @Get('details/:requestId')
+  @Get(':requestId/details')
   @ApiOperation({
     summary: 'Get analysis request details',
   })
