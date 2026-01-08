@@ -619,11 +619,13 @@ describe('AnalysisRequestService', () => {
           project: {
             projectId: 'proj-1',
             lastModified: now,
-            packageId: 'pkg-1',
           },
         },
         {
-          project: { projectId: 'proj-2', lastModified: now, packageId: null },
+          project: {
+            projectId: 'proj-2',
+            lastModified: now,
+          },
         },
       ];
 
@@ -650,15 +652,20 @@ describe('AnalysisRequestService', () => {
             select: {
               projectId: true,
               lastModified: true,
-              packageId: true,
             },
           },
         },
       });
 
       expect(result).toEqual([
-        { datasetId: 'proj-1', packageId: 'pkg-1', lastModified: now },
-        { datasetId: 'proj-2', packageId: null, lastModified: now },
+        {
+          datasetId: 'proj-1',
+          lastModified: now,
+        },
+        {
+          datasetId: 'proj-2',
+          lastModified: now,
+        },
       ]);
     });
 

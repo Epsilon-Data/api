@@ -49,14 +49,6 @@ export class DatasetDto {
   datasetId!: string;
 
   @ApiProperty({
-    description: 'Identifier of the associated package',
-    example: 'test_db_creds_dGDZ6c',
-  })
-  @IsString()
-  @IsNotEmpty()
-  packageId!: string;
-
-  @ApiProperty({
     description: 'Timestamp when the dataset was last modified',
     type: String,
     format: 'date-time',

@@ -60,8 +60,6 @@ model Analysis {
 model Project {
   projectId       String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
   ownerId         String        @db.Uuid
-  customId        String        @db.VarChar(12)
-  packageId       String        @db.Text
   name            String        @db.Text
   lead            String        @db.Text
   university      String        @db.Text
@@ -80,7 +78,7 @@ model Project {
   connection      Connection?
   analysis        Analysis[]
 
-  @@unique([ownerId, customId])
+  @@unique([ownerId, projectId])
 }
 
 model Notification {
