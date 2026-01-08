@@ -118,6 +118,26 @@ export class ProjectSummaryInfoDto {
   })
   @IsEnum($Enums.ProjectStatus)
   status!: $Enums.ProjectStatus;
+
+  @ApiProperty({
+    description: 'Project creation date',
+    example: '2025-11-12T09:30:00.000Z',
+    type: String,
+    format: 'date-time',
+  })
+  @IsDate()
+  @IsDefined()
+  @Transform(({ value }) => transformDateString(value))
+  createdDate!: Date;
+
+  @ApiPropertyOptional({
+    description: 'Keywords used to identify relevant database columns',
+    isArray: true,
+    example: ['heart_rate', 'age', 'bmi'],
+  })
+  @IsOptional()
+  @IsString({ each: true })
+  dbKeywords?: string[];
 }
 export class CreateProjectDto {
   @ApiPropertyOptional({
