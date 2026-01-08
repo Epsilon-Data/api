@@ -242,8 +242,14 @@ export class AnalysisRequestController {
   async getDetails(
     @CurrentUser() user: CurrentUserInfo,
     @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Query() query: GetRequestCommentsDto,
   ) {
-    return await this.analysisRequestService.getDetails(user.id, requestId);
+    const isRequestor = query.isRequestor === 'true';
+    return await this.analysisRequestService.getDetails(
+      isRequestor,
+      user.id,
+      requestId,
+    );
   }
 
   // TODO: should this not also have to be reject?
@@ -518,10 +524,11 @@ export class AnalysisRequestController {
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Query() query: GetRequestCommentsDto,
   ) {
+    const isRequestor = query.isRequestor === 'true';
     return await this.analysisRequestService.getComments(
       user.id,
       requestId,
-      query,
+      isRequestor,
     );
   }
 }

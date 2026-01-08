@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
@@ -12,45 +13,41 @@ import {
 } from './dto';
 import { $Enums, Prisma } from 'src/generated/prisma/client';
 import { ProjectMember } from 'src/project/dto';
-import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
+import { RequestCommentDto } from 'src/common/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { DatasetDto } from 'src/analysis/dto';
 
 @Injectable()
 export class AnalysisRequestService {
+  private readonly logger = new Logger(AnalysisRequestService.name);
   constructor(
     private prisma: PrismaService,
     private readonly keycloak: KeycloakAdminService,
   ) {}
 
   async getDetails(
+    isRequestor: boolean,
     userId: string,
     requestId: string,
   ): Promise<AnalysisRequestDetailsResponseDto> {
+    const include = {
+      request: { include: { comments: true } },
+      project: true,
+    } as const;
+
+    const where = isRequestor
+      ? { requestId, request: { requestorId: userId } }
+      : { requestId, project: { ownerId: userId } };
+
     const result = await this.prisma.analysis.findUniqueOrThrow({
-      where: {
-        requestId: requestId,
-        request: {
-          requestorId: userId,
-        },
-      },
-      include: {
-        request: {
-          include: {
-            comments: true,
-          },
-        },
-        project: true,
-      },
+      where,
+      include,
     });
 
-    const projectMembers =
-      result.projectMembers as Prisma.JsonArray | null as ProjectMember[];
+    const projectMembers = (result.projectMembers ?? []) as ProjectMember[];
 
-    // original project
     const project = result.project;
-    const members =
-      project.members as Prisma.JsonArray | null as ProjectMember[];
+    const members = (project?.members ?? []) as ProjectMember[];
 
     return {
       requestId: result.requestId,
@@ -265,9 +262,9 @@ export class AnalysisRequestService {
   async getComments(
     userId: string,
     requestId: string,
-    dto: GetRequestCommentsDto,
+    isRequestor: boolean,
   ): Promise<RequestCommentDto[]> {
-    if (dto.isRequestor) {
+    if (isRequestor) {
       return await this.prisma.comment.findMany({
         where: {
           requestId: requestId,
