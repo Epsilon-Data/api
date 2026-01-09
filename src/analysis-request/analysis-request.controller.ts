@@ -197,7 +197,7 @@ export class AnalysisRequestController {
     summary: 'Get analysis request details',
   })
   @ApiOkResponse({
-    description: 'List of user owned request are returned',
+    description: 'Analysis request details are returned',
     type: AnalysisRequestDetailsResponseDto,
   })
   @ApiBadRequestResponse({
