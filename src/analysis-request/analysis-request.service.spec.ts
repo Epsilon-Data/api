@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
@@ -675,6 +675,66 @@ describe('AnalysisRequestService', () => {
       const result = await service.getAnalysisProjects('user-456');
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('checkAnalysisAccess', () => {
+    it('throws BadRequestException when projectId is missing', async () => {
+      await expect(service.checkAnalysisAccess('', 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.checkAnalysisAccess('', 'user-1')).rejects.toThrow(
+        'Missing parameters projectId and userId are required',
+      );
+
+      expect(prisma.analysis.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when userId is missing', async () => {
+      await expect(service.checkAnalysisAccess('proj-1', '')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.checkAnalysisAccess('proj-1', '')).rejects.toThrow(
+        'Missing parameters projectId and userId are required',
+      );
+
+      expect(prisma.analysis.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('queries prisma with correct where/select and returns isApproved=true when an approved request exists', async () => {
+      prisma.analysis.findFirst.mockResolvedValueOnce({
+        requestId: 'req-123',
+      });
+
+      const projectId = 'proj-1';
+      const userId = 'user-1';
+
+      const result = await service.checkAnalysisAccess(projectId, userId);
+
+      expect(prisma.analysis.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
+        where: {
+          projectId,
+          request: {
+            requestorId: userId,
+            status: $Enums.RequestStatus.APPROVED,
+          },
+        },
+        select: {
+          requestId: true,
+        },
+      });
+
+      expect(result).toEqual({ isApproved: true });
+    });
+
+    it('returns isApproved=false when no approved request exists', async () => {
+      prisma.analysis.findFirst.mockResolvedValueOnce(null);
+
+      const result = await service.checkAnalysisAccess('proj-1', 'user-1');
+
+      expect(prisma.analysis.findFirst).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ isApproved: false });
     });
   });
 });
