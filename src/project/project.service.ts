@@ -9,6 +9,7 @@ import {
   CreateProjectDto,
   ProjectDetailsResponseDto,
   ProjectRequestsResponse,
+  ProjectRequestsResponseDto,
   ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
@@ -21,13 +22,10 @@ import { QueueService } from 'src/queue/queue.service';
 import { KeycloakPermissionDto } from 'src/auth/dto';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  ConnectionRequestResponseDto,
-  DatabaseInfoDto,
-} from 'src/connection-request/dto';
-import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
+import { DatabaseInfoDto } from 'src/connection-request/dto';
 import { Prisma } from 'src/generated/prisma/client';
 import { VaultService } from 'src/vault/vault.service';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 
 @Injectable()
 export class ProjectService {
@@ -37,6 +35,7 @@ export class ProjectService {
     private queue: QueueService,
     private fileStorage: FileStorageService,
     private readonly vaultService: VaultService,
+    private readonly keycloak: KeycloakAdminService,
   ) {}
 
   // Queries
@@ -110,51 +109,152 @@ export class ProjectService {
 
   async getProjectRequests(
     projectId: string,
+    userId: string,
     email: string,
   ): Promise<ProjectRequestsResponse> {
     const requestList: {
-      connection: ConnectionRequestResponseDto[];
-      analysis: AnalysisRequestResponseDto[];
+      connection: ProjectRequestsResponseDto[];
+      analysis: ProjectRequestsResponseDto[];
     } = {
       connection: [],
       analysis: [],
     };
-    requestList.connection = await this.prisma.connection.findMany({
+    const connections = await this.prisma.connection.findMany({
       where: {
         orgAdminEmail: email,
       },
       select: {
-        request: {
-          select: {
-            requestId: true,
-            status: true,
-            createdDate: true,
-          },
-        },
         project: {
           select: {
-            projectId: true,
             name: true,
+            lead: true,
+            university: true,
+          },
+        },
+        requestId: true,
+        request: {
+          select: {
+            requestorId: true,
+            status: true,
+            createdDate: true,
           },
         },
       },
     });
 
-    requestList.analysis = await this.prisma.analysis.findMany({
+    const analyses = await this.prisma.analysis.findMany({
       where: {
-        projectId: projectId,
+        project: {
+          ownerId: userId,
+        },
       },
       select: {
+        requestId: true,
+        requestorName: true,
+        requestorEmail: true,
+        requestorOrgName: true,
+        projectName: true,
         request: {
           select: {
-            requestId: true,
+            requestorId: true,
             status: true,
             createdDate: true,
           },
         },
-        projectName: true,
       },
     });
+
+    const analysisDetailsMap = new Map<
+      string,
+      { name: string; email: string }
+    >();
+
+    for (const a of analyses) {
+      const requestorId = a.request.requestorId;
+      if (!requestorId) continue;
+
+      analysisDetailsMap.set(requestorId, {
+        name: a.requestorName ?? null,
+        email: a.requestorEmail ?? null,
+      });
+    }
+
+    const idsNeedingKeycloak = new Set<string>();
+
+    for (const c of connections) {
+      const requestorId = c.request?.requestorId;
+      if (!requestorId) continue;
+
+      if (!analysisDetailsMap.has(requestorId)) {
+        idsNeedingKeycloak.add(requestorId);
+      }
+    }
+
+    const keycloakMap = new Map<string, { name: string; email: string }>();
+
+    await Promise.all(
+      Array.from(idsNeedingKeycloak).map(async (id) => {
+        const user = await this.keycloak.getUserById(id);
+        if (!user) return;
+
+        const firstName = user.firstName ?? '';
+        const lastName = user.lastName ?? '';
+        const name =
+          (firstName + ' ' + lastName).trim() || user.username || '-';
+        const email = user.email ?? '-';
+
+        keycloakMap.set(id, {
+          name,
+          email,
+        });
+      }),
+    );
+    const getRequestorDetails = (
+      requestorId: string,
+    ): { name: string; email: string } => {
+      const fromAnalysis = analysisDetailsMap.get(requestorId);
+      if (fromAnalysis) return fromAnalysis;
+
+      const fromKeycloak = keycloakMap.get(requestorId);
+      if (fromKeycloak) return fromKeycloak;
+
+      return { name: '-', email: '-' };
+    };
+
+    requestList.analysis = analyses.map((a) => {
+      const requestorId = a.request.requestorId;
+      const details = getRequestorDetails(requestorId);
+
+      return {
+        requestId: a.requestId,
+        projectName: a.projectName,
+        status: a.request.status,
+        requestorName: details.name,
+        requestorEmail: details.email,
+        requestorOrgName: a.requestorOrgName,
+        createdDate: a.request.createdDate,
+      };
+    });
+
+    requestList.connection = connections
+      .map((c) => {
+        const requestorId = c.request?.requestorId;
+        if (requestorId) {
+          const details = getRequestorDetails(requestorId);
+
+          return {
+            requestId: c.requestId,
+            projectName: c.project.name,
+            status: c.request?.status || 'PENDING',
+            requestorName: c.project.lead,
+            requestorEmail: details.email,
+            requestorOrgName: c.project.university,
+            createdDate: c.request?.createdDate,
+          };
+        }
+        return undefined;
+      })
+      .filter((item): item is ProjectRequestsResponseDto => item !== undefined);
 
     return requestList;
   }
@@ -339,11 +439,11 @@ export class ProjectService {
       }
     } else {
       // database credentials should exist so run database crawling
-      if (dto.connection.tempDbDetails?.url) {
+      if (dto.connection.dbDetails?.url) {
         await this.addSecrets(
           accessToken,
           project.projectId,
-          dto.connection.tempDbDetails,
+          dto.connection.dbDetails,
         );
         await this.prisma.project.update({
           where: { projectId: project.projectId },
@@ -355,7 +455,7 @@ export class ProjectService {
           user.id,
           project.projectId,
           requestId,
-          dto.connection.tempDbDetails,
+          dto.connection.dbDetails,
         );
       }
     }
@@ -400,11 +500,11 @@ export class ProjectService {
     );
 
     // Check if connection details are updated
-    if (dto.connection?.tempDbDetails) {
+    if (dto.connection?.dbDetails) {
       await this.addSecrets(
         accessToken,
         dto.projectId,
-        dto.connection.tempDbDetails,
+        dto.connection.dbDetails,
       );
     }
 

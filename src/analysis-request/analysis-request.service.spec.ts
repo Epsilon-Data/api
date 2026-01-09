@@ -6,6 +6,7 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { $Enums } from 'src/generated/prisma/client';
 import { AnalysisDecisionDto, AnalysisDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
+import { RequestCommentDto } from 'src/common/dto';
 
 describe('AnalysisRequestService', () => {
   let service: AnalysisRequestService;
@@ -27,11 +28,15 @@ describe('AnalysisRequestService', () => {
       findMany: jest.Mock;
     };
   };
-  const keycloakMock = {
-    addUserToUserPolicy: jest.fn(),
-  } as unknown as KeycloakAdminService;
+
+  let keycloakMock: {
+    addUserToUserPolicy: jest.Mock;
+  };
 
   beforeEach(async () => {
+    keycloakMock = {
+      addUserToUserPolicy: jest.fn(),
+    };
     prisma = {
       analysis: {
         findUniqueOrThrow: jest.fn(),
@@ -54,10 +59,7 @@ describe('AnalysisRequestService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AnalysisRequestService,
-        {
-          provide: PrismaService,
-          useValue: prisma,
-        },
+        { provide: PrismaService, useValue: prisma },
         { provide: KeycloakAdminService, useValue: keycloakMock },
       ],
     }).compile();
@@ -70,7 +72,7 @@ describe('AnalysisRequestService', () => {
   });
 
   describe('getDetails', () => {
-    it('should return mapped details including project, request and comments', async () => {
+    it('should return mapped details for requestor (isRequestor=true)', async () => {
       const userId = 'user-1';
       const requestId = 'req-1';
 
@@ -107,7 +109,7 @@ describe('AnalysisRequestService', () => {
             {
               requestId,
               commentId: 'comment-1',
-              authorId: 'user-1',
+              authorId: userId,
               authorName: 'User 1',
               content: 'Comment 1',
               createdDate: new Date('2025-01-10T00:00:00.000Z'),
@@ -119,26 +121,21 @@ describe('AnalysisRequestService', () => {
           name: 'Original Project',
           members: projectMembersOriginal,
           university: 'Uni',
+          ownerId: 'owner-xyz',
         },
       };
 
       prisma.analysis.findUniqueOrThrow.mockResolvedValue(analysisRecord);
 
-      const result = await service.getDetails(userId, requestId);
+      const result = await service.getDetails(true, userId, requestId);
 
       expect(prisma.analysis.findUniqueOrThrow).toHaveBeenCalledWith({
         where: {
-          requestId: requestId,
-          request: {
-            requestorId: userId,
-          },
+          requestId,
+          request: { requestorId: userId },
         },
         include: {
-          request: {
-            include: {
-              comments: true,
-            },
-          },
+          request: { include: { comments: true } },
           project: true,
         },
       });
@@ -162,6 +159,58 @@ describe('AnalysisRequestService', () => {
         project: {
           ...analysisRecord.project,
           members: projectMembersOriginal,
+        },
+      });
+    });
+
+    it('should return mapped details for owner', async () => {
+      const ownerId = 'owner-1';
+      const requestId = 'req-2';
+
+      const analysisRecord = {
+        requestId,
+        projectId: 'proj-22',
+        requestorName: 'Someone',
+        requestorOrgName: 'Org',
+        requestorEmail: 'someone@example.org',
+        requestorPosition: 'Researcher',
+        projectName: 'Project X',
+        projectStartDate: new Date('2025-01-01T00:00:00.000Z'),
+        projectEndDate: new Date('2025-12-31T00:00:00.000Z'),
+        projectDescription: 'Description',
+        projectObjective: 'Objective',
+        projectOutcome: 'Outcome',
+        projectMembers: [],
+        projectEthicsId: 'ETH-99',
+        request: {
+          requestId,
+          requestorId: 'requestor-abc',
+          status: $Enums.RequestStatus.PENDING,
+          createdDate: new Date('2025-01-10T00:00:00.000Z'),
+          lastModified: new Date('2025-01-11T00:00:00.000Z'),
+          comments: [],
+        },
+        project: {
+          projectId: 'proj-22',
+          name: 'Project X (orig)',
+          members: [],
+          university: 'Uni',
+          ownerId,
+        },
+      };
+
+      prisma.analysis.findUniqueOrThrow.mockResolvedValue(analysisRecord);
+
+      await service.getDetails(false, ownerId, requestId);
+
+      expect(prisma.analysis.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          project: { ownerId },
+        },
+        include: {
+          request: { include: { comments: true } },
+          project: true,
         },
       });
     });
@@ -205,26 +254,14 @@ describe('AnalysisRequestService', () => {
       const result = await service.getList(userId);
 
       expect(prisma.analysis.findMany).toHaveBeenCalledWith({
-        where: {
-          request: {
-            requestorId: userId,
-          },
-        },
+        where: { request: { requestorId: userId } },
         select: {
           requestId: true,
           project: {
-            select: {
-              projectId: true,
-              name: true,
-              university: true,
-            },
+            select: { projectId: true, name: true, university: true },
           },
           request: {
-            select: {
-              status: true,
-              createdDate: true,
-              lastModified: true,
-            },
+            select: { status: true, createdDate: true, lastModified: true },
           },
         },
       });
@@ -260,7 +297,7 @@ describe('AnalysisRequestService', () => {
       const prismaResult = {
         requestId: 'req-1',
         project: {
-          projectId: projectId,
+          projectId,
           name: 'Project Name',
           university: 'Monash University',
         },
@@ -276,22 +313,14 @@ describe('AnalysisRequestService', () => {
       const result = await service.getByProject(userId, projectId);
 
       expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
-        where: { projectId: projectId, request: { requestorId: userId } },
+        where: { projectId, request: { requestorId: userId } },
         select: {
           requestId: true,
           project: {
-            select: {
-              projectId: true,
-              name: true,
-              university: true,
-            },
+            select: { projectId: true, name: true, university: true },
           },
           request: {
-            select: {
-              status: true,
-              createdDate: true,
-              lastModified: true,
-            },
+            select: { status: true, createdDate: true, lastModified: true },
           },
         },
       });
@@ -307,34 +336,13 @@ describe('AnalysisRequestService', () => {
       });
     });
 
-    it('should return null request is found for the project and user', async () => {
+    it('should return null when no request is found for the project and user', async () => {
       const userId = 'user-1';
       const projectId = 'proj-123';
 
       prisma.analysis.findFirst.mockResolvedValue(null);
 
       expect(await service.getByProject(userId, projectId)).toEqual(null);
-
-      expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
-        where: { projectId: projectId, request: { requestorId: userId } },
-        select: {
-          requestId: true,
-          project: {
-            select: {
-              projectId: true,
-              name: true,
-              university: true,
-            },
-          },
-          request: {
-            select: {
-              status: true,
-              createdDate: true,
-              lastModified: true,
-            },
-          },
-        },
-      });
     });
   });
 
@@ -377,16 +385,8 @@ describe('AnalysisRequestService', () => {
           projectOutcome: dto.projectOutcome,
           projectMembers: dto.projectMembers,
           projectEthicsId: dto.projectEthicsId,
-          request: {
-            create: {
-              requestorId: userId,
-            },
-          },
-          project: {
-            connect: {
-              projectId: dto.projectId,
-            },
-          },
+          request: { create: { requestorId: userId } },
+          project: { connect: { projectId: dto.projectId } },
         },
         include: { request: true, project: true },
       });
@@ -396,40 +396,46 @@ describe('AnalysisRequestService', () => {
   });
 
   describe('approve', () => {
-    it('should set status APPROVED when isApproved is true', async () => {
+    it('should set status APPROVED and call keycloak when isApproved is true', async () => {
       const requestId = 'req-1';
       const projectId = '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230';
       const dto: AnalysisDecisionDto = { isApproved: true };
 
-      const updated = { requestId, status: $Enums.RequestStatus.APPROVED };
-      prisma.request.update.mockResolvedValue(updated);
+      prisma.request.update.mockResolvedValue({
+        requestId,
+        status: $Enums.RequestStatus.APPROVED,
+        requestorId: 'requestor-123',
+      });
 
       await service.approve(requestId, projectId, dto);
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
-        data: {
-          status: $Enums.RequestStatus.APPROVED,
-        },
+        data: { status: $Enums.RequestStatus.APPROVED },
       });
+
+      expect(keycloakMock.addUserToUserPolicy).toHaveBeenCalled();
     });
 
-    it('should set status REJECTED when isApproved is false', async () => {
+    it('should set status REJECTED and NOT call keycloak when isApproved is false', async () => {
       const requestId = 'req-1';
       const projectId = '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230';
       const dto: AnalysisDecisionDto = { isApproved: false };
 
-      const updated = { requestId, status: $Enums.RequestStatus.REJECTED };
-      prisma.request.update.mockResolvedValue(updated);
+      prisma.request.update.mockResolvedValue({
+        requestId,
+        status: $Enums.RequestStatus.REJECTED,
+        requestorId: 'requestor-123',
+      });
 
       await service.approve(requestId, projectId, dto);
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
-        data: {
-          status: $Enums.RequestStatus.REJECTED,
-        },
+        data: { status: $Enums.RequestStatus.REJECTED },
       });
+
+      expect(keycloakMock.addUserToUserPolicy).not.toHaveBeenCalled();
     });
   });
 
@@ -439,7 +445,7 @@ describe('AnalysisRequestService', () => {
       const requestId = 'req-1';
 
       const dto: AnalysisDto = {
-        requestId: requestId,
+        requestId,
         projectId: 'proj-1',
         requestorName: 'Name',
         requestorEmail: 'email@example.org',
@@ -463,12 +469,7 @@ describe('AnalysisRequestService', () => {
       const result = await service.update(userId, requestId, dto);
 
       expect(prisma.analysis.update).toHaveBeenCalledWith({
-        where: {
-          requestId: requestId,
-          request: {
-            requestorId: userId,
-          },
-        },
+        where: { requestId, request: { requestorId: userId } },
         data: {
           projectName: dto.projectName,
           projectStartDate: dto.projectStartDate,
@@ -502,26 +503,23 @@ describe('AnalysisRequestService', () => {
       const userId = 'user-1';
       const requestId = 'req-1';
 
-      const reqRecord = { requestId, requestorId: userId };
-      const deleted = { requestId };
-
-      prisma.request.findFirst.mockResolvedValue(reqRecord);
-      prisma.request.delete.mockResolvedValue(deleted);
+      prisma.request.findFirst.mockResolvedValue({
+        requestId,
+        requestorId: userId,
+      });
+      prisma.request.delete.mockResolvedValue({ requestId });
 
       const result = await service.delete(userId, requestId);
 
       expect(prisma.request.findFirst).toHaveBeenCalledWith({
-        where: {
-          requestId: requestId,
-          requestorId: userId,
-        },
+        where: { requestId, requestorId: userId },
       });
 
       expect(prisma.request.delete).toHaveBeenCalledWith({
-        where: { requestId: requestId },
+        where: { requestId },
       });
 
-      expect(result).toEqual(deleted);
+      expect(result).toEqual({ requestId });
     });
   });
 
@@ -529,8 +527,8 @@ describe('AnalysisRequestService', () => {
     it('should create a comment and not return content', async () => {
       const userId = 'user-1';
       const requestId = 'req-123';
-      const dto = {
-        requestId: requestId,
+      const dto: RequestCommentDto = {
+        requestId,
         authorId: userId,
         authorName: 'Alice',
         content: 'Looks good to me.',
@@ -555,31 +553,55 @@ describe('AnalysisRequestService', () => {
   });
 
   describe('getComments', () => {
-    it('should return all comments for a request owned by the user', async () => {
+    const comments: RequestCommentDto[] = [
+      {
+        requestId: 'req-123',
+        authorId: 'user-1',
+        authorName: 'User 1',
+        content: 'First comment',
+        createdDate: new Date(),
+      },
+      {
+        requestId: 'req-123',
+        authorId: 'user-2',
+        authorName: 'User 2',
+        content: 'Second comment',
+        createdDate: new Date(),
+      },
+    ];
+
+    it('should return all comments for a request when user is the requestor', async () => {
       const userId = 'user-1';
       const requestId = 'req-123';
-      const comments = [
-        {
-          authorName: 'User 1',
-          content: 'First comment',
-          createdDate: new Date(),
-        },
-        {
-          authorName: 'User 2',
-          content: 'Second comment',
-          createdDate: new Date(),
-        },
-      ];
 
       prisma.comment.findMany.mockResolvedValue(comments);
 
-      const result = await service.getComments(userId, requestId);
+      const result = await service.getComments(userId, requestId, true);
+
+      expect(prisma.comment.findMany).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          request: { requestorId: userId },
+        },
+      });
+      expect(result).toEqual(comments);
+    });
+
+    it('should return all comments for a request when user is the project owner (receiver end)', async () => {
+      const userId = 'owner-1';
+      const requestId = 'req-456';
+
+      prisma.comment.findMany.mockResolvedValue(comments);
+
+      const result = await service.getComments(userId, requestId, false);
 
       expect(prisma.comment.findMany).toHaveBeenCalledWith({
         where: {
           requestId,
           request: {
-            requestorId: userId,
+            analysis: {
+              project: { ownerId: userId },
+            },
           },
         },
       });
@@ -590,7 +612,6 @@ describe('AnalysisRequestService', () => {
   describe('getAnalysisProjects', () => {
     it('should call prisma with correct filters and map result to DatasetDto[]', async () => {
       const userId = 'user-123';
-
       const now = new Date('2025-01-01T10:00:00.000Z');
 
       const prismaResult = [
@@ -602,15 +623,11 @@ describe('AnalysisRequestService', () => {
           },
         },
         {
-          project: {
-            projectId: 'proj-2',
-            lastModified: now,
-            packageId: null,
-          },
+          project: { projectId: 'proj-2', lastModified: now, packageId: null },
         },
       ];
 
-      jest.spyOn(prisma.analysis, 'findMany').mockResolvedValue(prismaResult);
+      prisma.analysis.findMany.mockResolvedValue(prismaResult);
 
       const result = await service.getAnalysisProjects(userId);
 
@@ -640,27 +657,16 @@ describe('AnalysisRequestService', () => {
       });
 
       expect(result).toEqual([
-        {
-          datasetId: 'proj-1',
-          packageId: 'pkg-1',
-          lastModified: now,
-        },
-        {
-          datasetId: 'proj-2',
-          packageId: null,
-          lastModified: now,
-        },
+        { datasetId: 'proj-1', packageId: 'pkg-1', lastModified: now },
+        { datasetId: 'proj-2', packageId: null, lastModified: now },
       ]);
     });
 
     it('should return an empty array when no analysis projects are found', async () => {
-      const userId = 'user-456';
+      prisma.analysis.findMany.mockResolvedValue([]);
 
-      jest.spyOn(prisma.analysis, 'findMany').mockResolvedValue([]);
+      const result = await service.getAnalysisProjects('user-456');
 
-      const result = await service.getAnalysisProjects(userId);
-
-      expect(prisma.analysis.findMany).toHaveBeenCalled();
       expect(result).toEqual([]);
     });
   });

@@ -10,6 +10,7 @@ import { QueueService } from 'src/queue/queue.service';
 import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { VaultService } from 'src/vault/vault.service';
+import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
 
 @Injectable()
 export class ConnectionRequestService {
@@ -46,6 +47,44 @@ export class ConnectionRequestService {
     });
   }
 
+  async getDetails(
+    email: string,
+    requestId: string,
+  ): Promise<ConnectionRequestResponseDto> {
+    return await this.prisma.connection.findUniqueOrThrow({
+      where: {
+        requestId: requestId,
+        orgAdminEmail: email,
+      },
+      select: {
+        project: {
+          select: {
+            projectId: true,
+            name: true,
+            description: true,
+            university: true,
+            faculty: true,
+            ethicsId: true,
+            startDate: true,
+            endDate: true,
+            participantsNum: true,
+            lead: true,
+            members: true,
+          },
+        },
+        request: {
+          select: {
+            comments: true,
+            requestId: true,
+            status: true,
+            createdDate: true,
+            lastModified: true,
+          },
+        },
+      },
+    });
+  }
+
   async testConnection(database: DatabaseTestDto) {
     const connectionData = {
       driver: database.type,
@@ -72,7 +111,7 @@ export class ConnectionRequestService {
       : $Enums.RequestStatus.REJECTED;
 
     // database credentials should exist so run database crawling
-    if (status === $Enums.RequestStatus.APPROVED && dto.tempDbDetails?.url) {
+    if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
       await this.prisma.project.update({
         where: { projectId: projectId },
         data: {
@@ -87,7 +126,7 @@ export class ConnectionRequestService {
         token,
         'connector-db',
         {
-          ...dto.tempDbDetails,
+          ...dto.dbDetails,
         },
       );
       // store project-scoped copy for Coordinator (EC2)
@@ -100,7 +139,7 @@ export class ConnectionRequestService {
         user.username,
         projectId,
         requestId,
-        dto.tempDbDetails,
+        dto.dbDetails,
       );
     }
     await this.prisma.request.update({
@@ -111,5 +150,35 @@ export class ConnectionRequestService {
     });
     // just return, no content
     return;
+  }
+
+  async getComments(
+    userId: string,
+    requestId: string,
+    dto: GetRequestCommentsDto,
+  ): Promise<RequestCommentDto[]> {
+    if (dto.isRequestor) {
+      return await this.prisma.comment.findMany({
+        where: {
+          requestId: requestId,
+          request: {
+            requestorId: userId,
+          },
+        },
+      });
+    }
+
+    return await this.prisma.comment.findMany({
+      where: {
+        requestId: requestId,
+        request: {
+          connection: {
+            project: {
+              ownerId: userId,
+            },
+          },
+        },
+      },
+    });
   }
 }

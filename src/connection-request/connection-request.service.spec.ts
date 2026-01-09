@@ -6,14 +6,16 @@ import { $Enums } from 'src/generated/prisma/client';
 
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { VaultService } from 'src/vault/vault.service';
+import { GetRequestCommentsDto } from 'src/common/dto';
 
 describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
 
   let prismaMock: {
-    connection: { findMany: jest.Mock };
+    connection: { findMany: jest.Mock; findUniqueOrThrow: jest.Mock };
     project: { update: jest.Mock };
     request: { update: jest.Mock };
+    comment: { findMany: jest.Mock };
   };
 
   let queueMock: {
@@ -30,12 +32,16 @@ describe('ConnectionRequestService', () => {
     prismaMock = {
       connection: {
         findMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
       },
       project: {
         update: jest.fn(),
       },
       request: {
         update: jest.fn(),
+      },
+      comment: {
+        findMany: jest.fn(),
       },
     };
 
@@ -119,6 +125,85 @@ describe('ConnectionRequestService', () => {
     });
   });
 
+  describe('getDetails', () => {
+    const email = 'admin@example.com';
+    const requestId = 'req-123';
+
+    it('should return request details for given email and requestId', async () => {
+      const expectedResult = {
+        project: {
+          projectId: 'proj-1',
+          name: 'Project Name',
+          description: 'A test project',
+          university: 'Test University',
+          faculty: 'Engineering',
+          ethicsId: 'ETH-001',
+          startDate: new Date('2025-01-01T00:00:00Z'),
+          endDate: new Date('2025-12-31T00:00:00Z'),
+          participantsNum: 100,
+          lead: 'Lead Researcher',
+          members: ['Member 1', 'Member 2'],
+        },
+        request: {
+          comments: 'Some comments',
+          requestId: 'req-123',
+          status: $Enums.RequestStatus.PENDING,
+          createdDate: new Date('2025-02-01T00:00:00Z'),
+          lastModified: new Date('2025-02-02T00:00:00Z'),
+        },
+      };
+
+      prismaMock.connection.findUniqueOrThrow.mockResolvedValue(expectedResult);
+
+      const result = await service.getDetails(email, requestId);
+
+      expect(prismaMock.connection.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          orgAdminEmail: email,
+        },
+        select: {
+          project: {
+            select: {
+              projectId: true,
+              name: true,
+              description: true,
+              university: true,
+              faculty: true,
+              ethicsId: true,
+              startDate: true,
+              endDate: true,
+              participantsNum: true,
+              lead: true,
+              members: true,
+            },
+          },
+          request: {
+            select: {
+              comments: true,
+              requestId: true,
+              status: true,
+              createdDate: true,
+              lastModified: true,
+            },
+          },
+        },
+      });
+
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should throw if record is not found', async () => {
+      prismaMock.connection.findUniqueOrThrow.mockRejectedValue(
+        new Error('Not found'),
+      );
+
+      await expect(service.getDetails(email, requestId)).rejects.toThrow(
+        'Not found',
+      );
+    });
+  });
+
   describe('approve', () => {
     const user: CurrentUserInfo = {
       id: '123',
@@ -131,8 +216,8 @@ describe('ConnectionRequestService', () => {
     const requestId = 'req-1';
     const projectId = 'proj-1';
 
-    it('should approve request, update project to CRAWLING and enqueue job when tempDbDetails.url exists', async () => {
-      const tempDbDetails = {
+    it('should approve request, update project to CRAWLING and enqueue job when dbDetails.url exists', async () => {
+      const dbDetails = {
         url: 'pg://test_admin:supersecret@localhost:5433/test',
         name: 'test',
         type: 'postgres',
@@ -140,7 +225,7 @@ describe('ConnectionRequestService', () => {
 
       const dto = {
         isApproved: true,
-        tempDbDetails,
+        dbDetails,
       };
 
       prismaMock.project.update.mockResolvedValue({});
@@ -165,7 +250,7 @@ describe('ConnectionRequestService', () => {
         user.username,
         projectId,
         requestId,
-        tempDbDetails,
+        dbDetails,
       );
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
@@ -178,10 +263,10 @@ describe('ConnectionRequestService', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should approve request but NOT update project or enqueue job when tempDbDetails.url is missing', async () => {
+    it('should approve request but NOT update project or enqueue job when dbDetails.url is missing', async () => {
       const dto = {
         isApproved: true,
-        tempDbDetails: {
+        dbDetails: {
           name: 'test',
           type: 'postgres',
           // no url
@@ -214,7 +299,7 @@ describe('ConnectionRequestService', () => {
     it('should reject request and not update project or enqueue job', async () => {
       const dto = {
         isApproved: false,
-        tempDbDetails: {
+        dbDetails: {
           name: 'Example DB',
           type: 'postgresql',
           url: 'pg://should-not-be-used',
@@ -242,6 +327,75 @@ describe('ConnectionRequestService', () => {
       });
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getComments', () => {
+    const comments = [
+      {
+        authorName: 'User 1',
+        content: 'First comment',
+        createdDate: new Date(),
+      },
+      {
+        authorName: 'User 2',
+        content: 'Second comment',
+        createdDate: new Date(),
+      },
+    ];
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should return all comments for a request when user is the requestor', async () => {
+      const userId = 'user-1';
+      const requestId = 'req-123';
+      const dto: GetRequestCommentsDto = {
+        requestId,
+        isRequestor: true,
+      };
+
+      prismaMock.comment.findMany.mockResolvedValue(comments);
+
+      const result = await service.getComments(userId, requestId, dto);
+
+      expect(prismaMock.comment.findMany).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          request: {
+            requestorId: userId,
+          },
+        },
+      });
+      expect(result).toEqual(comments);
+    });
+
+    it('should return all comments for a request when user is the project owner (receiver end)', async () => {
+      const userId = 'owner-1';
+      const requestId = 'req-456';
+      const dto: GetRequestCommentsDto = {
+        requestId,
+        isRequestor: false,
+      };
+
+      prismaMock.comment.findMany.mockResolvedValue(comments);
+
+      const result = await service.getComments(userId, requestId, dto);
+
+      expect(prismaMock.comment.findMany).toHaveBeenCalledWith({
+        where: {
+          requestId,
+          request: {
+            connection: {
+              project: {
+                ownerId: userId,
+              },
+            },
+          },
+        },
+      });
+      expect(result).toEqual(comments);
     });
   });
 });

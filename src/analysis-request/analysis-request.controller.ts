@@ -11,6 +11,7 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
+  Query,
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import {
@@ -36,7 +37,7 @@ import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
-import { GenericErrorResponseDto } from 'src/common/dto';
+import { GenericErrorResponseDto, GetRequestCommentsDto } from 'src/common/dto';
 import { RequestCommentDto } from 'src/common/dto';
 
 @ApiTags('Analysis Request')
@@ -191,12 +192,12 @@ export class AnalysisRequestController {
     return await this.analysisRequestService.getByProject(user.id, projectId);
   }
 
-  @Get(':requestId')
+  @Get(':requestId/details')
   @ApiOperation({
     summary: 'Get analysis request details',
   })
   @ApiOkResponse({
-    description: 'List of user owned request are returned',
+    description: 'Analysis request details are returned',
     type: AnalysisRequestDetailsResponseDto,
   })
   @ApiBadRequestResponse({
@@ -241,8 +242,14 @@ export class AnalysisRequestController {
   async getDetails(
     @CurrentUser() user: CurrentUserInfo,
     @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Query() query: GetRequestCommentsDto,
   ) {
-    return await this.analysisRequestService.getDetails(user.id, requestId);
+    const isRequestor = query.isRequestor === 'true';
+    return await this.analysisRequestService.getDetails(
+      isRequestor,
+      user.id,
+      requestId,
+    );
   }
 
   // TODO: should this not also have to be reject?
@@ -471,7 +478,7 @@ export class AnalysisRequestController {
   })
   @ApiOkResponse({
     description: 'Comments of analysis request are returned',
-    type: AnalysisRequestDetailsResponseDto,
+    type: RequestCommentDto,
   })
   @ApiBadRequestResponse({
     description: 'Invalid comment data for database operation',
@@ -515,7 +522,13 @@ export class AnalysisRequestController {
   async getComments(
     @CurrentUser() user: CurrentUserInfo,
     @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Query() query: GetRequestCommentsDto,
   ) {
-    return await this.analysisRequestService.getComments(user.id, requestId);
+    const isRequestor = query.isRequestor === 'true';
+    return await this.analysisRequestService.getComments(
+      user.id,
+      requestId,
+      isRequestor,
+    );
   }
 }

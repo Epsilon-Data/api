@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -41,7 +42,11 @@ import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
-import { GenericErrorResponseDto } from 'src/common/dto';
+import {
+  GenericErrorResponseDto,
+  GetRequestCommentsDto,
+  RequestCommentDto,
+} from 'src/common/dto';
 
 import type { Request } from 'express';
 
@@ -89,6 +94,63 @@ export class ConnectionRequestController {
   })
   getList(@CurrentUser() user: CurrentUserInfo) {
     return this.connectionRequestService.getList(user.id);
+  }
+
+  @Get(':requestId')
+  @ApiOperation({
+    summary: 'Get connection request details',
+  })
+  @ApiOkResponse({
+    description: 'Connection request details are returned',
+    type: ConnectionRequestResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Request not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  async getDetails(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+  ) {
+    return await this.connectionRequestService.getDetails(
+      user.email,
+      requestId,
+    );
   }
 
   @Post('test')
@@ -231,6 +293,65 @@ export class ConnectionRequestController {
       projectId,
       dto,
       request.auth?.token || '',
+    );
+  }
+
+  @Get(':requestId/comment')
+  @ApiOperation({
+    summary: 'Get comments of analysis request',
+  })
+  @ApiOkResponse({
+    description: 'Comments of analysis request are returned',
+    type: RequestCommentDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid comment data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid comment data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Request not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  async getComments(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Query() query: GetRequestCommentsDto,
+  ) {
+    return await this.connectionRequestService.getComments(
+      user.id,
+      requestId,
+      query,
     );
   }
 }

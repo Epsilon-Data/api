@@ -501,15 +501,6 @@ export class ProjectDetailsResponseDto {
   @Transform(({ value }) => transformDateString(value))
   endDate!: Date;
 
-  @ApiPropertyOptional({
-    description: 'Database connection details',
-    type: Object,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsJSON()
-  tempDbDetails?: Prisma.JsonValue | null;
-
   @ApiProperty({
     description: 'Number of project participants',
     example: 148,
@@ -540,6 +531,67 @@ export class ProjectDetailsResponseDto {
   members: Prisma.JsonValue | null;
 }
 
+export class ProjectRequestsResponseDto {
+  @ApiProperty({
+    description: 'Unique identifier of the request',
+    format: 'uuid',
+    example: 'dd28f0fe-a652-4061-8c3b-8ba00804e251',
+  })
+  @IsDefined()
+  @IsUUID()
+  requestId!: string;
+
+  @ApiProperty({
+    description: 'Name of the project',
+    example: 'Request Project Access Test',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  projectName!: string;
+
+  @ApiProperty({
+    enum: $Enums.RequestStatus,
+    description: 'The status of the request',
+    example: $Enums.RequestStatus.PENDING,
+  })
+  @IsEnum($Enums.RequestStatus)
+  status: $Enums.RequestStatus;
+
+  @ApiProperty({
+    description: 'Name of the person requesting access',
+    example: 'Data Owner User',
+  })
+  @IsDefined()
+  @IsString()
+  requestorName!: string;
+
+  @ApiProperty({
+    description: 'Email address of the requestor',
+    example: 'owner@example.org',
+  })
+  @IsDefined()
+  @IsString()
+  requestorEmail!: string;
+
+  @ApiProperty({
+    description: 'Organization of the requestor',
+    example: 'University of Edinburgh',
+  })
+  @IsDefined()
+  @IsString()
+  requestorOrgName!: string;
+
+  @ApiProperty({
+    type: Date,
+    description: 'The date the request was created',
+  })
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  createdDate!: Date;
+}
+
 export class ProjectRequestsResponse {
   @ApiProperty({
     description: 'Connection requests for the project',
@@ -548,7 +600,7 @@ export class ProjectRequestsResponse {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ConnectionRequestResponseDto)
-  connection!: ConnectionRequestResponseDto[];
+  connection!: ProjectRequestsResponseDto[];
 
   @ApiProperty({
     description: 'Analysis requests for the project',
@@ -557,5 +609,5 @@ export class ProjectRequestsResponse {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AnalysisRequestResponseDto)
-  analysis: AnalysisRequestResponseDto[];
+  analysis: ProjectRequestsResponseDto[];
 }

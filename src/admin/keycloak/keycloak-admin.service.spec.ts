@@ -303,18 +303,12 @@ describe('KeycloakAdminService', () => {
       } as ClientRepresentation;
 
       const projectId = 'proj-1';
-      const userId = 'user-1';
-      const user: UserRepresentation = {
-        id: userId,
-        username: 'new-user',
-      };
-
-      jest.spyOn(service, 'getUserById').mockResolvedValueOnce(user);
+      const userId = 'new-user-id';
 
       mockKcAdminClient.clients.findPolicyByName.mockResolvedValue({
         id: 'policy-1',
-        name: `analysisPolicy_${projectId}`,
-        users: ['existing-user'],
+        name: `Analysis of ${projectId}`,
+        config: { users: '["existing-user-id"]' },
       } as PolicyRepresentation);
 
       mockKcAdminClient.clients.createOrUpdatePolicy.mockResolvedValue(
@@ -335,7 +329,7 @@ describe('KeycloakAdminService', () => {
         id: 'client-1',
         policyName: expect.stringContaining(projectId),
         policy: expect.objectContaining({
-          users: expect.arrayContaining(['existing-user', 'new-user']),
+          users: expect.arrayContaining(['existing-user-id', 'new-user-id']),
         }),
       });
 
@@ -388,6 +382,7 @@ describe('KeycloakAdminService', () => {
       const login: LoginDto = {
         username: 'user@example.com',
         password: 'secret',
+        refreshToken: '',
       };
 
       mockKcAdminClient.auth.mockResolvedValue(undefined);

@@ -56,6 +56,7 @@ describe('ProjectService', () => {
   const keycloakMock = {
     newResource: jest.fn(),
     auth: jest.fn(),
+    getUserById: jest.fn(),
   } as unknown as KeycloakAdminService;
 
   const vaultMock = {
@@ -230,30 +231,39 @@ describe('ProjectService', () => {
   describe('getProjectRequests', () => {
     it('should return connection and analysis requests', async () => {
       const projectId = 'proj-1';
+      const userId = 'owner-1';
       const email = 'admin@example.com';
+
+      const now = new Date();
 
       const connectionRequests = [
         {
-          request: {
-            requestId: 'req-1',
-            status: RequestStatus.PENDING,
-            createdDate: new Date(),
-          },
+          requestId: 'conn-1',
           project: {
-            projectId: 'proj-1',
             name: 'Project 1',
+            lead: 'Alice Analysis',
+            university: 'Org A',
+          },
+          request: {
+            requestorId: 'user-a',
+            status: RequestStatus.PENDING,
+            createdDate: now,
           },
         },
       ];
 
       const analysisRequests = [
         {
-          request: {
-            requestId: 'req-2',
-            status: RequestStatus.APPROVED,
-            createdDate: new Date(),
-          },
+          requestId: 'anal-1',
+          requestorName: 'Alice Analysis',
+          requestorEmail: 'alice@example.com',
+          requestorOrgName: 'Org A',
           projectName: 'Project 1',
+          request: {
+            requestorId: 'user-a',
+            status: RequestStatus.APPROVED,
+            createdDate: now,
+          },
         },
       ];
 
@@ -264,24 +274,28 @@ describe('ProjectService', () => {
         analysisRequests,
       );
 
-      const result = await service.getProjectRequests(projectId, email);
+      (keycloakMock.getUserById as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.getProjectRequests(projectId, userId, email);
 
       expect(prismaMock.connection.findMany).toHaveBeenCalledWith({
         where: {
           orgAdminEmail: email,
         },
         select: {
-          request: {
-            select: {
-              requestId: true,
-              status: true,
-              createdDate: true,
-            },
-          },
           project: {
             select: {
-              projectId: true,
               name: true,
+              lead: true,
+              university: true,
+            },
+          },
+          requestId: true,
+          request: {
+            select: {
+              requestorId: true,
+              status: true,
+              createdDate: true,
             },
           },
         },
@@ -289,23 +303,49 @@ describe('ProjectService', () => {
 
       expect(prismaMock.analysis.findMany).toHaveBeenCalledWith({
         where: {
-          projectId: projectId,
+          project: {
+            ownerId: userId,
+          },
         },
         select: {
+          requestId: true,
+          requestorName: true,
+          requestorEmail: true,
+          requestorOrgName: true,
+          projectName: true,
           request: {
             select: {
-              requestId: true,
+              requestorId: true,
               status: true,
               createdDate: true,
             },
           },
-          projectName: true,
         },
       });
 
       expect(result).toEqual({
-        connection: connectionRequests,
-        analysis: analysisRequests,
+        connection: [
+          {
+            requestId: 'conn-1',
+            projectName: 'Project 1',
+            status: RequestStatus.PENDING,
+            requestorName: 'Alice Analysis',
+            requestorEmail: 'alice@example.com',
+            requestorOrgName: 'Org A',
+            createdDate: now,
+          },
+        ],
+        analysis: [
+          {
+            requestId: 'anal-1',
+            projectName: 'Project 1',
+            status: RequestStatus.APPROVED,
+            requestorName: 'Alice Analysis',
+            requestorEmail: 'alice@example.com',
+            requestorOrgName: 'Org A',
+            createdDate: now,
+          },
+        ],
       });
     });
   });
@@ -363,7 +403,7 @@ describe('ProjectService', () => {
       expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
     });
 
-    it('should trigger dataBrokerJob when no orgAdminEmail and tempDbDetails.url present', async () => {
+    it('should trigger dataBrokerJob when no orgAdminEmail and dbDetails.url present', async () => {
       // create dto mock
       const dto = {
         name: 'My Project',
@@ -378,7 +418,7 @@ describe('ProjectService', () => {
         members: [{ email: 'member1@example.com', role: 'collaborator' }],
         dbKeywords: ['keyword1', 'keyword2'],
         connection: {
-          tempDbDetails: {
+          dbDetails: {
             url: 'postgres://...',
             type: 'postgres',
             name: 'User added Database Name',
@@ -399,7 +439,7 @@ describe('ProjectService', () => {
         'user1',
         'proj-1',
         'mocked-request-id',
-        dto.connection.tempDbDetails,
+        dto.connection.dbDetails,
       );
       expect(queueMock.addResourceJob).toHaveBeenCalled();
     });
@@ -458,7 +498,7 @@ describe('ProjectService', () => {
         participantsNum: 100,
         dbKeywords: ['updated'],
         connection: {
-          tempDbDetails: {
+          dbDetails: {
             url: 'postgres://updated',
             type: 'postgres',
             name: 'Database update',

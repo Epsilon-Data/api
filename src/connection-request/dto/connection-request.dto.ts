@@ -9,6 +9,7 @@ import {
   IsEnum,
   IsJSON,
   IsNotEmpty,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -16,7 +17,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { RequestCommentDto } from 'src/common/dto';
-import { transformDateString } from 'src/utils/class.util';
+import { parseInteger, transformDateString } from 'src/utils/class.util';
 
 export class DatabaseInfoDto {
   @ApiProperty({
@@ -177,7 +178,7 @@ export class ConnectionDto {
   @IsObject()
   @ValidateNested()
   @Type(() => DatabaseInfoDto)
-  tempDbDetails?: DatabaseInfoDto;
+  dbDetails?: DatabaseInfoDto;
 
   @ApiPropertyOptional({
     description: 'Miscellaneous extra information provided by the user',
@@ -226,7 +227,7 @@ export class ConnectionRequestDto {
   })
   @IsOptional()
   @IsJSON()
-  tempDbDetails?: Prisma.JsonValue | null;
+  dbDetails?: Prisma.JsonValue | null;
 }
 export class RequestDto {
   @ApiProperty({
@@ -295,6 +296,87 @@ export class ConnectionRequestProjectInfoDto {
   })
   @IsString()
   projectId!: string;
+
+  @ApiPropertyOptional({
+    description: 'Project lead researcher',
+    example: 'Prof. Lead Researcher',
+  })
+  @IsOptional()
+  @IsString()
+  lead?: string;
+
+  @ApiPropertyOptional({
+    description: 'Institution where the project is based',
+    example: 'University of Edinburgh',
+  })
+  @IsOptional()
+  @IsString()
+  university?: string;
+
+  @ApiPropertyOptional({
+    description: 'Faculty or department running the project',
+    example: 'School of Informatics',
+  })
+  @IsOptional()
+  @IsString()
+  faculty?: string;
+
+  @ApiPropertyOptional({
+    description: 'Ethics approval ID provided by the institution',
+    example: 'ETH-2025-0912-A',
+  })
+  @IsOptional()
+  @IsString()
+  ethicsId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Full project description',
+    example: 'Investigating correlations in large-scale MRI datasets...',
+  })
+  @IsOptional()
+  description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Project start date',
+    type: String,
+    format: 'date-time',
+    example: '2025-04-01T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  startDate?: Date;
+
+  @ApiPropertyOptional({
+    description: 'Project end date',
+    type: String,
+    format: 'date-time',
+    example: '2026-12-31T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  endDate?: Date;
+
+  @ApiPropertyOptional({
+    description: 'Number of project participants',
+    example: 148,
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsNotEmpty()
+  @Transform(({ value }) => parseInteger(value))
+  participantsNum?: number;
+
+  @ApiPropertyOptional({
+    description: 'List of team member names',
+    type: Object,
+    nullable: true,
+    example: ['John Smith', 'Jane Doe'],
+  })
+  @IsOptional()
+  @IsJSON()
+  members?: Prisma.JsonValue | null;
 }
 
 export class ConnectionRequestResponseDto {
@@ -334,5 +416,5 @@ export class ConnectionDecisionDto {
   @IsObject()
   @ValidateNested()
   @Type(() => DatabaseInfoDto)
-  tempDbDetails?: DatabaseInfoDto;
+  dbDetails?: DatabaseInfoDto;
 }
