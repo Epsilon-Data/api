@@ -31,7 +31,6 @@ export class ConnectionRequestService {
         project: {
           select: {
             projectId: true,
-            customId: true,
             name: true,
           },
         },

@@ -88,7 +88,6 @@ describe('ProjectService', () => {
       const projects = [
         {
           projectId: 'p1',
-          customId: 'c1',
           name: 'Project 1',
           lastModified: new Date(),
           createdDate: new Date(),
@@ -106,7 +105,6 @@ describe('ProjectService', () => {
         where: { ownerId: userId },
         select: {
           projectId: true,
-          customId: true,
           name: true,
           lastModified: true,
           createdDate: true,
@@ -143,7 +141,6 @@ describe('ProjectService', () => {
       const projects = [
         {
           projectId: 'p1',
-          customId: 'c1',
           name: 'Project 1',
           lastModified: new Date(),
           status: 'MAPPED',
@@ -153,7 +150,6 @@ describe('ProjectService', () => {
         },
         {
           projectId: 'p3',
-          customId: 'c3',
           name: 'Project 3',
           lastModified: new Date(),
           status: 'MAPPED',
@@ -175,7 +171,6 @@ describe('ProjectService', () => {
         },
         select: {
           projectId: true,
-          customId: true,
           name: true,
           createdDate: true,
           lastModified: true,
@@ -194,7 +189,6 @@ describe('ProjectService', () => {
       const projects = [
         {
           projectId: 'p1',
-          customId: 'c1',
           name: 'Project 1',
           lastModified: new Date(),
           createdDate: new Date(),
@@ -215,7 +209,6 @@ describe('ProjectService', () => {
         },
         select: {
           projectId: true,
-          customId: true,
           name: true,
           lastModified: true,
           createdDate: true,

@@ -314,7 +314,6 @@ export class AnalysisRequestService {
           select: {
             projectId: true,
             lastModified: true,
-            packageId: true,
           },
         },
       },
@@ -322,7 +321,6 @@ export class AnalysisRequestService {
     const formatted = analysisProjectList.map((request) => {
       return {
         datasetId: request.project.projectId,
-        packageId: request.project.packageId,
         lastModified: request.project.lastModified,
       };
     });

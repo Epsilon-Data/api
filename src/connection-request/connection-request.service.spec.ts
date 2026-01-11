@@ -80,7 +80,6 @@ describe('ConnectionRequestService', () => {
         {
           project: {
             projectId: 'proj-1',
-            customId: 'P-001',
             name: 'Test Project',
           },
           request: {
@@ -106,7 +105,6 @@ describe('ConnectionRequestService', () => {
           project: {
             select: {
               projectId: true,
-              customId: true,
               name: true,
             },
           },

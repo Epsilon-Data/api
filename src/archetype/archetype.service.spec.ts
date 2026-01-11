@@ -1139,7 +1139,7 @@ describe('ArchetypeService', () => {
         token,
       );
 
-      expect(schema.$id).toBe(archetypeId);
+      expect(schema.$id).toBe(`${projectId}/${archetypeId}`);
       // Schema basics
       expect(schema.$schema).toBe(
         'https://json-schema.org/draft/2020-12/schema#',

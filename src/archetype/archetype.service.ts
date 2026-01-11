@@ -369,7 +369,7 @@ export class ArchetypeService {
         .split('@')
         .at(-1) as string;
       const schema = {
-        $id: archetypeId,
+        $id: `${projectId}/${archetypeId}`,
         $schema: 'https://json-schema.org/draft/2020-12/schema#',
         title: res.attributes?.values[0][0],
         type: 'object',

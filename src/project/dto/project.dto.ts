@@ -64,13 +64,6 @@ export class ProjectSummaryInfoDto {
   projectId!: string;
 
   @ApiProperty({
-    description: 'Custom human-readable project identifier',
-    example: 'HRT-2025-001',
-  })
-  @IsString()
-  customId!: string;
-
-  @ApiProperty({
     description: 'Project name',
     example: 'Example Health Study',
   })
@@ -140,15 +133,6 @@ export class ProjectSummaryInfoDto {
   dbKeywords?: string[];
 }
 export class CreateProjectDto {
-  @ApiPropertyOptional({
-    description: 'Custom project identifier',
-    example: 'customid123',
-  })
-  @IsOptional()
-  @IsNotEmpty()
-  @IsString()
-  customId?: string;
-
   @ApiProperty({
     description: 'Human-readable name of the project',
     example: 'Health Research Study',
@@ -407,14 +391,6 @@ export class ProjectDetailsResponseDto {
   @IsEnum($Enums.ProjectStatus)
   @IsOptional()
   status?: $Enums.ProjectStatus;
-
-  @ApiPropertyOptional({
-    description: 'Custom project identifier',
-    example: 'customid123',
-  })
-  @IsOptional()
-  @IsString()
-  customId?: string;
 
   @ApiProperty({
     description: 'Owner user ID (UUID)',

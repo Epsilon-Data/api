@@ -16,7 +16,6 @@ import {
   UpdateProjectDto,
 } from './dto';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
-import { nanoid } from 'nanoid';
 import { QueueService } from 'src/queue/queue.service';
 
 import { KeycloakPermissionDto } from 'src/auth/dto';
@@ -46,7 +45,6 @@ export class ProjectService {
       },
       select: {
         projectId: true,
-        customId: true,
         name: true,
         lastModified: true,
         status: true,
@@ -75,7 +73,6 @@ export class ProjectService {
       },
       select: {
         projectId: true,
-        customId: true,
         name: true,
         lastModified: true,
         createdDate: true,
@@ -96,7 +93,6 @@ export class ProjectService {
       },
       select: {
         projectId: true,
-        customId: true,
         name: true,
         lastModified: true,
         createdDate: true,
@@ -290,7 +286,6 @@ export class ProjectService {
       select: {
         projectId: true,
         status: true,
-        customId: true,
         ownerId: true,
         name: true,
         lead: true,
@@ -317,7 +312,6 @@ export class ProjectService {
     return {
       projectId: projectInfo.projectId,
       status: projectInfo.status,
-      customId: projectInfo.customId,
       ownerId: projectInfo.ownerId,
       name: projectInfo.name,
       lead: projectInfo.lead,
@@ -360,7 +354,6 @@ export class ProjectService {
     dto: CreateProjectDto,
     accessToken: string,
   ) {
-    const { packageId, customId } = this.createIds(dto.name, dto.customId);
     const ownerId = user.id; //using current logged in user details rather than post
     // check if members are added
     const members = dto.members
@@ -368,8 +361,6 @@ export class ProjectService {
       : undefined;
     const request = {
       ownerId,
-      customId,
-      packageId,
       name: dto.name,
       lead: dto.lead,
       university: dto.university,
@@ -475,11 +466,9 @@ export class ProjectService {
       ? (dto.members as unknown as Prisma.JsonArray)
       : undefined;
     const data = {
-      // NOTE: can you change name as that changes package???
       name: dto.name,
       lead: dto.lead,
       status: dto.status,
-      // NOTE: can you change customId as that also changes package??
       university: dto.university,
       faculty: dto.faculty,
       ethicsId: dto.ethicsId,
@@ -560,17 +549,6 @@ export class ProjectService {
     // FIXME: not sure if forcing jpg is good, it should use the ext it has been uploaded
     await this.fileStorage.putFile('cover', `${projectId}/cover.jpg`, file);
     return file.buffer;
-  }
-
-  // TODO: review this generation
-  private createIds(name: string, id?: string) {
-    const customId = id ?? nanoid(12);
-    const packageName = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-    const packageId = `${packageName}_${customId.slice(0, 6)}`;
-    return { packageId, customId };
   }
 
   private async addSecrets(
