@@ -342,7 +342,7 @@ describe('AnalysisRequestService', () => {
 
       prisma.analysis.findFirst.mockResolvedValue(null);
 
-      expect(await service.getByProject(userId, projectId)).toEqual(null);
+      expect(await service.getByProject(userId, projectId)).toEqual('null');
     });
   });
 
