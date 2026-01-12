@@ -135,7 +135,7 @@ export class AnalysisRequestService {
       },
     });
 
-    if (!request) return null;
+    if (!request) return JSON.stringify(null);
 
     return {
       requestId: request.requestId,
