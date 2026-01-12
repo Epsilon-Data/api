@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -31,6 +32,8 @@ import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { Credentials } from '@epsilon-data/keycloak-admin-client';
 import { ConfigService } from '@nestjs/config';
 import { KeycloakTokenResponseDto } from 'src/auth/dto';
+import { AnalysisDecisionDto } from 'src/analysis-request/dto';
+import { AnalysisRequestService } from 'src/analysis-request/analysis-request.service';
 
 @ApiTags('Coordinator')
 @ApiBearerAuth()
@@ -40,6 +43,7 @@ export class CoordinatorController {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly keycloakService: KeycloakService,
+    private readonly analysisRequestService: AnalysisRequestService,
     private configService: ConfigService,
   ) {}
 
@@ -89,6 +93,62 @@ export class CoordinatorController {
       clientSecret: login.clientSecret,
     };
     return await this.keycloakService.getAccessToken(credentials);
+  }
+
+  @Get(':projectId')
+  @UseGuards(new ScopesGuard('epsilon.coordinator'))
+  @ApiOperation({ summary: 'Check user access to project analysis' })
+  @ApiOkResponse({
+    description: 'Project analysis decision returned',
+    type: AnalysisDecisionDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid request data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Request not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  async checkAccess(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query('userId') userId: string,
+  ) {
+    return await this.analysisRequestService.checkAnalysisAccess(
+      projectId,
+      userId,
+    );
   }
 
   @Get(':projectId/:archetypeId')

@@ -202,6 +202,26 @@ export class AnalysisRequestService {
     return;
   }
 
+  async checkAnalysisAccess(projectId: string, userId: string) {
+    if (!projectId || !userId)
+      throw new BadRequestException(
+        'Missing parameters projectId and userId are required',
+      );
+    const request = await this.prisma.analysis.findFirst({
+      where: {
+        projectId: projectId,
+        request: {
+          requestorId: userId,
+          status: $Enums.RequestStatus.APPROVED,
+        },
+      },
+      select: {
+        requestId: true,
+      },
+    });
+    return request ? { isApproved: true } : { isApproved: false };
+  }
+
   async update(userId: string, requestId: string, dto: AnalysisDto) {
     return await this.prisma.analysis.update({
       where: {
