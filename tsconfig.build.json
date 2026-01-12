@@ -1,11 +1,12 @@
 {
   "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts"],
   "exclude": [
     "node_modules",
     "hooks",
     "test",
     "dist",
-    "**/*spec.ts",
+    "**/*.spec.ts",
     "src/generated/prisma/internal/**"
   ]
 }
