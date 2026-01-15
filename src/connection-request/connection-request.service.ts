@@ -92,8 +92,9 @@ export class ConnectionRequestService {
       user: database.username,
       password: database.password,
       database: database.name,
-      ssl: database.ssl ?? false,
+      ssl: database.ssl,
     };
+
     // on success it returns now() - current db datetime
     return await testConnection(connectionData);
   }
