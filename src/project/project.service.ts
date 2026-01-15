@@ -118,6 +118,7 @@ export class ProjectService {
     const connections = await this.prisma.connection.findMany({
       where: {
         orgAdminEmail: email,
+        projectId: projectId,
       },
       select: {
         project: {

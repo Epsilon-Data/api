@@ -274,6 +274,7 @@ describe('ProjectService', () => {
       expect(prismaMock.connection.findMany).toHaveBeenCalledWith({
         where: {
           orgAdminEmail: email,
+          projectId: projectId,
         },
         select: {
           project: {
