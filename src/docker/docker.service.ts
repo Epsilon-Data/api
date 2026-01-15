@@ -47,7 +47,13 @@ export class DockerService {
       `ATLAS_ADMIN_USER=${this.username}`,
       `ATLAS_ADMIN_PASSWORD=${this.password}`,
       `OWNER=${ownerId}`,
-      `DATABASE_URL=${this.isDev ? database.url?.replace('localhost', 'host.docker.internal') + '?sslmode=disable' : database.url}`,
+      `DATABASE_URL=${
+        this.isDev
+          ? database.url?.replace('localhost', 'host.docker.internal') +
+            '?sslmode=disable'
+          : database.url +
+            (database.ssl ? '?sslmode=require' : '?sslmode=disable')
+      }`,
       `PROJECT_ID=${projectId}`,
     ];
 
