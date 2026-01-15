@@ -49,11 +49,9 @@ export class DockerService {
       `OWNER=${ownerId}`,
       `DATABASE_URL=${
         this.isDev
-          ? database.url?.replace('localhost', 'host.docker.internal') +
-            '?sslmode=disable'
-          : database.url +
-            (database.ssl ? '?sslmode=require' : '?sslmode=disable')
-      }`,
+          ? database.url?.replace('localhost', 'host.docker.internal')
+          : database.url
+      }${database.ssl ? '?sslmode=require' : '?sslmode=disable'}`,
       `PROJECT_ID=${projectId}`,
     ];
 
