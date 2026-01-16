@@ -75,6 +75,14 @@ export class DatabaseInfoDto {
   @IsOptional()
   @IsString()
   password?: string;
+
+  @ApiPropertyOptional({
+    description: 'SSL connection enabled',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  ssl?: boolean;
 }
 export class DatabaseTestDto {
   @ApiProperty({
