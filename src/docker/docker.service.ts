@@ -51,7 +51,7 @@ export class DockerService {
         this.isDev
           ? database.url?.replace('localhost', 'host.docker.internal')
           : database.url
-      }${database.ssl ? '?sslmode=require' : '?sslmode=disable'}`,
+      }`,
       `PROJECT_ID=${projectId}`,
     ];
 
