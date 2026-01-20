@@ -7,6 +7,7 @@ import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { VaultService } from 'src/vault/vault.service';
 import { GetRequestCommentsDto } from 'src/common/dto';
+import { UpdateCredentialsDto } from './dto';
 
 describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
@@ -328,6 +329,86 @@ describe('ConnectionRequestService', () => {
     });
   });
 
+  describe('updateCredentials', () => {
+    const user: CurrentUserInfo = {
+      id: '123',
+      username: 'normal-user',
+      family_name: 'User',
+      given_name: 'Normal',
+      email: 'user@test.com',
+    };
+
+    const requestId = 'req-1';
+    const projectId = 'proj-1';
+    const accessToken = 'test-token';
+
+    beforeEach(() => {
+      prismaMock.project.update.mockResolvedValue({});
+      prismaMock.request.update.mockResolvedValue({});
+      queueMock.dataBrokerJob.mockResolvedValue({});
+    });
+
+    it('should update credentials, set project to CRAWLING, write secrets, and enqueue job when dbDetails.url exists', async () => {
+      const dbDetails = {
+        url: 'pg://test_user:supersecret@localhost:5433/test',
+        name: 'test',
+        type: 'postgres',
+      };
+
+      const dto = {
+        dbDetails,
+      };
+
+      const result = await service.updateCredentials(
+        user,
+        requestId,
+        projectId,
+        dto as UpdateCredentialsDto,
+        accessToken,
+      );
+
+      expect(prismaMock.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: { status: 'CRAWLING' },
+      });
+
+      expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
+        user.username,
+        projectId,
+        requestId,
+        dbDetails,
+      );
+
+      expect(prismaMock.request.update).not.toHaveBeenCalled();
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should do nothing when dbDetails.url is missing', async () => {
+      const dto = {
+        dbDetails: {
+          name: 'test',
+          type: 'postgres',
+          // no url
+        },
+      };
+
+      const result = await service.updateCredentials(
+        user,
+        requestId,
+        projectId,
+        dto as UpdateCredentialsDto,
+        accessToken,
+      );
+
+      expect(prismaMock.project.update).not.toHaveBeenCalled();
+      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
+      expect(prismaMock.request.update).not.toHaveBeenCalled();
+
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('getComments', () => {
     const comments = [
       {
@@ -350,7 +431,6 @@ describe('ConnectionRequestService', () => {
       const userId = 'user-1';
       const requestId = 'req-123';
       const dto: GetRequestCommentsDto = {
-        requestId,
         isRequestor: true,
       };
 
@@ -373,7 +453,6 @@ describe('ConnectionRequestService', () => {
       const userId = 'owner-1';
       const requestId = 'req-456';
       const dto: GetRequestCommentsDto = {
-        requestId,
         isRequestor: false,
       };
 

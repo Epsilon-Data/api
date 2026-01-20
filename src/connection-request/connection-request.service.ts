@@ -3,7 +3,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   ConnectionDecisionDto,
   ConnectionRequestResponseDto,
+  DatabaseInfoDto,
   DatabaseTestDto,
+  UpdateCredentialsDto,
 } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
 import { QueueService } from 'src/queue/queue.service';
@@ -99,6 +101,42 @@ export class ConnectionRequestService {
     return await testConnection(connectionData);
   }
 
+  private async connectionFlow(
+    user: CurrentUserInfo,
+    projectId: string,
+    requestId: string,
+    dbDetails: DatabaseInfoDto,
+    accessToken: string,
+  ) {
+    await this.prisma.project.update({
+      where: { projectId },
+      data: { status: 'CRAWLING' },
+    });
+
+    const token = await this.vaultService.auth(accessToken);
+
+    const ciphertext = await this.vaultService.transitEncrypt(
+      token,
+      'connector-db',
+      {
+        ...dbDetails,
+      },
+    );
+
+    await this.vaultService.writeProjectCiphertext(
+      token,
+      projectId,
+      ciphertext,
+    );
+
+    await this.queue.dataBrokerJob(
+      user.username,
+      projectId,
+      requestId,
+      dbDetails,
+    );
+  }
+
   async approve(
     user: CurrentUserInfo,
     requestId: string,
@@ -112,34 +150,12 @@ export class ConnectionRequestService {
 
     // database credentials should exist so run database crawling
     if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
-      await this.prisma.project.update({
-        where: { projectId: projectId },
-        data: {
-          status: 'CRAWLING',
-        },
-      });
-      //add secrets
-      const token = await this.vaultService.auth(accessToken);
-
-      // encrypt with transit (user token only needs encrypt)
-      const ciphertext = await this.vaultService.transitEncrypt(
-        token,
-        'connector-db',
-        {
-          ...dto.dbDetails,
-        },
-      );
-      // store project-scoped copy for Coordinator (EC2)
-      await this.vaultService.writeProjectCiphertext(
-        token,
-        projectId,
-        ciphertext,
-      );
-      await this.queue.dataBrokerJob(
-        user.username,
+      await this.connectionFlow(
+        user,
         projectId,
         requestId,
         dto.dbDetails,
+        accessToken,
       );
     }
     await this.prisma.request.update({
@@ -148,6 +164,26 @@ export class ConnectionRequestService {
         status,
       },
     });
+    // just return, no content
+    return;
+  }
+
+  async updateCredentials(
+    user: CurrentUserInfo,
+    requestId: string,
+    projectId: string,
+    dto: UpdateCredentialsDto,
+    accessToken: string,
+  ) {
+    if (dto.dbDetails?.url) {
+      await this.connectionFlow(
+        user,
+        projectId,
+        requestId,
+        dto.dbDetails,
+        accessToken,
+      );
+    }
     // just return, no content
     return;
   }

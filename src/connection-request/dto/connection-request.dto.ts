@@ -426,3 +426,11 @@ export class ConnectionDecisionDto {
   @Type(() => DatabaseInfoDto)
   dbDetails?: DatabaseInfoDto;
 }
+
+export class UpdateCredentialsDto {
+  @ApiProperty({ type: DatabaseInfoDto })
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  dbDetails!: DatabaseInfoDto;
+}
