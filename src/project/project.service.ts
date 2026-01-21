@@ -13,6 +13,7 @@ import {
   ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
+  UpdateCredentialsDto,
   UpdateProjectDto,
 } from './dto';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
@@ -25,6 +26,7 @@ import { DatabaseInfoDto } from 'src/connection-request/dto';
 import { Prisma } from 'src/generated/prisma/client';
 import { VaultService } from 'src/vault/vault.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
 
 @Injectable()
 export class ProjectService {
@@ -35,6 +37,7 @@ export class ProjectService {
     private fileStorage: FileStorageService,
     private readonly vaultService: VaultService,
     private readonly keycloak: KeycloakAdminService,
+    private readonly connectionFlowService: ConnectionFlowService,
   ) {}
 
   // Queries
@@ -516,6 +519,32 @@ export class ProjectService {
         analysis: true,
       },
     });
+  }
+
+  async updateCredentials(
+    user: CurrentUserInfo,
+    projectId: string,
+    dto: UpdateCredentialsDto,
+    accessToken: string,
+  ) {
+    const requestInfo = await this.prisma.connection.findFirst({
+      where: { projectId },
+      select: { requestId: true },
+    });
+
+    const requestId = requestInfo?.requestId;
+
+    if (dto.dbDetails?.url && requestId) {
+      await this.connectionFlowService.run(
+        user,
+        projectId,
+        requestId,
+        dto.dbDetails,
+        accessToken,
+      );
+    }
+
+    return;
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {

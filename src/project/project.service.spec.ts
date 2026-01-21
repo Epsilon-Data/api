@@ -7,9 +7,11 @@ import { QueueService } from 'src/queue/queue.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { Prisma, RequestStatus } from 'src/generated/prisma/client';
-import { SettingsDto } from './dto';
+import { SettingsDto, UpdateCredentialsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
 import { VaultService } from 'src/vault/vault.service';
+import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
+import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 // mock nanoid + uuid to make tests deterministic
 jest.mock('nanoid', () => ({
@@ -33,6 +35,7 @@ describe('ProjectService', () => {
     },
     connection: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
     analysis: {
       findMany: jest.fn(),
@@ -41,6 +44,10 @@ describe('ProjectService', () => {
       create: jest.fn(),
     },
   } as unknown as PrismaService;
+
+  const connectionFlowMock = {
+    run: jest.fn(),
+  };
 
   const queueMock = {
     dataBrokerJob: jest.fn(),
@@ -76,6 +83,7 @@ describe('ProjectService', () => {
         { provide: FileStorageService, useValue: fileStorageMock },
         { provide: KeycloakAdminService, useValue: keycloakMock },
         { provide: VaultService, useValue: vaultMock },
+        { provide: ConnectionFlowService, useValue: connectionFlowMock },
       ],
     }).compile();
 
@@ -595,6 +603,99 @@ describe('ProjectService', () => {
 
       // expect(result).toThrow();
       expect(fileStorageMock.getFileUrl).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateCredentials', () => {
+    const user: CurrentUserInfo = {
+      id: '123',
+      username: 'normal-user',
+      family_name: 'User',
+      given_name: 'Normal',
+      email: 'user@test.com',
+    };
+
+    const requestId = 'req-1';
+    const projectId = 'proj-1';
+    const accessToken = 'test-token';
+
+    beforeEach(() => {
+      (prismaMock.connection.findFirst as jest.Mock).mockReset();
+      connectionFlowMock.run.mockReset();
+    });
+
+    it('should run connection flow when dbDetails.url exists and requestId is found', async () => {
+      const dbDetails = {
+        url: 'pg://test_user:supersecret@localhost:5433/test',
+        name: 'test',
+        type: 'postgres',
+      };
+
+      (prismaMock.connection.findFirst as jest.Mock).mockResolvedValue({
+        requestId,
+      });
+
+      const result = await service.updateCredentials(
+        user,
+        projectId,
+        { dbDetails } as UpdateCredentialsDto,
+        accessToken,
+      );
+
+      expect(prismaMock.connection.findFirst).toHaveBeenCalledWith({
+        where: { projectId },
+        select: { requestId: true },
+      });
+
+      expect(connectionFlowMock.run).toHaveBeenCalledWith(
+        user,
+        projectId,
+        requestId,
+        dbDetails,
+        accessToken,
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should do nothing when dbDetails.url is missing', async () => {
+      const dto = {
+        dbDetails: {
+          name: 'test',
+          type: 'postgres',
+        },
+      };
+
+      const result = await service.updateCredentials(
+        user,
+        projectId,
+        dto,
+        accessToken,
+      );
+
+      expect(connectionFlowMock.run).not.toHaveBeenCalled();
+      expect(result).toBeUndefined();
+    });
+
+    it('should do nothing when requestId is not found', async () => {
+      const dbDetails = {
+        url: 'pg://test_user:supersecret@localhost:5433/test',
+        name: 'test',
+        type: 'postgres',
+      };
+
+      (prismaMock.connection.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.updateCredentials(
+        user,
+        projectId,
+        { dbDetails } as UpdateCredentialsDto,
+        accessToken,
+      );
+
+      expect(prismaMock.connection.findFirst).toHaveBeenCalled();
+      expect(connectionFlowMock.run).not.toHaveBeenCalled();
+      expect(result).toBeUndefined();
     });
   });
 

@@ -3,23 +3,19 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   ConnectionDecisionDto,
   ConnectionRequestResponseDto,
-  DatabaseInfoDto,
   DatabaseTestDto,
-  UpdateCredentialsDto,
 } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
-import { QueueService } from 'src/queue/queue.service';
 import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
-import { VaultService } from 'src/vault/vault.service';
 import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
+import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
-    private queue: QueueService,
-    private readonly vaultService: VaultService,
+    private readonly connectionFlowService: ConnectionFlowService,
   ) {}
 
   async getList(userId: string): Promise<ConnectionRequestResponseDto[]> {
@@ -101,42 +97,6 @@ export class ConnectionRequestService {
     return await testConnection(connectionData);
   }
 
-  private async connectionFlow(
-    user: CurrentUserInfo,
-    projectId: string,
-    requestId: string,
-    dbDetails: DatabaseInfoDto,
-    accessToken: string,
-  ) {
-    await this.prisma.project.update({
-      where: { projectId },
-      data: { status: 'CRAWLING' },
-    });
-
-    const token = await this.vaultService.auth(accessToken);
-
-    const ciphertext = await this.vaultService.transitEncrypt(
-      token,
-      'connector-db',
-      {
-        ...dbDetails,
-      },
-    );
-
-    await this.vaultService.writeProjectCiphertext(
-      token,
-      projectId,
-      ciphertext,
-    );
-
-    await this.queue.dataBrokerJob(
-      user.username,
-      projectId,
-      requestId,
-      dbDetails,
-    );
-  }
-
   async approve(
     user: CurrentUserInfo,
     requestId: string,
@@ -150,7 +110,7 @@ export class ConnectionRequestService {
 
     // database credentials should exist so run database crawling
     if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
-      await this.connectionFlow(
+      await this.connectionFlowService.run(
         user,
         projectId,
         requestId,
@@ -164,35 +124,6 @@ export class ConnectionRequestService {
         status,
       },
     });
-    // just return, no content
-    return;
-  }
-
-  async updateCredentials(
-    user: CurrentUserInfo,
-    projectId: string,
-    dto: UpdateCredentialsDto,
-    accessToken: string,
-  ) {
-    const requestInfo = await this.prisma.connection.findFirst({
-      where: {
-        projectId: projectId,
-      },
-      select: {
-        requestId: true,
-      },
-    });
-
-    const requestId = requestInfo?.requestId;
-    if (dto.dbDetails?.url && requestId) {
-      await this.connectionFlow(
-        user,
-        projectId,
-        requestId,
-        dto.dbDetails,
-        accessToken,
-      );
-    }
     // just return, no content
     return;
   }

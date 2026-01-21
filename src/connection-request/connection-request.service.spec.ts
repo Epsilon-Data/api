@@ -1,13 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConnectionRequestService } from './connection-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { QueueService } from 'src/queue/queue.service';
 import { $Enums } from 'src/generated/prisma/client';
 
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
-import { VaultService } from 'src/vault/vault.service';
 import { GetRequestCommentsDto } from 'src/common/dto';
-import { UpdateCredentialsDto } from './dto';
+import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
 
 describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
@@ -16,29 +14,21 @@ describe('ConnectionRequestService', () => {
     connection: {
       findMany: jest.Mock;
       findUniqueOrThrow: jest.Mock;
-      findFirst: jest.Mock;
     };
     project: { update: jest.Mock };
     request: { update: jest.Mock };
     comment: { findMany: jest.Mock };
   };
 
-  let queueMock: {
-    dataBrokerJob: jest.Mock;
+  const connectionFlowMock = {
+    run: jest.fn(),
   };
-
-  const vaultMock = {
-    auth: jest.fn(),
-    transitEncrypt: jest.fn(),
-    writeProjectCiphertext: jest.fn(),
-  } as unknown as VaultService;
 
   beforeEach(async () => {
     prismaMock = {
       connection: {
         findMany: jest.fn(),
         findUniqueOrThrow: jest.fn(),
-        findFirst: jest.fn(),
       },
       project: {
         update: jest.fn(),
@@ -51,10 +41,6 @@ describe('ConnectionRequestService', () => {
       },
     };
 
-    queueMock = {
-      dataBrokerJob: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConnectionRequestService,
@@ -63,12 +49,8 @@ describe('ConnectionRequestService', () => {
           useValue: prismaMock,
         },
         {
-          provide: QueueService,
-          useValue: queueMock,
-        },
-        {
-          provide: VaultService,
-          useValue: vaultMock,
+          provide: ConnectionFlowService,
+          useValue: connectionFlowMock,
         },
       ],
     }).compile();
@@ -243,18 +225,12 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(prismaMock.project.update).toHaveBeenCalledWith({
-        where: { projectId },
-        data: {
-          status: 'CRAWLING',
-        },
-      });
-
-      expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
-        user.username,
+      expect(connectionFlowMock.run).toHaveBeenCalledWith(
+        user,
         projectId,
         requestId,
         dbDetails,
+        'test-token',
       );
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
@@ -287,9 +263,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(prismaMock.project.update).not.toHaveBeenCalled();
-      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
-
+      expect(connectionFlowMock.run).not.toHaveBeenCalled();
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: {
@@ -320,8 +294,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(prismaMock.project.update).not.toHaveBeenCalled();
-      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
+      expect(connectionFlowMock.run).not.toHaveBeenCalledWith();
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
@@ -329,119 +302,6 @@ describe('ConnectionRequestService', () => {
           status: $Enums.RequestStatus.REJECTED,
         },
       });
-
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe('updateCredentials', () => {
-    const user: CurrentUserInfo = {
-      id: '123',
-      username: 'normal-user',
-      family_name: 'User',
-      given_name: 'Normal',
-      email: 'user@test.com',
-    };
-
-    const requestId = 'req-1';
-    const projectId = 'proj-1';
-    const accessToken = 'test-token';
-
-    beforeEach(() => {
-      prismaMock.project.update.mockResolvedValue({});
-      prismaMock.request.update.mockResolvedValue({});
-      prismaMock.connection.findFirst.mockReset();
-      queueMock.dataBrokerJob.mockResolvedValue({});
-    });
-
-    it('should update credentials, set project to CRAWLING, write secrets, and enqueue job when dbDetails.url exists', async () => {
-      const dbDetails = {
-        url: 'pg://test_user:supersecret@localhost:5433/test',
-        name: 'test',
-        type: 'postgres',
-      };
-
-      const dto = {
-        dbDetails,
-      };
-
-      prismaMock.connection.findFirst.mockResolvedValue({ requestId: 'req-1' });
-
-      const result = await service.updateCredentials(
-        user,
-        projectId,
-        dto as UpdateCredentialsDto,
-        accessToken,
-      );
-
-      expect(prismaMock.project.update).toHaveBeenCalledWith({
-        where: { projectId },
-        data: { status: 'CRAWLING' },
-      });
-
-      expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
-        user.username,
-        projectId,
-        requestId,
-        dbDetails,
-      );
-
-      expect(prismaMock.request.update).not.toHaveBeenCalled();
-
-      expect(result).toBeUndefined();
-    });
-
-    it('should do nothing when dbDetails.url is missing', async () => {
-      const dto = {
-        dbDetails: {
-          name: 'test',
-          type: 'postgres',
-          // no url
-        },
-      };
-
-      const result = await service.updateCredentials(
-        user,
-        projectId,
-        dto as UpdateCredentialsDto,
-        accessToken,
-      );
-
-      prismaMock.connection.findFirst.mockResolvedValue({ requestId: 'req-1' });
-
-      expect(prismaMock.project.update).not.toHaveBeenCalled();
-      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
-      expect(prismaMock.request.update).not.toHaveBeenCalled();
-
-      expect(result).toBeUndefined();
-    });
-
-    it('should do nothing when requestId is not found', async () => {
-      const dbDetails = {
-        url: 'pg://test_user:supersecret@localhost:5433/test',
-        name: 'test',
-        type: 'postgres',
-      };
-
-      const dto = { dbDetails };
-
-      prismaMock.connection.findFirst.mockResolvedValue(null);
-
-      const result = await service.updateCredentials(
-        user,
-        projectId,
-        dto as UpdateCredentialsDto,
-        accessToken,
-      );
-
-      expect(prismaMock.connection.findFirst).toHaveBeenCalledWith({
-        where: { projectId },
-        select: { requestId: true },
-      });
-
-      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
-      expect(prismaMock.project.update).not.toHaveBeenCalled();
-      expect(prismaMock.request.update).not.toHaveBeenCalled();
 
       expect(result).toBeUndefined();
     });
