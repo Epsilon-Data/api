@@ -13,7 +13,11 @@ describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
 
   let prismaMock: {
-    connection: { findMany: jest.Mock; findUniqueOrThrow: jest.Mock };
+    connection: {
+      findMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      findFirst: jest.Mock;
+    };
     project: { update: jest.Mock };
     request: { update: jest.Mock };
     comment: { findMany: jest.Mock };
@@ -34,6 +38,7 @@ describe('ConnectionRequestService', () => {
       connection: {
         findMany: jest.fn(),
         findUniqueOrThrow: jest.fn(),
+        findFirst: jest.fn(),
       },
       project: {
         update: jest.fn(),
@@ -345,6 +350,7 @@ describe('ConnectionRequestService', () => {
     beforeEach(() => {
       prismaMock.project.update.mockResolvedValue({});
       prismaMock.request.update.mockResolvedValue({});
+      prismaMock.connection.findFirst.mockReset();
       queueMock.dataBrokerJob.mockResolvedValue({});
     });
 
@@ -359,9 +365,10 @@ describe('ConnectionRequestService', () => {
         dbDetails,
       };
 
+      prismaMock.connection.findFirst.mockResolvedValue({ requestId: 'req-1' });
+
       const result = await service.updateCredentials(
         user,
-        requestId,
         projectId,
         dto as UpdateCredentialsDto,
         accessToken,
@@ -395,14 +402,45 @@ describe('ConnectionRequestService', () => {
 
       const result = await service.updateCredentials(
         user,
-        requestId,
         projectId,
         dto as UpdateCredentialsDto,
         accessToken,
       );
 
+      prismaMock.connection.findFirst.mockResolvedValue({ requestId: 'req-1' });
+
       expect(prismaMock.project.update).not.toHaveBeenCalled();
       expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
+      expect(prismaMock.request.update).not.toHaveBeenCalled();
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should do nothing when requestId is not found', async () => {
+      const dbDetails = {
+        url: 'pg://test_user:supersecret@localhost:5433/test',
+        name: 'test',
+        type: 'postgres',
+      };
+
+      const dto = { dbDetails };
+
+      prismaMock.connection.findFirst.mockResolvedValue(null);
+
+      const result = await service.updateCredentials(
+        user,
+        projectId,
+        dto as UpdateCredentialsDto,
+        accessToken,
+      );
+
+      expect(prismaMock.connection.findFirst).toHaveBeenCalledWith({
+        where: { projectId },
+        select: { requestId: true },
+      });
+
+      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
+      expect(prismaMock.project.update).not.toHaveBeenCalled();
       expect(prismaMock.request.update).not.toHaveBeenCalled();
 
       expect(result).toBeUndefined();

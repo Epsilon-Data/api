@@ -232,6 +232,67 @@ export class ConnectionRequestController {
     }
   }
 
+  @Patch(':projectId/credentials')
+  @ApiOperation({
+    summary: 'Update connection credentials and retry connection',
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'Credentials updated and connection retried',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid project data for database operation',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 400,
+          message: 'Invalid project data for database operation',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Project not found',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 404,
+          message: 'Requested resource could not be found',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected database error',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 500,
+          message: 'Database is temporarily unavailable',
+          error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  async updateCredentials(
+    @Req() request: Request,
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: UpdateCredentialsDto,
+  ) {
+    return await this.connectionRequestService.updateCredentials(
+      user,
+      projectId,
+      dto,
+      request.auth?.token || '',
+    );
+  }
+
   @UseGuards(ResourceGuard)
   @Scopes('view', 'edit', 'connect')
   @Patch(':projectId/:requestId')
@@ -289,69 +350,6 @@ export class ConnectionRequestController {
     @Body() dto: ConnectionDecisionDto,
   ) {
     return await this.connectionRequestService.approve(
-      user,
-      requestId,
-      projectId,
-      dto,
-      request.auth?.token || '',
-    );
-  }
-
-  @Patch(':projectId/:requestId/credentials')
-  @ApiOperation({
-    summary: 'Update connection credentials and retry connection',
-  })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiNoContentResponse({
-    description: 'Credentials updated and connection retried',
-  })
-  @ApiBadRequestResponse({
-    description: 'Invalid request data for database operation',
-    content: {
-      'application/json': {
-        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
-        example: {
-          statusCode: 400,
-          message: 'Invalid request data for database operation',
-          error: 'DatabaseError',
-        },
-      },
-    },
-  })
-  @ApiNotFoundResponse({
-    description: 'Request not found',
-    content: {
-      'application/json': {
-        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
-        example: {
-          statusCode: 404,
-          message: 'Requested resource could not be found',
-          error: 'DatabaseError',
-        },
-      },
-    },
-  })
-  @ApiInternalServerErrorResponse({
-    description: 'Unexpected database error',
-    content: {
-      'application/json': {
-        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
-        example: {
-          statusCode: 500,
-          message: 'Database is temporarily unavailable',
-          error: 'DatabaseError',
-        },
-      },
-    },
-  })
-  async updateCredentials(
-    @Req() request: Request,
-    @CurrentUser() user: CurrentUserInfo,
-    @Param('requestId', ParseUUIDPipe) requestId: string,
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() dto: UpdateCredentialsDto,
-  ) {
-    return await this.connectionRequestService.updateCredentials(
       user,
       requestId,
       projectId,

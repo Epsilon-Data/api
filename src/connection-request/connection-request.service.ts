@@ -170,12 +170,21 @@ export class ConnectionRequestService {
 
   async updateCredentials(
     user: CurrentUserInfo,
-    requestId: string,
     projectId: string,
     dto: UpdateCredentialsDto,
     accessToken: string,
   ) {
-    if (dto.dbDetails?.url) {
+    const requestInfo = await this.prisma.connection.findFirst({
+      where: {
+        projectId: projectId,
+      },
+      select: {
+        requestId: true,
+      },
+    });
+
+    const requestId = requestInfo?.requestId;
+    if (dto.dbDetails?.url && requestId) {
       await this.connectionFlow(
         user,
         projectId,
