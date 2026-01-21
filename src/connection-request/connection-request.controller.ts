@@ -232,6 +232,8 @@ export class ConnectionRequestController {
     }
   }
 
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit', 'connect')
   @Patch(':projectId/credentials')
   @ApiOperation({
     summary: 'Update connection credentials and retry connection',
