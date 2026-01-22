@@ -97,6 +97,17 @@ export class ArchetypeService {
       token,
     );
 
+    const instanceRes = await this.atlas.get<AtlasEntityResponseDto>(
+      `/entity/uniqueAttribute/type/rdbms_instance`,
+      {
+        'attr:qualifiedName':
+          entityRes.entity?.relationshipAttributes?.instance?.qualifiedName,
+        ignoreRelationships: true, // default false
+        minExtInfo: true, // default false
+      },
+      token,
+    );
+
     const templateInfo: ArchetypeDto = {
       projectId: projectId,
       archetypeId: archetypeId,
@@ -106,6 +117,8 @@ export class ArchetypeService {
       edges: [],
       permissions: [],
       lastModified: new Date(entityRes.entity?.updateTime),
+      dbName: instanceRes.entity?.attributes?.name as string,
+      dbType: instanceRes.entity?.attributes?.rdbms_type as string,
     };
 
     // add all archetype_nodes if any exist
