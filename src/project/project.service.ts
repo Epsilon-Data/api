@@ -26,7 +26,6 @@ import { DatabaseInfoDto } from 'src/connection-request/dto';
 import { Prisma } from 'src/generated/prisma/client';
 import { VaultService } from 'src/vault/vault.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
-import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
 
 @Injectable()
 export class ProjectService {
@@ -37,7 +36,6 @@ export class ProjectService {
     private fileStorage: FileStorageService,
     private readonly vaultService: VaultService,
     private readonly keycloak: KeycloakAdminService,
-    private readonly connectionFlowService: ConnectionFlowService,
   ) {}
 
   // Queries
@@ -535,7 +533,7 @@ export class ProjectService {
     const requestId = requestInfo?.requestId;
 
     if (dto.dbDetails?.url && requestId) {
-      await this.connectionFlowService.run(
+      await this.vaultService.runConnectionFlow(
         user,
         projectId,
         requestId,

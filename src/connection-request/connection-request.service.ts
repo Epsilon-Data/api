@@ -9,13 +9,13 @@ import { testConnection } from '@epsilon-data/epsilon-connector';
 import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
-import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
+import { VaultService } from 'src/vault/vault.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
-    private readonly connectionFlowService: ConnectionFlowService,
+    private readonly vaultService: VaultService,
   ) {}
 
   async getList(userId: string): Promise<ConnectionRequestResponseDto[]> {
@@ -110,7 +110,7 @@ export class ConnectionRequestService {
 
     // database credentials should exist so run database crawling
     if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
-      await this.connectionFlowService.run(
+      await this.vaultService.runConnectionFlow(
         user,
         projectId,
         requestId,

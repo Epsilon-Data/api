@@ -8,11 +8,23 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { VaultService } from './vault.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { QueueService } from 'src/queue/queue.service';
 
 type MockFetchResponse = {
   ok: boolean;
   status: number;
   json: jest.Mock<Promise<unknown>, []>;
+};
+
+type PrismaMock = {
+  project: {
+    update: jest.Mock;
+  };
+};
+
+type QueueMock = {
+  dataBrokerJob: jest.Mock;
 };
 
 const fetchMock = jest.fn();
@@ -32,10 +44,22 @@ describe('VaultService', () => {
   let service: VaultService;
   let config: { get: jest.Mock };
 
+  const prismaMock: PrismaMock = {
+    project: {
+      update: jest.fn(),
+    },
+  };
+
+  const queueMock: QueueMock = {
+    dataBrokerJob: jest.fn(),
+  };
+
   const keystoreUrl = 'http://vault:8200';
 
   beforeEach(async () => {
     fetchMock.mockReset();
+    prismaMock.project.update.mockReset();
+    queueMock.dataBrokerJob.mockReset();
 
     config = {
       get: jest.fn((key: string) => {
@@ -45,7 +69,18 @@ describe('VaultService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [VaultService, { provide: ConfigService, useValue: config }],
+      providers: [
+        VaultService,
+        { provide: ConfigService, useValue: config },
+        {
+          provide: PrismaService,
+          useValue: prismaMock as unknown as PrismaService,
+        },
+        {
+          provide: QueueService,
+          useValue: queueMock as unknown as QueueService,
+        },
+      ],
     }).compile();
 
     service = module.get(VaultService);
@@ -355,6 +390,84 @@ describe('VaultService', () => {
       await expect(
         service.readProjectCiphertext('vault-token', 'proj-123'),
       ).rejects.toBeInstanceOf(InternalServerErrorException);
+    });
+  });
+
+  describe('runConnectionFlow', () => {
+    it('updates project status, stores credentials, and enqueues job', async () => {
+      prismaMock.project.update.mockResolvedValue({});
+
+      fetchMock.mockResolvedValueOnce(
+        makeResponse({
+          ok: true,
+          status: 200,
+          jsonBody: { auth: { client_token: 'vault-token-123' } },
+        }),
+      );
+
+      fetchMock.mockResolvedValueOnce(
+        makeResponse({
+          ok: true,
+          status: 200,
+          jsonBody: { data: { ciphertext: 'vault:v1:encrypted' } },
+        }),
+      );
+
+      fetchMock.mockResolvedValueOnce(
+        makeResponse({
+          ok: true,
+          status: 200,
+          jsonBody: { data: { written: true } },
+        }),
+      );
+
+      const user = {
+        id: 'u1',
+        username: 'normal-user',
+        family_name: 'User',
+        given_name: 'Normal',
+        email: 'user@test.com',
+      };
+
+      const projectId = 'proj-1';
+      const requestId = 'req-1';
+      const accessToken = 'kc-token';
+      const dbDetails = {
+        url: 'postgres://...',
+        type: 'postgres',
+        name: 'db',
+      };
+
+      await service.runConnectionFlow(
+        user,
+        projectId,
+        requestId,
+        dbDetails,
+        accessToken,
+      );
+
+      expect(prismaMock.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: { status: 'CRAWLING' },
+      });
+
+      expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
+        user.username,
+        projectId,
+        requestId,
+        dbDetails,
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        `${keystoreUrl}/v1/auth/jwt/login`,
+      );
+      expect(fetchMock.mock.calls[1][0]).toBe(
+        `${keystoreUrl}/v1/transit/encrypt/connector-db`,
+      );
+      expect(fetchMock.mock.calls[2][0]).toBe(
+        `${keystoreUrl}/v1/connector/data/projects/${encodeURIComponent(projectId)}/db`,
+      );
     });
   });
 });

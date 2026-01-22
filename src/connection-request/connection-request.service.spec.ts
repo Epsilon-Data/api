@@ -5,7 +5,7 @@ import { $Enums } from 'src/generated/prisma/client';
 
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { GetRequestCommentsDto } from 'src/common/dto';
-import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
+import { VaultService } from 'src/vault/vault.service';
 
 describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
@@ -20,8 +20,8 @@ describe('ConnectionRequestService', () => {
     comment: { findMany: jest.Mock };
   };
 
-  const connectionFlowMock = {
-    run: jest.fn(),
+  const vaultMock = {
+    runConnectionFlow: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -49,8 +49,8 @@ describe('ConnectionRequestService', () => {
           useValue: prismaMock,
         },
         {
-          provide: ConnectionFlowService,
-          useValue: connectionFlowMock,
+          provide: VaultService,
+          useValue: vaultMock,
         },
       ],
     }).compile();
@@ -225,7 +225,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(connectionFlowMock.run).toHaveBeenCalledWith(
+      expect(vaultMock.runConnectionFlow).toHaveBeenCalledWith(
         user,
         projectId,
         requestId,
@@ -263,7 +263,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(connectionFlowMock.run).not.toHaveBeenCalled();
+      expect(vaultMock.runConnectionFlow).not.toHaveBeenCalled();
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: {
@@ -294,7 +294,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(connectionFlowMock.run).not.toHaveBeenCalledWith();
+      expect(vaultMock.runConnectionFlow).not.toHaveBeenCalledWith();
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },

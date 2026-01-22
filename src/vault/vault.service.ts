@@ -6,6 +6,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { QueueService } from 'src/queue/queue.service';
+import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 type VaultLoginResponse = {
   auth?: { client_token?: string };
@@ -37,11 +40,26 @@ type VaultTransitDecryptResponse = {
 
 type VaultError = { errors?: string[] };
 
+type DatabaseInfo = {
+  name: string;
+  type: string;
+  host?: string;
+  port?: string;
+  url?: string;
+  username?: string;
+  password?: string;
+  ssl?: boolean;
+};
+
 @Injectable()
 export class VaultService {
   private readonly logger = new Logger(VaultService.name);
 
-  constructor(private config: ConfigService) {}
+  constructor(
+    private config: ConfigService,
+    private prisma: PrismaService,
+    private queue: QueueService,
+  ) {}
 
   private async vaultRequest<T>(path: string, init: RequestInit): Promise<T> {
     const res: Response = await fetch(
@@ -192,5 +210,35 @@ export class VaultService {
     if (!ciphertext)
       throw new NotFoundException('No ciphertext found for project');
     return ciphertext;
+  }
+
+  async runConnectionFlow(
+    user: CurrentUserInfo,
+    projectId: string,
+    requestId: string,
+    dbDetails: DatabaseInfo,
+    accessToken: string,
+  ) {
+    await this.prisma.project.update({
+      where: { projectId },
+      data: { status: 'CRAWLING' },
+    });
+
+    const token = await this.auth(accessToken);
+
+    const ciphertext = await this.transitEncrypt(token, 'connector-db', {
+      ...dbDetails,
+    });
+
+    await this.writeProjectCiphertext(token, projectId, ciphertext);
+
+    await this.queue.dataBrokerJob(
+      user.username,
+      projectId,
+      requestId,
+      dbDetails,
+    );
+
+    return;
   }
 }

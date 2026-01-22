@@ -10,7 +10,6 @@ import { Prisma, RequestStatus } from 'src/generated/prisma/client';
 import { SettingsDto, UpdateCredentialsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
 import { VaultService } from 'src/vault/vault.service';
-import { ConnectionFlowService } from 'src/common/services/connection-flow.service';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 
 // mock nanoid + uuid to make tests deterministic
@@ -45,10 +44,6 @@ describe('ProjectService', () => {
     },
   } as unknown as PrismaService;
 
-  const connectionFlowMock = {
-    run: jest.fn(),
-  };
-
   const queueMock = {
     dataBrokerJob: jest.fn(),
     addResourceJob: jest.fn(),
@@ -70,6 +65,7 @@ describe('ProjectService', () => {
     auth: jest.fn(),
     transitEncrypt: jest.fn(),
     writeProjectCiphertext: jest.fn(),
+    runConnectionFlow: jest.fn(),
   } as unknown as VaultService;
 
   beforeEach(async () => {
@@ -83,7 +79,6 @@ describe('ProjectService', () => {
         { provide: FileStorageService, useValue: fileStorageMock },
         { provide: KeycloakAdminService, useValue: keycloakMock },
         { provide: VaultService, useValue: vaultMock },
-        { provide: ConnectionFlowService, useValue: connectionFlowMock },
       ],
     }).compile();
 
@@ -621,7 +616,7 @@ describe('ProjectService', () => {
 
     beforeEach(() => {
       (prismaMock.connection.findFirst as jest.Mock).mockReset();
-      connectionFlowMock.run.mockReset();
+      (vaultMock.runConnectionFlow as jest.Mock).mockReset();
     });
 
     it('should run connection flow when dbDetails.url exists and requestId is found', async () => {
@@ -647,7 +642,7 @@ describe('ProjectService', () => {
         select: { requestId: true },
       });
 
-      expect(connectionFlowMock.run).toHaveBeenCalledWith(
+      expect(vaultMock.runConnectionFlow).toHaveBeenCalledWith(
         user,
         projectId,
         requestId,
@@ -673,7 +668,7 @@ describe('ProjectService', () => {
         accessToken,
       );
 
-      expect(connectionFlowMock.run).not.toHaveBeenCalled();
+      expect(vaultMock.runConnectionFlow).not.toHaveBeenCalled();
       expect(result).toBeUndefined();
     });
 
@@ -694,7 +689,7 @@ describe('ProjectService', () => {
       );
 
       expect(prismaMock.connection.findFirst).toHaveBeenCalled();
-      expect(connectionFlowMock.run).not.toHaveBeenCalled();
+      expect(vaultMock.runConnectionFlow).not.toHaveBeenCalled();
       expect(result).toBeUndefined();
     });
   });
