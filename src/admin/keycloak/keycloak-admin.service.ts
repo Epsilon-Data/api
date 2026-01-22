@@ -334,6 +334,7 @@ export class KeycloakAdminService implements OnModuleInit {
     }
   }
   async addUserToGroup(id: string, groupId: string) {
+    this.logger.debug(`Adding user ${id} to group ${groupId}...`);
     try {
       return await this.kcAdminClient.users.addToGroup({
         id,
