@@ -13,6 +13,7 @@ import {
   ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
+  UpdateCredentialsDto,
   UpdateProjectDto,
 } from './dto';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
@@ -516,6 +517,32 @@ export class ProjectService {
         analysis: true,
       },
     });
+  }
+
+  async updateCredentials(
+    user: CurrentUserInfo,
+    projectId: string,
+    dto: UpdateCredentialsDto,
+    accessToken: string,
+  ) {
+    const requestInfo = await this.prisma.connection.findFirst({
+      where: { projectId },
+      select: { requestId: true },
+    });
+
+    const requestId = requestInfo?.requestId;
+
+    if (dto.dbDetails?.url && requestId) {
+      await this.vaultService.runConnectionFlow(
+        user,
+        projectId,
+        requestId,
+        dto.dbDetails,
+        accessToken,
+      );
+    }
+
+    return;
   }
 
   async updateProjectSettings(projectId: string, dto: SettingsDto) {

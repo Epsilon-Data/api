@@ -24,6 +24,7 @@ import {
   ConnectionDto,
   ConnectionRequestDto,
   ConnectionRequestResponseDto,
+  DatabaseInfoDto,
 } from 'src/connection-request/dto';
 import { AnalysisRequestResponseDto } from 'src/analysis-request/dto';
 
@@ -586,4 +587,12 @@ export class ProjectRequestsResponse {
   @ValidateNested({ each: true })
   @Type(() => AnalysisRequestResponseDto)
   analysis: ProjectRequestsResponseDto[];
+}
+
+export class UpdateCredentialsDto {
+  @ApiProperty({ type: DatabaseInfoDto })
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => DatabaseInfoDto)
+  dbDetails!: DatabaseInfoDto;
 }

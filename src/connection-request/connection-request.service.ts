@@ -6,17 +6,15 @@ import {
   DatabaseTestDto,
 } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
-import { QueueService } from 'src/queue/queue.service';
 import { $Enums } from 'src/generated/prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
-import { VaultService } from 'src/vault/vault.service';
 import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
+import { VaultService } from 'src/vault/vault.service';
 
 @Injectable()
 export class ConnectionRequestService {
   constructor(
     private prisma: PrismaService,
-    private queue: QueueService,
     private readonly vaultService: VaultService,
   ) {}
 
@@ -112,34 +110,12 @@ export class ConnectionRequestService {
 
     // database credentials should exist so run database crawling
     if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
-      await this.prisma.project.update({
-        where: { projectId: projectId },
-        data: {
-          status: 'CRAWLING',
-        },
-      });
-      //add secrets
-      const token = await this.vaultService.auth(accessToken);
-
-      // encrypt with transit (user token only needs encrypt)
-      const ciphertext = await this.vaultService.transitEncrypt(
-        token,
-        'connector-db',
-        {
-          ...dto.dbDetails,
-        },
-      );
-      // store project-scoped copy for Coordinator (EC2)
-      await this.vaultService.writeProjectCiphertext(
-        token,
-        projectId,
-        ciphertext,
-      );
-      await this.queue.dataBrokerJob(
-        user.username,
+      await this.vaultService.runConnectionFlow(
+        user,
         projectId,
         requestId,
         dto.dbDetails,
+        accessToken,
       );
     }
     await this.prisma.request.update({

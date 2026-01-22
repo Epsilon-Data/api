@@ -247,7 +247,7 @@ export class AnalysisRequestController {
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Query() query: GetRequestCommentsDto,
   ) {
-    const isRequestor = query.isRequestor === 'true';
+    const isRequestor = query.isRequestor == true;
     return await this.analysisRequestService.getDetails(
       isRequestor,
       user.id,
@@ -527,7 +527,7 @@ export class AnalysisRequestController {
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Query() query: GetRequestCommentsDto,
   ) {
-    const isRequestor = query.isRequestor === 'true';
+    const isRequestor = query.isRequestor == true;
     return await this.analysisRequestService.getComments(
       user.id,
       requestId,

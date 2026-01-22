@@ -1,32 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConnectionRequestService } from './connection-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { QueueService } from 'src/queue/queue.service';
 import { $Enums } from 'src/generated/prisma/client';
 
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
-import { VaultService } from 'src/vault/vault.service';
 import { GetRequestCommentsDto } from 'src/common/dto';
+import { VaultService } from 'src/vault/vault.service';
 
 describe('ConnectionRequestService', () => {
   let service: ConnectionRequestService;
 
   let prismaMock: {
-    connection: { findMany: jest.Mock; findUniqueOrThrow: jest.Mock };
+    connection: {
+      findMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+    };
     project: { update: jest.Mock };
     request: { update: jest.Mock };
     comment: { findMany: jest.Mock };
   };
 
-  let queueMock: {
-    dataBrokerJob: jest.Mock;
-  };
-
   const vaultMock = {
-    auth: jest.fn(),
-    transitEncrypt: jest.fn(),
-    writeProjectCiphertext: jest.fn(),
-  } as unknown as VaultService;
+    runConnectionFlow: jest.fn(),
+  };
 
   beforeEach(async () => {
     prismaMock = {
@@ -45,20 +41,12 @@ describe('ConnectionRequestService', () => {
       },
     };
 
-    queueMock = {
-      dataBrokerJob: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConnectionRequestService,
         {
           provide: PrismaService,
           useValue: prismaMock,
-        },
-        {
-          provide: QueueService,
-          useValue: queueMock,
         },
         {
           provide: VaultService,
@@ -237,18 +225,12 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(prismaMock.project.update).toHaveBeenCalledWith({
-        where: { projectId },
-        data: {
-          status: 'CRAWLING',
-        },
-      });
-
-      expect(queueMock.dataBrokerJob).toHaveBeenCalledWith(
-        user.username,
+      expect(vaultMock.runConnectionFlow).toHaveBeenCalledWith(
+        user,
         projectId,
         requestId,
         dbDetails,
+        'test-token',
       );
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
@@ -281,9 +263,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(prismaMock.project.update).not.toHaveBeenCalled();
-      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
-
+      expect(vaultMock.runConnectionFlow).not.toHaveBeenCalled();
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: {
@@ -314,8 +294,7 @@ describe('ConnectionRequestService', () => {
         'test-token',
       );
 
-      expect(prismaMock.project.update).not.toHaveBeenCalled();
-      expect(queueMock.dataBrokerJob).not.toHaveBeenCalled();
+      expect(vaultMock.runConnectionFlow).not.toHaveBeenCalledWith();
 
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
@@ -350,7 +329,6 @@ describe('ConnectionRequestService', () => {
       const userId = 'user-1';
       const requestId = 'req-123';
       const dto: GetRequestCommentsDto = {
-        requestId,
         isRequestor: true,
       };
 
@@ -373,7 +351,6 @@ describe('ConnectionRequestService', () => {
       const userId = 'owner-1';
       const requestId = 'req-456';
       const dto: GetRequestCommentsDto = {
-        requestId,
         isRequestor: false,
       };
 
