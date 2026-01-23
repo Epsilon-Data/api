@@ -228,6 +228,9 @@ describe('ArchetypeService', () => {
           } as AtlasArchetypeNodeAttributesDto,
           updateTime, // used to set lastModified
           createTime,
+          relationshipAttributes: {
+            instance: { qualifiedName: `${projectId}@my-db-instance` },
+          },
         } as AtlasArchetypeEntityDto,
         referredEntities: {
           // Root node entity
@@ -348,7 +351,14 @@ describe('ArchetypeService', () => {
         },
       };
 
-      atlas.get.mockResolvedValueOnce(atlasResponse);
+      atlas.get.mockResolvedValueOnce(atlasResponse).mockResolvedValueOnce({
+        entity: {
+          attributes: {
+            name: 'my-db',
+            rdbms_type: 'postgres',
+          },
+        },
+      } as unknown as AtlasEntityResponseDto);
 
       const result = await service.getArchetypeDetails(
         projectId,
@@ -357,7 +367,7 @@ describe('ArchetypeService', () => {
       );
 
       // Call + params assertions
-      expect(atlas.get).toHaveBeenCalledTimes(1);
+      expect(atlas.get).toHaveBeenCalledTimes(2);
       const [endpoint, params, forwardedToken] = atlas.get.mock.calls[0];
       expect(endpoint).toBe(
         `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
@@ -368,6 +378,15 @@ describe('ArchetypeService', () => {
         minExtInfo: false,
       });
       expect(forwardedToken).toBe(token);
+
+      const [endpoint2, params2, forwardedToken2] = atlas.get.mock.calls[1];
+      expect(endpoint2).toBe(`/entity/uniqueAttribute/type/rdbms_instance`);
+      expect(params2).toEqual({
+        'attr:qualifiedName': `${projectId}@my-db-instance`,
+        ignoreRelationships: true,
+        minExtInfo: true,
+      });
+      expect(forwardedToken2).toBe(token);
 
       // Template-level mapping
       expect(result.projectId).toBe(projectId);
@@ -434,6 +453,8 @@ describe('ArchetypeService', () => {
       expect(result.permissions).toEqual([
         { id: catNodeId, permission: 'DETAILED' as ArchetypePermission },
       ]);
+      expect(result.dbName).toBe('my-db');
+      expect(result.dbType).toBe('postgres');
     });
 
     it('skips edges/column when relationship entityStatus is not ACTIVE', async () => {
@@ -493,7 +514,9 @@ describe('ArchetypeService', () => {
         },
       };
 
-      atlas.get.mockResolvedValueOnce(atlasResponse);
+      atlas.get.mockResolvedValueOnce(atlasResponse).mockResolvedValueOnce({
+        entity: { attributes: { name: 'my-db', rdbms_type: 'postgres' } },
+      } as unknown as AtlasEntityResponseDto);
 
       const result = await service.getArchetypeDetails(projectId, archetypeId);
 

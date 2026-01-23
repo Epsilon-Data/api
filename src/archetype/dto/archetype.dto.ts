@@ -330,4 +330,20 @@ export class ArchetypeDto {
   @IsDate()
   @Transform(({ value }) => transformDateString(value), { toClassOnly: true })
   lastModified?: Date;
+
+  @ApiProperty({
+    description: 'User assigned database name',
+    example: 'Health database',
+  })
+  @IsOptional()
+  @IsString()
+  dbName?: string;
+
+  @ApiProperty({
+    description: 'Database engine/ file type',
+    example: 'postgres',
+  })
+  @IsOptional()
+  @IsString()
+  dbType?: string;
 }
