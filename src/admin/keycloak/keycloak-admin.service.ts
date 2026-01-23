@@ -93,8 +93,13 @@ export class KeycloakAdminService implements OnModuleInit {
     }
   }
 
-  async auth(credentials: Credentials) {
-    return await this.kcAdminClient.auth(credentials);
+  async auth(credentials?: Credentials) {
+    const clientCredentials = credentials || {
+      grantType: 'client_credentials',
+      clientId: this.config.clientId,
+      clientSecret: this.config.clientSecret,
+    };
+    return await this.kcAdminClient.auth(clientCredentials);
   }
 
   async createUser(user: UserRepresentation) {

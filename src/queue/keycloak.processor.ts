@@ -1,6 +1,6 @@
 import { Processor, Process } from '@nestjs/bull';
 import type { Job } from 'bull';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import {
   resourcePrefix,
@@ -20,16 +20,11 @@ import {
   custodianPermissions,
 } from 'src/utils/options.util';
 import {
-  Credentials,
   DecisionStrategy,
   Logic,
   UserRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
 import { AddResourceJobDataDto } from './dto';
-import {
-  ADMIN_CONFIG,
-  type AdminModuleConfig,
-} from 'src/admin/admin-config.interface';
 import { ConfigService } from '@nestjs/config';
 
 // TODO: we need properly handle failed request for all these processors
@@ -39,7 +34,6 @@ export class KeycloakProcessor {
   private readonly logger = new Logger(KeycloakProcessor.name);
 
   constructor(
-    @Inject(ADMIN_CONFIG) private config: AdminModuleConfig,
     private readonly keycloak: KeycloakAdminService,
     private readonly configService: ConfigService,
   ) {}
@@ -51,12 +45,8 @@ export class KeycloakProcessor {
     this.logger.log(`Handling 'process-add-resource' for resource id ${id}...`);
     try {
       // TODO: better error handling
-      const credentials: Credentials = {
-        grantType: 'client_credentials',
-        clientId: this.config.clientId,
-        clientSecret: this.config.clientSecret,
-      };
-      await this.keycloak.auth(credentials);
+      // reauth with keycloak client
+      await this.keycloak.auth();
 
       // get owner username
       const owner = await this.keycloak.getUserById(ownerId);

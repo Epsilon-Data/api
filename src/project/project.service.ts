@@ -190,6 +190,11 @@ export class ProjectService {
 
     const keycloakMap = new Map<string, { name: string; email: string }>();
 
+    // re-auth with keycloak
+    if (idsNeedingKeycloak.size > 0) {
+      await this.keycloak.auth();
+    }
+
     await Promise.all(
       Array.from(idsNeedingKeycloak).map(async (id) => {
         const user = await this.keycloak.getUserById(id);

@@ -31,11 +31,13 @@ describe('AnalysisRequestService', () => {
 
   let keycloakMock: {
     addUserToUserPolicy: jest.Mock;
+    auth: jest.Mock;
   };
 
   beforeEach(async () => {
     keycloakMock = {
       addUserToUserPolicy: jest.fn(),
+      auth: jest.fn(),
     };
     prisma = {
       analysis: {

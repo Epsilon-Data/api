@@ -23,13 +23,11 @@ import {
   custodianPermissions,
 } from 'src/utils/options.util';
 import {
-  Credentials,
   DecisionStrategy,
   Logic,
   UserRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
 import type { Job } from 'bull';
-import { ADMIN_CONFIG } from 'src/admin/admin-config.interface';
 
 describe('KeycloakProcessor.handleAddResource', () => {
   let processor: KeycloakProcessor;
@@ -66,13 +64,6 @@ describe('KeycloakProcessor.handleAddResource', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KeycloakProcessor,
-        {
-          provide: ADMIN_CONFIG,
-          useValue: {
-            clientId: 'epsilon-admin-api',
-            clientSecret: 'epsilon-admin-api-secret',
-          },
-        },
         { provide: KeycloakAdminService, useValue: keycloakMock },
         { provide: ConfigService, useValue: configServiceMock },
       ],
@@ -119,13 +110,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
 
     await processor.handleAddResource(job);
 
-    const expectedCredentials: Credentials = {
-      grantType: 'client_credentials',
-      clientId: 'epsilon-admin-api',
-      clientSecret: 'epsilon-admin-api-secret',
-    };
-
-    expect(keycloakMock.auth).toHaveBeenCalledWith(expectedCredentials);
+    expect(keycloakMock.auth).toHaveBeenCalledWith();
     expect(keycloakMock.getUserById).toHaveBeenCalledWith('owner-1');
 
     expect(configServiceMock.get).toHaveBeenCalledWith('auth.clientId');
