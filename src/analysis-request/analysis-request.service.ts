@@ -196,9 +196,12 @@ export class AnalysisRequestService {
         status,
       },
     });
-    if (status === $Enums.RequestStatus.APPROVED)
+    if (status === $Enums.RequestStatus.APPROVED) {
+      // update client auth
+      await this.keycloak.auth();
       // TODO: need proper error handling here from keycloak or go via queue
       await this.keycloak.addUserToUserPolicy(projectId, result.requestorId);
+    }
     return;
   }
 
