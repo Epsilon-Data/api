@@ -16,10 +16,10 @@ import {
 } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import {
-  AnalysisDecisionDto,
   AnalysisDto,
   AnalysisRequestDetailsResponseDto,
   AnalysisRequestSummaryInfoDto,
+  AnalysisStatusDto,
 } from './dto';
 import {
   ApiTags,
@@ -255,16 +255,15 @@ export class AnalysisRequestController {
     );
   }
 
-  // TODO: should this not also have to be reject?
   @UseGuards(ResourceGuard)
   @Scopes('view', 'approve')
   @Patch(':projectId/:requestId')
   @ApiOperation({
-    summary: 'Approve analysis request',
+    summary: 'Update analysis request status',
   })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({
-    description: 'Analysis request approved',
+    description: 'Analysis request status updated',
   })
   @ApiBadRequestResponse({
     description: 'Invalid request data for database operation',
@@ -305,12 +304,12 @@ export class AnalysisRequestController {
       },
     },
   })
-  approve(
+  updateStatus(
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Body() dto: AnalysisDecisionDto,
+    @Body() dto: AnalysisStatusDto,
   ) {
-    return this.analysisRequestService.approve(requestId, projectId, dto);
+    return this.analysisRequestService.updateStatus(requestId, projectId, dto);
   }
 
   @Put(':requestId')

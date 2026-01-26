@@ -4,7 +4,7 @@ import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { $Enums } from 'src/generated/prisma/client';
-import { AnalysisDecisionDto, AnalysisDto } from './dto';
+import { AnalysisDto, AnalysisStatusDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
 
@@ -397,11 +397,11 @@ describe('AnalysisRequestService', () => {
     });
   });
 
-  describe('approve', () => {
-    it('should set status APPROVED and call keycloak when isApproved is true', async () => {
+  describe('updateStatus', () => {
+    it('should set status APPROVED and call keycloak', async () => {
       const requestId = 'req-1';
-      const projectId = '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230';
-      const dto: AnalysisDecisionDto = { isApproved: true };
+      const projectId = 'proj-1';
+      const dto = { status: $Enums.RequestStatus.APPROVED };
 
       prisma.request.update.mockResolvedValue({
         requestId,
@@ -409,20 +409,29 @@ describe('AnalysisRequestService', () => {
         requestorId: 'requestor-123',
       });
 
-      await service.approve(requestId, projectId, dto);
+      await service.updateStatus(
+        requestId,
+        projectId,
+        dto as AnalysisStatusDto,
+      );
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: { status: $Enums.RequestStatus.APPROVED },
       });
 
-      expect(keycloakMock.addUserToUserPolicy).toHaveBeenCalled();
+      expect(keycloakMock.auth).toHaveBeenCalledTimes(1);
+      expect(keycloakMock.addUserToUserPolicy).toHaveBeenCalledTimes(1);
+      expect(keycloakMock.addUserToUserPolicy).toHaveBeenCalledWith(
+        projectId,
+        'requestor-123',
+      );
     });
 
-    it('should set status REJECTED and NOT call keycloak when isApproved is false', async () => {
+    it('should only set status REJECTED and not call keycloak', async () => {
       const requestId = 'req-1';
-      const projectId = '8b7e2f36-9217-4ea0-8d6e-b621fb6e5230';
-      const dto: AnalysisDecisionDto = { isApproved: false };
+      const projectId = 'proj-1';
+      const dto = { status: $Enums.RequestStatus.REJECTED };
 
       prisma.request.update.mockResolvedValue({
         requestId,
@@ -430,13 +439,70 @@ describe('AnalysisRequestService', () => {
         requestorId: 'requestor-123',
       });
 
-      await service.approve(requestId, projectId, dto);
+      await service.updateStatus(
+        requestId,
+        projectId,
+        dto as AnalysisStatusDto,
+      );
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: { status: $Enums.RequestStatus.REJECTED },
       });
 
+      expect(keycloakMock.auth).not.toHaveBeenCalled();
+      expect(keycloakMock.addUserToUserPolicy).not.toHaveBeenCalled();
+    });
+
+    it('should only set status PENDING and not call keycloak', async () => {
+      const requestId = 'req-1';
+      const projectId = 'proj-1';
+      const dto = { status: $Enums.RequestStatus.PENDING };
+
+      prisma.request.update.mockResolvedValue({
+        requestId,
+        status: $Enums.RequestStatus.PENDING,
+        requestorId: 'requestor-123',
+      });
+
+      await service.updateStatus(
+        requestId,
+        projectId,
+        dto as AnalysisStatusDto,
+      );
+
+      expect(prisma.request.update).toHaveBeenCalledWith({
+        where: { requestId },
+        data: { status: $Enums.RequestStatus.PENDING },
+      });
+
+      expect(keycloakMock.auth).not.toHaveBeenCalled();
+      expect(keycloakMock.addUserToUserPolicy).not.toHaveBeenCalled();
+    });
+
+    it('should only set status REVISION and not call keycloak', async () => {
+      const requestId = 'req-1';
+      const projectId = 'proj-1';
+      const dto = { status: $Enums.RequestStatus.REVISION };
+
+      prisma.request.update.mockResolvedValue({
+        requestId,
+        status: $Enums.RequestStatus.REVISION,
+        requestorId: 'requestor-123',
+      });
+
+      await service.updateStatus(
+        requestId,
+        projectId,
+        dto as AnalysisStatusDto,
+      );
+
+      expect(prisma.request.update).toHaveBeenCalledWith({
+        where: { requestId },
+        data: { status: $Enums.RequestStatus.REVISION },
+      });
+
+      expect(keycloakMock.auth).not.toHaveBeenCalled();
       expect(keycloakMock.addUserToUserPolicy).not.toHaveBeenCalled();
     });
   });
