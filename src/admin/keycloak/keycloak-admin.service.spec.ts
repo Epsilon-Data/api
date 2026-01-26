@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
@@ -301,7 +302,7 @@ describe('KeycloakAdminService', () => {
   describe('addUserToUserPolicy', () => {
     it('updates existing policy, merging users', async () => {
       // set defaultClient directly
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (service as any).defaultClient = {
         id: 'client-1',
       } as ClientRepresentation;
@@ -342,7 +343,6 @@ describe('KeycloakAdminService', () => {
     });
 
     it('creates permission when policy does not exist', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (service as any).defaultClient = {
         id: 'client-1',
       } as ClientRepresentation;
