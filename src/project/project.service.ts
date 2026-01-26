@@ -513,7 +513,8 @@ export class ProjectService {
   }
 
   async deleteProject(projectId: string) {
-    return await this.prisma.project.delete({
+    // delete project information
+    await this.prisma.project.delete({
       where: {
         projectId: projectId,
       },
@@ -522,6 +523,10 @@ export class ProjectService {
         analysis: true,
       },
     });
+    // delete keycloak resource
+    await this.keycloak.auth();
+    await this.keycloak.deleteResource(projectId);
+    return;
   }
 
   async updateCredentials(
