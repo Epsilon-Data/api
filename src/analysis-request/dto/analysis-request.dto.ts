@@ -258,6 +258,17 @@ export class AnalysisRequestDetailsResponseDto extends AnalysisDto {
   project?: UpdateProjectDto | null;
 }
 
+export class AnalysisStatusDto {
+  @ApiProperty({
+    description: 'Current status of the access request',
+    enum: $Enums.RequestStatus,
+    example: $Enums.RequestStatus.PENDING,
+  })
+  @IsDefined()
+  @IsEnum($Enums.RequestStatus)
+  status!: $Enums.RequestStatus;
+}
+
 export class AnalysisDecisionDto {
   @ApiProperty({
     description: 'Approval decision for the analysis request',

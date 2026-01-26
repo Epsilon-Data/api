@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
-  AnalysisDecisionDto,
   AnalysisDto,
   AnalysisRequestDetailsResponseDto,
   AnalysisRequestSummaryInfoDto,
+  AnalysisStatusDto,
 } from './dto';
 import { $Enums, Prisma } from 'src/generated/prisma/client';
 import { ProjectMember } from 'src/project/dto';
@@ -182,14 +182,12 @@ export class AnalysisRequestService {
     return; // no content return
   }
 
-  async approve(
+  async updateStatus(
     requestId: string,
     projectId: string,
-    dto: AnalysisDecisionDto,
+    dto: AnalysisStatusDto,
   ) {
-    const status = dto.isApproved
-      ? $Enums.RequestStatus.APPROVED
-      : $Enums.RequestStatus.REJECTED;
+    const { status } = dto;
     const result = await this.prisma.request.update({
       where: { requestId: requestId },
       data: {
