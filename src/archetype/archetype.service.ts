@@ -29,6 +29,8 @@ import {
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
 import { AnalysisArchetypeResponseDto } from 'src/analysis/dto';
+import { UploadService } from 'src/upload/upload.service';
+import { JobsService } from 'src/jobs/jobs.service';
 
 @Injectable()
 export class ArchetypeService {
@@ -37,6 +39,8 @@ export class ArchetypeService {
     private atlas: AtlasService,
     private readonly queue: QueueService,
     private prisma: PrismaService,
+    private readonly uploadService: UploadService,
+    private readonly jobService: JobsService,
   ) {}
 
   // Queries
@@ -610,6 +614,22 @@ export class ArchetypeService {
       archetypeId,
       archetype,
     );
+  }
+
+  processCodebookUpload(projectId: string, file: Express.Multer.File): string {
+    this.logger.log(`Processing codebook upload for project ${projectId}`);
+
+    // Queue the PDF processing job
+    const jobId = this.uploadService.processFile(
+      file,
+      `Project: ${projectId}`, // context for LLM
+    );
+
+    return jobId;
+  }
+
+  getUploadJobStatus(jobId: string) {
+    return this.jobService.status(jobId);
   }
 
   // private methods

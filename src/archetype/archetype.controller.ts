@@ -7,11 +7,14 @@ import {
   HttpStatus,
   Logger,
   Param,
+  ParseFilePipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Put,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ArchetypeService } from './archetype.service';
 import {
@@ -40,6 +43,7 @@ import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
 import { ResourceGuard } from 'src/common/guards/resource.guard';
 import { GenericErrorResponseDto } from 'src/common/dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Archetype')
 @ApiBearerAuth()
@@ -285,5 +289,64 @@ export class ArchetypeController {
     @Param('archetypeId') archetypeId: string,
   ) {
     return await this.archetypeService.deleteArchetype(projectId, archetypeId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Post(':projectId/upload-codebook')
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Upload codebook PDF and generate archetype graph (async)',
+  })
+  @ApiAcceptedResponse({
+    description: 'Upload accepted, returns jobId for polling',
+    schema: {
+      type: 'object',
+      properties: {
+        jobId: {
+          type: 'string',
+          example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid file format or size',
+    type: GenericErrorResponseDto,
+  })
+  uploadCodebookAndGenerateGraph(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @UploadedFile(new ParseFilePipe()) file: Express.Multer.File,
+  ) {
+    const jobId = this.archetypeService.processCodebookUpload(projectId, file);
+
+    return { jobId };
+  }
+
+  @Get('jobs/:jobId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get upload job status and result' })
+  @ApiOkResponse({
+    description: 'Job status and result',
+    schema: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['pending', 'processing', 'completed', 'failed'],
+        },
+        result: {
+          type: 'object',
+          properties: {
+            nodes: { type: 'array' },
+            edges: { type: 'array' },
+          },
+        },
+      },
+    },
+  })
+  getUploadJobStatus(@Param('jobId') jobId: string) {
+    return this.archetypeService.getUploadJobStatus(jobId);
   }
 }

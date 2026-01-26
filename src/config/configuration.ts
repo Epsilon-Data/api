@@ -8,6 +8,8 @@ const trustedWebOrigins = () =>
     .split(',')
     .map((origin) => origin.trim());
 
+const UPLOAD_MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 export default () => ({
   appUrl: env.APP_URL || 'http://localhost:3000',
   isDev: env.NODE_ENV === 'development' ? true : false,
@@ -67,4 +69,15 @@ export default () => ({
     env.EPSILON_TOKEN_ENDPOINT ||
     'http://keycloak:8080/realms/epsilon/protocol/openid-connect/token',
   keystoreUrl: env.VAULT_API_ADDR || 'http://0.0.0.0:8200',
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+  defaultProvider: process.env.DEFAULT_PROVIDER || 'openai',
+  modelWhitelist: {
+    openai: ['gpt-5-mini-2025-08-07', 'gpt-5-2025-08-07'],
+  },
+  upload: {
+    maxSize: UPLOAD_MAX_FILE_SIZE,
+    tmpDir: '/tmp/archetype-discovery',
+  },
 });
