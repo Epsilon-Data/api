@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
@@ -54,6 +55,9 @@ describe('KeycloakAdminService', () => {
       createPermission: jest.fn(),
       delResource: jest.fn(),
       findPolicyByName: jest.fn(),
+      listResources: jest.fn(),
+      listPolicies: jest.fn(),
+      delPolicy: jest.fn(),
     },
     roles: {
       create: jest.fn(),
@@ -66,6 +70,7 @@ describe('KeycloakAdminService', () => {
       create: jest.fn(),
       findOne: jest.fn(),
       find: jest.fn(),
+      del: jest.fn(),
     },
     clientScopes: {
       create: jest.fn(),
@@ -297,7 +302,7 @@ describe('KeycloakAdminService', () => {
   describe('addUserToUserPolicy', () => {
     it('updates existing policy, merging users', async () => {
       // set defaultClient directly
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (service as any).defaultClient = {
         id: 'client-1',
       } as ClientRepresentation;
@@ -338,7 +343,6 @@ describe('KeycloakAdminService', () => {
     });
 
     it('creates permission when policy does not exist', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (service as any).defaultClient = {
         id: 'client-1',
       } as ClientRepresentation;
@@ -400,6 +404,179 @@ describe('KeycloakAdminService', () => {
       expect(result).toEqual({
         access_token: 'token-123',
       });
+    });
+  });
+
+  describe('deleteResource', () => {
+    it('returns early when defaultClient.id is missing', async () => {
+      (service as any).defaultClient = { id: undefined };
+
+      await service.deleteResource('proj-1');
+
+      expect(mockKcAdminClient.clients.listResources).not.toHaveBeenCalled();
+    });
+
+    it('handles resource not found', async () => {
+      (service as any).defaultClient = {
+        id: 'client-1',
+      } as ClientRepresentation;
+      // Spy only where you assert catch-path behavior
+      const handleSpy = jest
+        .spyOn(service as any, 'handleKeycloakError')
+        .mockImplementation((_fn: string, err: unknown) => err);
+
+      mockKcAdminClient.clients.listResources.mockResolvedValue([]);
+
+      await service.deleteResource('uuid');
+
+      expect(handleSpy).toHaveBeenCalledWith(
+        'deleteResource',
+        expect.anything(),
+      );
+    });
+
+    it('deletes resource then deletes any remaining (orphan) policies', async () => {
+      (service as any).defaultClient = { id: 'client-uuid' };
+      (service as any).config = { realm: 'test-realm' };
+
+      const projectId = 'cedb48f3-cf26-4b0c-8cb2-cebd60df5083';
+
+      jest
+        .spyOn(service as any, 'handleKeycloakError')
+        .mockImplementation((_fn: string, err: unknown) => err);
+
+      jest.spyOn(service as any, 'getGroupByName').mockResolvedValue([]);
+
+      mockKcAdminClient.clients.listResources.mockResolvedValue([
+        { _id: 'resource-id-1' },
+      ]);
+      mockKcAdminClient.clients.delResource.mockResolvedValue(undefined);
+
+      // orphan policies (single pass)
+      const getPoliciesSpy = jest
+        .spyOn(service as any, 'getProjectPolicies')
+        .mockResolvedValue([
+          {
+            id: 'orphan-1',
+            name: `Analysis orphan ${projectId}`,
+            type: 'user',
+          },
+          { id: 'orphan-2', name: `More orphan ${projectId}`, type: 'scope' },
+        ]);
+
+      mockKcAdminClient.clients.delPolicy.mockResolvedValue(undefined);
+
+      await service.deleteResource(projectId);
+
+      expect(mockKcAdminClient.clients.delResource).toHaveBeenCalled();
+
+      expect(getPoliciesSpy).toHaveBeenCalledTimes(1);
+      expect(getPoliciesSpy).toHaveBeenCalledWith(projectId);
+
+      expect(mockKcAdminClient.clients.delPolicy).toHaveBeenCalledTimes(2);
+      expect(mockKcAdminClient.clients.delPolicy).toHaveBeenNthCalledWith(1, {
+        id: 'client-uuid',
+        policyId: 'orphan-1',
+        realm: 'test-realm',
+      });
+      expect(mockKcAdminClient.clients.delPolicy).toHaveBeenNthCalledWith(2, {
+        id: 'client-uuid',
+        policyId: 'orphan-2',
+        realm: 'test-realm',
+      });
+    });
+
+    it('ignores 404 policy delete failures (isNotFound=true) and continues', async () => {
+      (service as any).defaultClient = {
+        id: 'client-1',
+      } as ClientRepresentation;
+      (service as any).config = { realm: 'test-realm' };
+
+      const projectId = 'cedb48f3-cf26-4b0c-8cb2-cebd60df5083';
+
+      mockKcAdminClient.clients.listResources.mockResolvedValue([
+        { _id: 'resource-id-1' },
+      ]);
+      mockKcAdminClient.clients.delResource.mockResolvedValue(undefined);
+
+      jest.spyOn(service as any, 'getProjectPolicies').mockResolvedValueOnce([
+        { id: 'scope-1', name: `Analysis ${projectId}`, type: 'scope' },
+        { id: 'user-1', name: `Analysis of ${projectId}`, type: 'user' },
+      ]);
+
+      jest.spyOn(service as any, 'getGroupByName').mockResolvedValue([]);
+
+      jest
+        .spyOn(service as any, 'isNotFound')
+        .mockImplementation((e: unknown) => {
+          const err = e as any;
+          return err?.response?.status === 404;
+        });
+
+      const handleSpy = jest
+        .spyOn(service as any, 'handleKeycloakError')
+        .mockImplementation((_fn: string, err: unknown) => err);
+
+      const notFoundErr = { response: { status: 404 } };
+      mockKcAdminClient.clients.delPolicy
+        .mockRejectedValueOnce(notFoundErr)
+        .mockResolvedValueOnce(undefined);
+
+      await service.deleteResource(projectId);
+
+      expect(mockKcAdminClient.clients.delResource).toHaveBeenCalled();
+      expect(handleSpy).not.toHaveBeenCalled();
+    });
+
+    it('routes through handleKeycloakError when an orphan policy delete fails with non-404', async () => {
+      (service as any).defaultClient = { id: 'client-uuid' };
+      (service as any).config = { realm: 'test-realm' };
+
+      const projectId = 'cedb48f3-cf26-4b0c-8cb2-cebd60df5083';
+
+      const handleSpy = jest
+        .spyOn(service as any, 'handleKeycloakError')
+        .mockImplementation((_fn: string, err: unknown) => err);
+
+      jest.spyOn(service as any, 'getGroupByName').mockResolvedValue([]);
+
+      mockKcAdminClient.clients.listResources.mockResolvedValue([
+        { _id: 'resource-id-1' },
+      ]);
+      mockKcAdminClient.clients.delResource.mockResolvedValue(undefined);
+
+      // orphan policies returned AFTER resource delete
+      jest.spyOn(service as any, 'getProjectPolicies').mockResolvedValue([
+        { id: 'scope-1', name: `Analysis ${projectId}`, type: 'scope' },
+        { id: 'user-1', name: `Analysis of ${projectId}`, type: 'user' },
+      ]);
+
+      jest.spyOn(service as any, 'isNotFound').mockReturnValue(false);
+
+      // Make one delete fail with non-404
+      const err500 = { response: { status: 500 }, message: 'boom' };
+      mockKcAdminClient.clients.delPolicy
+        .mockRejectedValueOnce(err500)
+        .mockResolvedValueOnce(undefined);
+
+      const res = await service.deleteResource(projectId);
+
+      // Resource delete happens BEFORE orphan cleanup
+      expect(mockKcAdminClient.clients.delResource).toHaveBeenCalledWith({
+        id: 'client-uuid',
+        resourceId: 'resource-id-1',
+        realm: 'test-realm',
+      });
+
+      // Then it tries to delete orphan policies
+      expect(mockKcAdminClient.clients.delPolicy).toHaveBeenCalled();
+
+      // Non-404 failure should be treated as error and routed via handleKeycloakError
+      expect(handleSpy).toHaveBeenCalledWith(
+        'deleteResource',
+        expect.anything(),
+      );
+      expect(res).toBeTruthy();
     });
   });
 });

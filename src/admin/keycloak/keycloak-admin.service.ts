@@ -27,6 +27,7 @@ import {
   analysisPolicyPrefix,
   analysisPermissionPrefix,
   analysisPermissions,
+  groupPrefix,
 } from 'src/utils/options.util';
 
 import {
@@ -579,27 +580,101 @@ export class KeycloakAdminService implements OnModuleInit {
     return { access_token: token || '' };
   }
 
-  //FIXME: not working properly
-  async deleteResource(id: string) {
-    this.logger.debug('Deleting resource', id);
+  async deleteResource(projectId: string) {
+    const resourceName = `${resourcePrefix}${projectId}`;
     try {
-      if (this.defaultClient) {
-        this.logger.debug(
-          `Deleting resource ${id}, for client ${this.defaultClient.id}`,
+      if (!this.defaultClient?.id) return;
+      this.logger.debug(
+        `Deleting resource ${resourceName}, for client ${this.defaultClient.id}...`,
+      );
+      // check if resource/project exists
+      const resources = await this.kcAdminClient.clients.listResources(
+        {
+          name: resourceName,
+          id: this.defaultClient.id,
+          realm: this.config.realm,
+        },
+        { catchNotFound: false },
+      );
+      if (!resources.length) {
+        throw new KeycloakNotFoundError(
+          `Keycloak resource '${resourceName}' does not exist`,
         );
-        const deleteResource = await this.kcAdminClient.clients.delResource({
-          id: this.defaultClient.id!,
-          resourceId: id,
+      }
+      // delete resource
+      // note that this will also delete any permissions/leaf policies attached
+      await this.kcAdminClient.clients.delResource({
+        id: this.defaultClient.id,
+        resourceId: resources[0]._id!,
+        realm: this.config.realm,
+      });
+
+      // remove any remaining policies (orphans)
+      const policies = await this.getProjectPolicies(projectId);
+      if (policies.length) {
+        const results = await Promise.allSettled(
+          policies.map((p) =>
+            this.kcAdminClient.clients.delPolicy({
+              id: this.defaultClient.id!,
+              policyId: p.id!,
+              realm: this.config.realm,
+            }),
+          ),
+        );
+
+        const failures = results
+          .map((r, i) => ({ r, p: policies[i] }))
+          .filter(({ r }) => r.status === 'rejected')
+          .filter(
+            ({ r }) => !this.isNotFound((r as PromiseRejectedResult).reason),
+          );
+
+        if (failures.length) {
+          throw new KeycloakAdminError(
+            `Failed to delete ${failures.length} remaining policies`,
+            failures.map((f) => ({
+              id: f.p.id,
+              name: f.p.name,
+              type: f.p.type,
+              reason: f.r,
+            })),
+          );
+        }
+      }
+      // delete group for this resource
+      const group = await this.getGroupByName(`${groupPrefix}${projectId}`);
+      if (group.length)
+        await this.kcAdminClient.groups.del({
+          id: group[0].id!,
           realm: this.config.realm,
         });
-        // const group = await this.getGroupByName(`${groupPrefix}${id}`);
-        // if (group.length)
-        //   await this.kcAdminClient.groups.del({ id: group[0].id });
-        return deleteResource;
-      }
     } catch (error) {
-      return this.handleKeycloakError('createPermission', error);
+      return this.handleKeycloakError('deleteResource', error);
     }
+  }
+
+  async getProjectPolicies(projectId: string) {
+    const policiesQuery = await this.kcAdminClient.clients.listPolicies(
+      {
+        id: this.defaultClient.id!,
+        realm: this.config.realm,
+      },
+      { catchNotFound: false },
+    );
+    const policies = Array.isArray(policiesQuery) ? policiesQuery : [];
+    return policies.filter(
+      (p) => typeof p.name === 'string' && p.name.includes(projectId),
+    );
+  }
+
+  private isNotFound(error: unknown): boolean {
+    const err = error as {
+      response?: { status?: number; data?: unknown };
+      code?: string;
+      message?: string;
+    };
+    const status = err?.response?.status ?? err?.code;
+    return status === 404;
   }
 
   private handleKeycloakError(context: string, error: unknown): never {

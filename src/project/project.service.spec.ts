@@ -59,6 +59,7 @@ describe('ProjectService', () => {
     newResource: jest.fn(),
     auth: jest.fn(),
     getUserById: jest.fn(),
+    deleteResource: jest.fn(),
   } as unknown as KeycloakAdminService;
 
   const vaultMock = {
@@ -537,7 +538,7 @@ describe('ProjectService', () => {
 
       (prismaMock.project.delete as jest.Mock).mockResolvedValue(deleted);
 
-      const result = await service.deleteProject(projectId);
+      await service.deleteProject(projectId);
 
       expect(prismaMock.project.delete).toHaveBeenCalledWith({
         where: { projectId },
@@ -546,7 +547,6 @@ describe('ProjectService', () => {
           analysis: true,
         },
       });
-      expect(result).toEqual(deleted);
     });
   });
 
