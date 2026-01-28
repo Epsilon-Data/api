@@ -1,0 +1,45 @@
+name: Deploy (main)
+
+on:
+  push:
+    branches: ['main']
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    uses: Epsilon-Data/platform/.github/workflows/reusable-deploy-ssm.yml@main
+    with:
+      instance_id: ${{ vars.INSTANCE_ID }}
+      aws_region: ${{ vars.AWS_REGION }}
+      app_name: ${{ vars.APP_NAME }}
+      # perhaps add metadata + other profiles here
+      compose_profile: ${{ vars.COMPOSE_PROFILE }}
+    secrets:
+      aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
+      platform_repo_token: ${{ secrets.PLATFORM_REPO_TOKEN }}
+
+      # pass through the .env secrets (same names as in reusable)
+      # need to be present in environment secrets used in the reusable
+      GH_NPM_TOKEN: ${{ secrets.GH_NPM_TOKEN }}
+      ATLAS_ADMIN_PASSWORD: ${{ secrets.ATLAS_ADMIN_PASSWORD }}
+      PLATFORM_POSTGRES_PASSWORD: ${{ secrets.PLATFORM_POSTGRES_PASSWORD }}
+      TEST_POSTGRES_PASSWORD: ${{ secrets.TEST_POSTGRES_PASSWORD }}
+      AUTH_POSTGRES_PASSWORD: ${{ secrets.AUTH_POSTGRES_PASSWORD }}
+      KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
+      TOKEN_HANDLER_CLIENT_SECRET: ${{ secrets.TOKEN_HANDLER_CLIENT_SECRET }}
+      EPSILON_ADMIN_API_CLIENT_SECRET: ${{ secrets.EPSILON_ADMIN_API_CLIENT_SECRET }}
+      EPSILON_SDK_CLIENT_SECRET: ${{ secrets.EPSILON_SDK_CLIENT_SECRET }}
+      EPSILON_COORDINATOR_CLIENT_SECRET: ${{ secrets.EPSILON_COORDINATOR_CLIENT_SECRET }}
+      JOBSCHEDULER_OAUTH_CLIENT_SECRET: ${{ secrets.JOBSCHEDULER_OAUTH_CLIENT_SECRET }}
+      KEYCLOAK_USER_PASSWORD: ${{ secrets.KEYCLOAK_USER_PASSWORD }}
+      KEYCLOAK_ADMIN_USER_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_USER_PASSWORD }}
+      KEYCLOAK_RESEARCH_USER_PASSWORD: ${{ secrets.KEYCLOAK_RESEARCH_USER_PASSWORD }}
+      KEYCLOAK_SMTP_PASSWORD: ${{ secrets.KEYCLOAK_SMTP_PASSWORD }}
+      VAULT_ADMIN_PASSWORD: ${{ secrets.VAULT_ADMIN_PASSWORD }}
+      AWS_INSTANCE_ROLE_ARN: ${{ secrets.AWS_INSTANCE_ROLE_ARN }}
+      CASSANDRA_EPSILON_PASSWORD: ${{ secrets.CASSANDRA_EPSILON_PASSWORD }}
+      CASSANDRA_ADMIN_PASSWORD: ${{ secrets.CASSANDRA_ADMIN_PASSWORD }}
+      EPSILON_AUTH_COOKIE_ENCRYPTION_KEY: ${{ secrets.EPSILON_AUTH_COOKIE_ENCRYPTION_KEY }}
