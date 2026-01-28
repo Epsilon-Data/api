@@ -123,3 +123,7 @@ pnpm run clean-install # cleans cache, reinstalls and checks versions of package
 pnpm fix # runs lint and prettier
 pnpm test # runs all unit tests for packages and services
 ```
+
+## Deployment
+
+See notes at https://github.com/Epsilon-Data#-deployment
