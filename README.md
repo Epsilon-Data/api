@@ -126,4 +126,4 @@ pnpm test # runs all unit tests for packages and services
 
 ## Deployment
 
-See notes at https://github.com/Epsilon-Data#-deployment
+See https://github.com/Epsilon-Data#-deployment
