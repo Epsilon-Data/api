@@ -3,6 +3,8 @@ import { AdminService } from './admin.service';
 import { KeycloakAdminService } from './keycloak/keycloak-admin.service';
 
 import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { ArchetypeModule } from 'src/archetype/archetype.module';
 import {
   ADMIN_CONFIG,
   ADMIN_MODULE_CONFIG_FACTORY,
@@ -17,7 +19,7 @@ import { AdminConfigService } from 'src/config/admin-config.service';
 
 @Global()
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, PrismaModule, ArchetypeModule],
   controllers: [AdminController],
   providers: [AdminConfigService],
 })
@@ -50,7 +52,7 @@ export class AdminModule {
         ADMIN_CONFIG,
         KEYCLOAK_ADMIN_INSTANCE,
       ],
-      imports: [ConfigModule],
+      imports: [ConfigModule, PrismaModule, ArchetypeModule],
       module: AdminModule,
     };
   }
@@ -58,7 +60,12 @@ export class AdminModule {
     const asyncProviders = this.createAsyncProviders(config);
     return {
       module: AdminModule,
-      imports: [ConfigModule, ...(config.imports ?? [])],
+      imports: [
+        ConfigModule,
+        PrismaModule,
+        ArchetypeModule,
+        ...(config.imports ?? []),
+      ],
       providers: [
         ...asyncProviders,
         AdminConfigService,

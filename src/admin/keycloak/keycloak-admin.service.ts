@@ -361,6 +361,16 @@ export class KeycloakAdminService implements OnModuleInit {
       return this.handleKeycloakError('getGroupById', error);
     }
   }
+  async getGroupMembers(groupId: string) {
+    try {
+      return await this.kcAdminClient.groups.listMembers({
+        id: groupId,
+        realm: this.config.realm,
+      });
+    } catch (error) {
+      return this.handleKeycloakError('getGroupMembers', error);
+    }
+  }
   async getGroupByName(name: string) {
     try {
       return await this.kcAdminClient.groups.find({
