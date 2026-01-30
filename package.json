@@ -37,6 +37,7 @@
     "clean-install": "pnpm i && pnpm prune && pnpm store prune"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
     "@aws-sdk/client-s3": "^3.925.0",
     "@aws-sdk/s3-request-presigner": "^3.925.0",
     "@epsilon-data/epsilon-api-middleware": "^0.0.4",
@@ -55,8 +56,10 @@
     "@prisma/adapter-pg": "^7.0.1",
     "@prisma/client": "^7.0.1",
     "@prisma/client-runtime-utils": "7.0.1",
+    "@types/chroma-js": "^3.1.2",
     "axios": "^1.13.2",
     "bull": "^4.16.5",
+    "chroma-js": "^3.1.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "cookie-parser": "^1.4.7",
@@ -68,13 +71,16 @@
     "multer": "^2.0.2",
     "nanoid": "^5.1.6",
     "node-fetch": "^3.3.2",
+    "openai": "^4.98.0",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.27",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -106,6 +112,9 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "peerDependencies": {
+    "zod": "^3.25.0"
   },
   "jest": {
     "moduleFileExtensions": [
