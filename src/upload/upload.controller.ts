@@ -21,9 +21,11 @@ import {
   ApiBody,
   ApiResponse,
   ApiBadRequestResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 
 @ApiTags('uploads')
+@ApiBearerAuth()
 @Controller('uploads')
 export class UploadController {
   constructor(private readonly uploadSvc: UploadService) {}

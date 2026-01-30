@@ -14,10 +14,12 @@ import {
   ApiParam,
   ApiResponse,
   ApiNotFoundResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JobStatusDto } from './dto/job-status.dto';
 
 @ApiTags('jobs')
+@ApiBearerAuth() // is this needed? idk if this api should be protected or not -Vincent
 @Controller('jobs')
 export class JobsController {
   constructor(private readonly jobs: JobsService) {}

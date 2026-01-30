@@ -323,30 +323,4 @@ export class ArchetypeController {
 
     return { jobId };
   }
-
-  @Get('jobs/:jobId')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get upload job status and result' })
-  @ApiOkResponse({
-    description: 'Job status and result',
-    schema: {
-      type: 'object',
-      properties: {
-        status: {
-          type: 'string',
-          enum: ['pending', 'processing', 'completed', 'failed'],
-        },
-        result: {
-          type: 'object',
-          properties: {
-            nodes: { type: 'array' },
-            edges: { type: 'array' },
-          },
-        },
-      },
-    },
-  })
-  getUploadJobStatus(@Param('jobId') jobId: string) {
-    return this.archetypeService.getUploadJobStatus(jobId);
-  }
 }
