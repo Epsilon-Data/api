@@ -29,6 +29,7 @@ import {
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
 import { AnalysisArchetypeResponseDto } from 'src/analysis/dto';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 
 @Injectable()
 export class ArchetypeService {
@@ -37,6 +38,7 @@ export class ArchetypeService {
     private atlas: AtlasService,
     private readonly queue: QueueService,
     private prisma: PrismaService,
+    private keycloak: KeycloakAdminService,
   ) {}
 
   // Queries
@@ -68,13 +70,50 @@ export class ArchetypeService {
       body,
       token,
     );
+
     const entities = res?.entities ?? [];
+
+    const ownerIds = Array.from(
+      new Set(
+        entities
+          .map((e) => e.attributes?.owner)
+          .filter((v): v is string => typeof v === 'string' && v.length > 0),
+      ),
+    );
+
+    const userFetchResults = await Promise.allSettled(
+      ownerIds.map((ownerId) =>
+        this.keycloak.getUserInfoById(ownerId).catch((err) => {
+          this.logger?.debug?.(
+            `Failed to fetch Keycloak user ${ownerId} for archetypes: ${String(
+              err,
+            )}`,
+          );
+          return null;
+        }),
+      ),
+    );
+
+    const ownerIdToName = new Map<string, string>();
+    for (let i = 0; i < ownerIds.length; i++) {
+      const ownerId = ownerIds[i];
+      const r = userFetchResults[i];
+      if (r.status === 'fulfilled' && r.value) {
+        const user = r.value;
+        const display = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+        ownerIdToName.set(ownerId, display);
+      } else {
+        ownerIdToName.set(ownerId, ownerId);
+      }
+    }
     return entities.map((entity) => ({
       // use nanoid as the archetypeID
       id: (entity.attributes!.qualifiedName as string).split('@').at(-1),
       name: entity.displayText,
       status: entity.attributes!.status,
-      createdBy: entity.attributes!.owner,
+      createdBy: entity.attributes!.owner
+        ? ownerIdToName.get(entity.attributes!.owner as string)
+        : entity.attributes!.owner,
       created: new Date(entity.attributes!.__timestamp as number),
       lastModified: new Date(
         entity.attributes!.__modificationTimestamp as number,

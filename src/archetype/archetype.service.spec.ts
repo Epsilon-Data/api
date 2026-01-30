@@ -19,11 +19,13 @@ import {
 import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { $Enums } from 'src/generated/prisma/client';
+import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 
 describe('ArchetypeService', () => {
   let service: ArchetypeService;
   let atlas: jest.Mocked<AtlasService>;
   let prisma: jest.Mocked<PrismaService>;
+  let keycloak: jest.Mocked<KeycloakAdminService>;
   let moduleRef: TestingModule;
 
   const mockQueue = {} as unknown as jest.Mocked<QueueService>;
@@ -45,12 +47,19 @@ describe('ArchetypeService', () => {
           },
         },
         { provide: QueueService, useValue: mockQueue },
+        {
+          provide: KeycloakAdminService,
+          useValue: {
+            getUserInfoById: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = moduleRef.get(ArchetypeService);
     atlas = moduleRef.get(AtlasService);
     prisma = moduleRef.get(PrismaService);
+    keycloak = moduleRef.get(KeycloakAdminService);
     jest.clearAllMocks();
   });
 
@@ -117,6 +126,16 @@ describe('ArchetypeService', () => {
 
       atlas.post.mockResolvedValueOnce(atlasResponse);
 
+      // mock keycloak lookup for owner -> we'll prefer `username` in display logic
+      (keycloak.getUserInfoById as jest.Mock).mockResolvedValue({
+        id: 'owner',
+        username: 'ownerUser',
+        firstName: 'Owner',
+        lastName: 'User',
+        email: 'owner@example.com',
+        lastLogin: null,
+      } as any);
+
       const result = await service.fetchArchetypes(projectId, token);
 
       // Assert atlas.post called with endpoint, body, token
@@ -155,7 +174,7 @@ describe('ArchetypeService', () => {
         id: 'Xa7BAIWZCA8u',
         name: 'Test Draft Update 8',
         status: 'DRAFT',
-        createdBy: 'owner',
+        createdBy: 'Owner User',
         created: new Date(ts),
         lastModified: new Date(modTs),
       });
@@ -163,10 +182,13 @@ describe('ArchetypeService', () => {
         id: 'Xmh_T6fKZnqY',
         name: 'Details Updated 6',
         status: 'PUBLISHED',
-        createdBy: 'owner',
+        createdBy: 'Owner User',
         created: new Date(ts + 1000),
         lastModified: new Date(modTs + 1000),
       });
+
+      expect(keycloak.getUserInfoById).toHaveBeenCalledTimes(1);
+      expect(keycloak.getUserInfoById).toHaveBeenCalledWith('owner');
     });
 
     it('returns [] when response has no entities', async () => {
