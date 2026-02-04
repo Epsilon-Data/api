@@ -50,8 +50,6 @@ export class UploadService {
           modelId,
         );
       } finally {
-        // Only delete file if we created it (isTempFile) OR if it was a temp upload that we want to clean up (which is usually the case for upload endpoints)
-        // Assuming we always want to clean up the uploaded file after processing
         if (filePath) {
           try {
             await unlink(filePath);
