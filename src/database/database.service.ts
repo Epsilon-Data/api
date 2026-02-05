@@ -206,6 +206,7 @@ export class DatabaseService {
     const result: DatasetDetailsResponseDto = {
       tableReferences: {} as Record<string, DatasetTableReferenceDto>,
       dataObjects: {} as Record<string, DatasetDataObjectDto>,
+      properties: {} as Record<string, any>,
     };
     const templateEntity =
       await this.atlas.get<AtlasArchetypeEntityResponseDto>(
@@ -253,6 +254,30 @@ export class DatabaseService {
             (columnEntity.entity.attributes?.name as string) ??
             columnEntity.entity.displayText,
         };
+
+        // build properties structure for SDK compatibility (nested group -> field mapping)
+        const parentNode = node.relationshipAttributes?.parent_node;
+        if (parentNode && parentNode.relationshipStatus === 'ACTIVE') {
+          const parentName = (parentNode.displayText ?? '')
+            .replace(/\s+/g, '_')
+            .toLowerCase();
+          if (parentName && result.properties) {
+            if (!result.properties[parentName]) {
+              result.properties[parentName] = {
+                type: 'object',
+                properties: {},
+              };
+            }
+            const group = result.properties[parentName] as {
+              type: string;
+              properties: Record<string, unknown>;
+            };
+            group.properties[objectName] = {
+              type: 'string',
+              description: label,
+            };
+          }
+        }
 
         // check if table ref already existing
         if (!result.tableReferences[tableName]) {
