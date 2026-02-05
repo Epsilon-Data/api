@@ -296,4 +296,22 @@ export class DatasetDetailsResponseDto {
   @IsDefined()
   @IsObject()
   dataObjects!: Record<string, DatasetDataObjectDto>;
+
+  @ApiProperty({
+    description:
+      'JSON Schema properties defining the nested group structure of data objects',
+    example: {
+      personal_info: {
+        type: 'object',
+        properties: {
+          first_name: { type: 'string', description: 'First Name' },
+          last_name: { type: 'string', description: 'Last Name' },
+        },
+      },
+    },
+    required: false,
+  })
+  @IsOptional()
+  @IsObject()
+  properties?: Record<string, any>;
 }
