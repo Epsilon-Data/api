@@ -196,37 +196,73 @@ export class ConnectionRequestController {
     try {
       return await this.connectionRequestService.testConnection(database);
     } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        typeof error.code === 'string'
-      ) {
-        const code = error.code;
+      const errObj = (error as { code?: unknown; message?: unknown }) || {};
+      if (typeof errObj.code === 'string') {
+        const code = errObj.code;
         switch (code) {
           case '28P01':
-            // invalid_password
             throw new UnauthorizedException('Wrong credentials or database');
-
           case '3D000':
-            // invalid_catalog_name – database does not exist
             throw new BadRequestException('Database does not exist');
-
           case 'ECONNREFUSED':
-            // Node.js connection refused (e.g. host:port not reachable)
             throw new ServiceUnavailableException(
               'Could not connect to the database host',
             );
-
           case 'ENOTFOUND':
-            // DNS / host not found
             throw new ServiceUnavailableException(
               'Database host name could not be resolved',
             );
         }
       }
 
-      // handle rest - no code or an unknown code
+      const message =
+        typeof errObj.message === 'string'
+          ? errObj.message
+          : error instanceof Error && error.message
+            ? error.message
+            : undefined;
+
+      if (message) {
+        const lower = message.toLowerCase();
+
+        if (
+          lower.includes('password') ||
+          lower.includes('authentication failed')
+        ) {
+          throw new UnauthorizedException('Wrong credentials or database');
+        }
+
+        if (
+          lower.includes('does not exist') ||
+          lower.includes('invalid_catalog_name')
+        ) {
+          throw new BadRequestException('Database does not exist');
+        }
+
+        if (
+          lower.includes('ssl') ||
+          lower.includes('tls') ||
+          lower.includes('certificate')
+        ) {
+          throw new InternalServerErrorException(
+            `Database SSL error: ${message}`,
+          );
+        }
+
+        if (
+          lower.includes('ecconnrefused') ||
+          lower.includes('connection refused') ||
+          lower.includes('getaddrinfo') ||
+          lower.includes('enotfound')
+        ) {
+          throw new ServiceUnavailableException(
+            'Could not connect to the database host',
+          );
+        }
+
+        throw new InternalServerErrorException(message);
+      }
+
       throw new InternalServerErrorException('Unexpected database error');
     }
   }
