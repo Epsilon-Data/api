@@ -164,6 +164,7 @@ export class DockerService {
       // run runDataBroker function should remove the container
       HostConfig: {
         AutoRemove: false,
+        // ExtraHosts: ['host.docker.internal:host-gateway'], // fixes the `lookup host.docker.internal on 127.0.0.11:53: no such host` error
       },
       // only for dev + testing
       NetworkingConfig: {

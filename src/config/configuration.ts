@@ -70,9 +70,9 @@ export default () => ({
     'http://keycloak:8080/realms/epsilon/protocol/openid-connect/token',
   keystoreUrl: env.VAULT_API_ADDR || 'http://0.0.0.0:8200',
   openai: {
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: env.OPENAI_API_KEY || 'OPENAI_API_KEY must be set',
   },
-  defaultProvider: process.env.DEFAULT_PROVIDER || 'openai',
+  defaultProvider: env.DEFAULT_PROVIDER || 'openai',
   modelWhitelist: {
     openai: ['gpt-5-mini-2025-08-07', 'gpt-5-2025-08-07'],
   },
