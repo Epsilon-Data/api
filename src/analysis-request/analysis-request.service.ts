@@ -174,10 +174,26 @@ export class AnalysisRequestService {
       },
     };
 
-    await this.prisma.analysis.create({
+    const createdRequest = await this.prisma.analysis.create({
       data: request,
       include: { request: true, project: true },
     });
+
+    const project = await this.prisma.project.findUnique({
+      where: { projectId: dto.projectId },
+      select: { isPublic: true },
+    });
+
+    if (project?.isPublic) {
+      await this.prisma.request.update({
+        where: { requestId: createdRequest.requestId },
+        data: {
+          status: $Enums.RequestStatus.APPROVED,
+        },
+      });
+      await this.keycloak.auth();
+      await this.keycloak.addUserToUserPolicy(dto.projectId, userId);
+    }
 
     return; // no content return
   }

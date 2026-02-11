@@ -75,6 +75,7 @@ model Project {
   createdDate     DateTime      @default(now()) @db.Date
   visualizations  Json?         @db.Json
   status          ProjectStatus @default(PENDING)
+  isPublic        Boolean       @default(false)
   connection      Connection?
   analysis        Analysis[]
 

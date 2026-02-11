@@ -15,6 +15,7 @@ import {
   IsJSON,
   IsArray,
   IsEmail,
+  IsBoolean,
 } from 'class-validator';
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
@@ -132,6 +133,14 @@ export class ProjectSummaryInfoDto {
   @IsOptional()
   @IsString({ each: true })
   dbKeywords?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Whether the project is public or private',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
 }
 export class CreateProjectDto {
   @ApiProperty({
@@ -250,6 +259,14 @@ export class CreateProjectDto {
   @ValidateNested()
   @Type(() => ConnectionDto)
   connection!: ConnectionDto;
+
+  @ApiPropertyOptional({
+    description: 'Whether the project is public or private',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
 }
 
 export class UpdateProjectDto extends PartialType(CreateProjectDto) {
@@ -506,6 +523,14 @@ export class ProjectDetailsResponseDto {
   @IsOptional()
   @IsJSON()
   members: Prisma.JsonValue | null;
+
+  @ApiPropertyOptional({
+    description: 'Whether the project is public or private',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
 }
 
 export class ProjectRequestsResponseDto {
