@@ -307,6 +307,7 @@ export class ProjectService {
         lastModified: true,
         dbKeywords: true,
         createdDate: true,
+        isPublic: true,
       },
     });
     if (!projectInfo) {
@@ -331,6 +332,7 @@ export class ProjectService {
       participantsNum: projectInfo.participantsNum,
       dbKeywords: projectInfo.dbKeywords,
       members: projectInfo.members,
+      isPublic: projectInfo.isPublic,
     };
   }
 
@@ -488,6 +490,9 @@ export class ProjectService {
         members,
       }),
       dbKeywords: dto.dbKeywords,
+      ...(dto.isPublic !== undefined && {
+        isPublic: dto.isPublic,
+      }),
     };
 
     // remove undefined fields

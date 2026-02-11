@@ -327,12 +327,12 @@ export class ArchetypeService {
     if (entityRes?.referredEntities) {
       for (const key in entityRes?.referredEntities) {
         const entity = entityRes.referredEntities[key];
-        const isAllowedEntity =
-          entity.status === 'ACTIVE' &&
-          entity.typeName === AtlasArchetypeTypeName.Node &&
-          this.isEntityAllowedByPermissions(entity);
+        // const isAllowedEntity =
+        //   entity.status === 'ACTIVE' &&
+        //   entity.typeName === AtlasArchetypeTypeName.Node &&
+        //   this.isEntityAllowedByPermissions(entity);
 
-        if (!isAllowedEntity) continue;
+        // if (!isAllowedEntity) continue;
 
         const nodeId = entity.attributes.qualifiedName.split('@').at(-1)!;
 
