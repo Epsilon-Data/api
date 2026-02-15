@@ -14,14 +14,12 @@ export class AuthMiddleware implements NestMiddleware {
   ) {}
 
   use(request: Request, response: Response, next: NextFunction) {
+    const apiBaseUrl = this.configService.get<string>('apiBaseUrl');
     const allowTokenAuth =
       request.method === 'GET' &&
-      (request.originalUrl.startsWith(
-        `${this.configService.get<string>('apiBaseUrl')}/analysis`,
-      ) ||
-        request.originalUrl.startsWith(
-          `${this.configService.get<string>('apiBaseUrl')}/coordinator`,
-        ))
+      (request.originalUrl.startsWith(`${apiBaseUrl}/analysis`) ||
+        request.originalUrl.startsWith(`${apiBaseUrl}/coordinator`) ||
+        request.originalUrl.startsWith(`${apiBaseUrl}/admin`))
         ? true
         : false;
     return addToken(
