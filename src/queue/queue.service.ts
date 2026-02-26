@@ -121,6 +121,27 @@ export class QueueService {
     return { jobId };
   }
 
+  async deleteProjectAtlasJob(projectId: string) {
+    this.logger.log(
+      `Submitting 'process-delete-project-atlas' to queue with projectId ${projectId}...`,
+    );
+    const jobId = await this.jobService.createJob(
+      'process-delete-project-atlas',
+    );
+    await this.atlasQueue.add(
+      'process-delete-project-atlas',
+      {
+        jobId,
+        projectId,
+      },
+      {
+        attempts: 5,
+        backoff: 10000,
+      },
+    );
+    return { jobId };
+  }
+
   async deleteArchetypeJob(projectId: string, archetypeId: string) {
     this.logger.log(
       `Submitting 'process-delete-archetype' to queue with archetypeId ${archetypeId}...`,

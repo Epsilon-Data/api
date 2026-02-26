@@ -50,6 +50,16 @@ export class AddResourceJobDataDto {
   custodian?: string;
 }
 
+export class DeleteProjectAtlasJobDataDto {
+  @IsUUID()
+  @IsDefined()
+  jobId!: string;
+
+  @IsString()
+  @IsDefined()
+  projectId!: string;
+}
+
 export class DataBrokerJobDataDto {
   @IsUUID()
   @IsDefined()

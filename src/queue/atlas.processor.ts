@@ -14,10 +14,15 @@ import {
   AtlasExistingNode,
   AtlasPostEntityResponseDto,
   AtlasRelatedEntityRefDto,
+  AtlasSearchBasicResponseDto,
   AtlasSubmitArchetypeEntityDto,
 } from 'src/atlas/dto';
 
-import { ArchetypeJobDataDto, DataBrokerJobDataDto } from './dto';
+import {
+  ArchetypeJobDataDto,
+  DataBrokerJobDataDto,
+  DeleteProjectAtlasJobDataDto,
+} from './dto';
 import { JobService } from 'src/job/job.service';
 import {
   archetypeTemplateToAtlasEntities,
@@ -371,6 +376,78 @@ export class AtlasProcessor {
       return projectId;
     } catch (error) {
       this.logger.error(`Error deleting archetype ${archetypeId}: `, error);
+      await this.jobService.markFailed(jobId, String(error));
+      throw error;
+    }
+  }
+
+  @Process('process-delete-project-atlas')
+  async handleDeleteProjectAtlasJob(job: Job) {
+    const { jobId, projectId } = job.data as DeleteProjectAtlasJobDataDto;
+    this.logger.log(
+      `Handling 'process-delete-project-atlas' for projectId ${projectId}...`,
+    );
+    await this.jobService.markActive(jobId);
+    try {
+      // 1. Delete all archetype_templates for this project
+      const searchRes = await this.atlas.post<AtlasSearchBasicResponseDto>(
+        '/search/basic',
+        {
+          typeName: AtlasArchetypeTypeName.Template,
+          excludeDeletedEntities: true,
+          includeSubTypes: false,
+          entityFilters: {
+            attributeName: 'projectId',
+            operator: 'eq',
+            attributeValue: projectId,
+          },
+          attributes: ['qualifiedName'],
+        },
+      );
+
+      const archetypeEntities = searchRes?.entities ?? [];
+      for (const entity of archetypeEntities) {
+        const qualifiedName = entity.attributes?.qualifiedName as string;
+        if (!qualifiedName) continue;
+        try {
+          await this.atlas.delete(
+            `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
+            { 'attr:qualifiedName': qualifiedName },
+          );
+        } catch (err: unknown) {
+          const status = (err as { response?: { status?: number } })?.response
+            ?.status;
+          if (status !== 404) throw err;
+          this.logger.warn(
+            `Archetype template ${qualifiedName} already deleted (404), skipping.`,
+          );
+        }
+      }
+
+      // 2. Delete rdbms_instance (Atlas cascades to rdbms_db -> rdbms_table -> rdbms_column)
+      try {
+        await this.atlas.delete('/entity/uniqueAttribute/type/rdbms_instance', {
+          'attr:projectId': projectId,
+        });
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response
+          ?.status;
+        if (status !== 404) throw err;
+        this.logger.warn(
+          `No rdbms_instance for project ${projectId} (404), skipping.`,
+        );
+      }
+
+      this.logger.log(
+        `Handling 'process-delete-project-atlas' for projectId ${projectId} DONE!`,
+      );
+      await this.jobService.markCompleted(jobId, projectId);
+      return projectId;
+    } catch (error) {
+      this.logger.error(
+        `Error cleaning up Atlas entities for project ${projectId}: `,
+        error,
+      );
       await this.jobService.markFailed(jobId, String(error));
       throw error;
     }
