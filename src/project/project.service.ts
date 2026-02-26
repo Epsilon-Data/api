@@ -518,6 +518,8 @@ export class ProjectService {
   }
 
   async deleteProject(projectId: string) {
+    // queue Atlas cleanup (fire-and-forget, retries on its own)
+    await this.queue.deleteProjectAtlasJob(projectId);
     // delete project information
     await this.prisma.project.delete({
       where: {
