@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { ArchetypeDto } from 'src/archetype/dto';
 import { DatabaseInfoDto } from 'src/connection-request/dto';
+import { JobService } from 'src/job/job.service';
 
 @Injectable()
 export class QueueService {
@@ -10,6 +11,7 @@ export class QueueService {
   constructor(
     @InjectQueue('atlas-queue') private atlasQueue: Queue,
     @InjectQueue('keycloak-queue') private keycloakQueue: Queue,
+    private readonly jobService: JobService,
   ) {}
 
   async addResourceJob(
@@ -22,9 +24,11 @@ export class QueueService {
       `Submitting 'process-add-resource' to queue with resource id ${id}`,
     );
 
-    return await this.keycloakQueue.add(
+    const jobId = await this.jobService.createJob('process-add-resource');
+    await this.keycloakQueue.add(
       'process-add-resource',
       {
+        jobId,
         id,
         ownerId,
         collaborators,
@@ -35,6 +39,7 @@ export class QueueService {
         backoff: 10000,
       },
     );
+    return { jobId };
   }
 
   async dataBrokerJob(
@@ -46,9 +51,11 @@ export class QueueService {
     this.logger.log(
       `Submitting 'process-data-broker' to queue with requestId ${requestId}`,
     );
-    return await this.atlasQueue.add(
+    const jobId = await this.jobService.createJob('process-data-broker');
+    await this.atlasQueue.add(
       'process-data-broker',
       {
+        jobId,
         owner,
         projectId,
         requestId,
@@ -60,6 +67,7 @@ export class QueueService {
         backoff: 10000,
       },
     );
+    return { jobId };
   }
 
   async addArchetypeJob(
@@ -70,9 +78,11 @@ export class QueueService {
     this.logger.log(
       `Submitting 'process-add-archetype' to queue for projectId ${archetype.projectId}`,
     );
-    return await this.atlasQueue.add(
+    const jobId = await this.jobService.createJob('process-add-archetype');
+    await this.atlasQueue.add(
       'process-add-archetype',
       {
+        jobId,
         owner,
         projectId: projectId,
         archetype,
@@ -82,6 +92,7 @@ export class QueueService {
         backoff: 10000,
       },
     );
+    return { jobId };
   }
 
   async updateArchetypeJob(
@@ -93,28 +104,32 @@ export class QueueService {
     this.logger.log(
       `Submitting 'process-update-archetype' to queue for archetypeId ${archetypeId}`,
     );
-    return await this.atlasQueue.add(
+    const jobId = await this.jobService.createJob('process-update-archetype');
+    await this.atlasQueue.add(
       'process-update-archetype',
       {
+        jobId,
         owner,
         projectId,
         archetype,
       },
       {
-        // NOTE: add jobid?
         attempts: 5,
         backoff: 10000,
       },
     );
+    return { jobId };
   }
 
   async deleteArchetypeJob(projectId: string, archetypeId: string) {
     this.logger.log(
       `Submitting 'process-delete-archetype' to queue with archetypeId ${archetypeId}...`,
     );
-    return await this.atlasQueue.add(
+    const jobId = await this.jobService.createJob('process-delete-archetype');
+    await this.atlasQueue.add(
       'process-delete-archetype',
       {
+        jobId,
         projectId,
         archetypeId,
       },
@@ -123,6 +138,7 @@ export class QueueService {
         backoff: 10000,
       },
     );
+    return { jobId };
   }
 
   async getJobResult(jobId: number | string) {

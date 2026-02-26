@@ -21,6 +21,7 @@ import { AdminConfigService } from './config/admin-config.service';
 import { AuthConfigService } from './config/auth-config.service';
 import { AnalysisModule } from './analysis/analysis.module';
 import { CoordinatorModule } from './coordinator/coordinator.module';
+import { JobModule } from './job/job.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { CoordinatorModule } from './coordinator/coordinator.module';
     AtlasModule,
     DockerModule,
     CoordinatorModule,
+    JobModule,
   ],
   controllers: [AppController],
   providers: [AdminConfigService, AuthConfigService],

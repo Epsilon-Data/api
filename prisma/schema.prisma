@@ -137,3 +137,20 @@ enum RequestStatus {
   REJECTED
   APPROVED
 }
+
+enum JobStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+model BackgroundJob {
+  jobId        String    @id(map: "background_job_pkey") @default(uuid()) @db.Uuid
+  type         String    @db.Text
+  status       JobStatus @default(PENDING)
+  result       Json?     @db.Json
+  error        String?   @db.Text
+  createdDate  DateTime  @default(now()) @db.Timestamp(6)
+  lastModified DateTime  @default(now()) @updatedAt @db.Timestamp(6)
+}

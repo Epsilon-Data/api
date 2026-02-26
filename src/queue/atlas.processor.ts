@@ -18,6 +18,7 @@ import {
 } from 'src/atlas/dto';
 
 import { ArchetypeJobDataDto, DataBrokerJobDataDto } from './dto';
+import { JobService } from 'src/job/job.service';
 import {
   archetypeTemplateToAtlasEntities,
   getDesiredChildNodeIdsForSource,
@@ -38,26 +39,36 @@ export class AtlasProcessor {
     private readonly docker: DockerService,
     private readonly atlas: AtlasService,
     private prisma: PrismaService,
+    private readonly jobService: JobService,
   ) {}
 
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
-    const { owner, projectId, requestId, database } =
+    const { jobId, owner, projectId, requestId, database } =
       job.data as DataBrokerJobDataDto;
     this.logger.log(
       `Handling 'process-data-broker' for requestId ${requestId}...`,
     );
-    return await this.docker.runDataBroker(
-      owner,
-      projectId,
-      requestId,
-      database,
-    );
+    await this.jobService.markActive(jobId);
+    try {
+      const result = await this.docker.runDataBroker(
+        owner,
+        projectId,
+        requestId,
+        database,
+      );
+      await this.jobService.markCompleted(jobId, result);
+      return result;
+    } catch (error) {
+      await this.jobService.markFailed(jobId, String(error));
+      throw error;
+    }
   }
 
   @Process('process-add-archetype')
   async handleAddArchetypeJob(job: Job) {
-    const { owner, projectId, archetype } = job.data as ArchetypeJobDataDto;
+    const { jobId, owner, projectId, archetype } =
+      job.data as ArchetypeJobDataDto;
     this.logger.log(
       `Handling 'process-add-archetype' for projectId ${projectId}...`,
     );
@@ -68,6 +79,7 @@ export class AtlasProcessor {
       );
       return await this.handleUpdateArchetypeJob(job);
     }
+    await this.jobService.markActive(jobId);
     try {
       //  1. create archetype_template entity
       // generate new unique archetypeId (nanoid)
@@ -125,21 +137,26 @@ export class AtlasProcessor {
         `Handling 'process-add-archetype' for projectId ${projectId} DONE!`,
         `Created archetype ${archetype.archetypeId} with status ${archetype.status}`,
       );
+      await this.jobService.markCompleted(jobId, archetype.archetypeId);
       return archetype.archetypeId;
     } catch (error) {
       this.logger.error(
         `Error creating archetype for project ${archetype.projectId}: `,
         error,
       );
+      await this.jobService.markFailed(jobId, String(error));
+      throw error;
     }
   }
 
   @Process('process-update-archetype')
   async handleUpdateArchetypeJob(job: Job) {
-    const { owner, projectId, archetype } = job.data as ArchetypeJobDataDto;
+    const { jobId, owner, projectId, archetype } =
+      job.data as ArchetypeJobDataDto;
     this.logger.log(
       `Handling 'process-update-archetype' for archetype ${archetype.archetypeId}...`,
     );
+    await this.jobService.markActive(jobId);
     try {
       const updateEntities: AtlasSubmitArchetypeEntityDto[] = [];
       // separate columns from archetype_nodes
@@ -315,24 +332,29 @@ export class AtlasProcessor {
         `Updated archetype ${archetype.archetypeId} with status ${archetype.status}`,
       );
 
+      await this.jobService.markCompleted(jobId, archetype.archetypeId);
       return archetype.archetypeId;
     } catch (error) {
       this.logger.error(
         `Error updating archetype ${archetype.archetypeId}: `,
         error,
       );
+      await this.jobService.markFailed(jobId, String(error));
+      throw error;
     }
   }
 
   @Process('process-delete-archetype')
   async handleDeleteArchetypeJob(job: Job) {
-    const { archetypeId, projectId } = job.data as {
+    const { jobId, archetypeId, projectId } = job.data as {
+      jobId: string;
       archetypeId: string;
       projectId: string;
     };
     this.logger.log(
       `Handling 'process-delete-archetype' for archetype ${archetypeId}...`,
     );
+    await this.jobService.markActive(jobId);
     try {
       await this.atlas.delete(
         `/entity/uniqueAttribute/type/${AtlasArchetypeTypeName.Template}`,
@@ -345,9 +367,12 @@ export class AtlasProcessor {
       this.logger.log(
         `Handling 'process-delete-archetype' for archetype ${archetypeId} DONE!`,
       );
+      await this.jobService.markCompleted(jobId, projectId);
       return projectId;
     } catch (error) {
       this.logger.error(`Error deleting archetype ${archetypeId}: `, error);
+      await this.jobService.markFailed(jobId, String(error));
+      throw error;
     }
   }
 

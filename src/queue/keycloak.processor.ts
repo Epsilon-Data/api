@@ -26,6 +26,7 @@ import {
 } from '@epsilon-data/keycloak-admin-client';
 import { AddResourceJobDataDto } from './dto';
 import { ConfigService } from '@nestjs/config';
+import { JobService } from 'src/job/job.service';
 
 // TODO: we need properly handle failed request for all these processors
 @Injectable()
@@ -36,13 +37,15 @@ export class KeycloakProcessor {
   constructor(
     private readonly keycloak: KeycloakAdminService,
     private readonly configService: ConfigService,
+    private readonly jobService: JobService,
   ) {}
 
   @Process('process-add-resource')
   async handleAddResource(job: Job) {
-    const { id, ownerId, collaborators, custodian } =
+    const { jobId, id, ownerId, collaborators, custodian } =
       job.data as AddResourceJobDataDto;
     this.logger.log(`Handling 'process-add-resource' for resource id ${id}...`);
+    await this.jobService.markActive(jobId);
     try {
       // TODO: better error handling
       // reauth with keycloak client
@@ -185,8 +188,11 @@ export class KeycloakProcessor {
           policies: [`${custodianPolicyPrefix}${id}`],
         });
       }
+      await this.jobService.markCompleted(jobId);
     } catch (error) {
       this.logger.error(`Error creating resource`, error);
+      await this.jobService.markFailed(jobId, String(error));
+      throw error;
     }
   }
 }
