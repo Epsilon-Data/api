@@ -11,6 +11,10 @@ import { ArchetypeDto } from 'src/archetype/dto';
 import { DatabaseInfoDto } from 'src/connection-request/dto';
 
 export class ArchetypeJobDataDto {
+  @IsUUID()
+  @IsDefined()
+  jobId!: string;
+
   @IsString()
   @IsDefined()
   owner!: string;
@@ -25,6 +29,10 @@ export class ArchetypeJobDataDto {
 }
 
 export class AddResourceJobDataDto {
+  @IsUUID()
+  @IsDefined()
+  jobId!: string;
+
   @IsUUID()
   @IsDefined()
   id!: string;
@@ -43,6 +51,10 @@ export class AddResourceJobDataDto {
 }
 
 export class DataBrokerJobDataDto {
+  @IsUUID()
+  @IsDefined()
+  jobId!: string;
+
   @IsString()
   @IsDefined()
   owner!: string;
