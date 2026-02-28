@@ -572,7 +572,7 @@ describe('ArchetypeService', () => {
   });
 
   describe('getPublishedArchetype', () => {
-    it('builds published template info with nodes, edges, minus columns and permissions', async () => {
+    it('builds published template info with nodes, edges, permissions, minus columns', async () => {
       const projectId = '16297faf-b27d-4227-913b-9ccf4c480211';
       const templateGuid = 'template-guid';
       const archetypeId = '8ryVfIcqIpqN';
@@ -798,8 +798,10 @@ describe('ArchetypeService', () => {
       )!;
       expect(columnEdge).toBeUndefined();
 
-      // Permissions should be undefined
-      expect(result.permissions).toBeUndefined();
+      // Permissions: catNode has DETAILED, root is skipped, propagated is ignored
+      expect(result.permissions).toEqual([
+        { id: catNodeId, permission: 'DETAILED' },
+      ]);
     });
 
     // TODO: this needs to be better tested

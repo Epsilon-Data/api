@@ -290,7 +290,7 @@ export class KeycloakAdminService implements OnModuleInit {
         { catchNotFound: false },
       );
     } catch (error) {
-      return this.logKeycloakError('checkUser', error);
+      return this.handleKeycloakError('checkUser', error);
     }
   }
 
@@ -481,16 +481,21 @@ export class KeycloakAdminService implements OnModuleInit {
       `Modifying policy ${analysisPolicyPrefix}${projectId}, adding user ${userId}`,
     );
     try {
+      this.logger.debug(
+        `Looking up existing policy: ${analysisPolicyPrefix}${projectId}`,
+      );
       const existingPolicy = await this.kcAdminClient.clients.findPolicyByName({
         id: this.defaultClient.id!,
         realm: this.config.realm,
         name: `${analysisPolicyPrefix}${projectId}`,
       });
+      this.logger.debug(`Existing policy found: ${!!existingPolicy}`);
       let policy: PolicyRepresentation = {
         name: `${analysisPolicyPrefix}${projectId}`,
         decisionStrategy: DecisionStrategy.UNANIMOUS,
         type: 'user',
         logic: Logic.POSITIVE,
+        users: [userId],
       };
       if (existingPolicy) {
         existingPolicy.config ??= {};
@@ -518,11 +523,15 @@ export class KeycloakAdminService implements OnModuleInit {
           users: Array.from(existingUsers),
         };
       }
+      this.logger.debug(
+        `Creating/updating policy with users: ${JSON.stringify(policy.users)}`,
+      );
       await this.kcAdminClient.clients.createOrUpdatePolicy({
         id: this.defaultClient.id!,
         policyName: `${analysisPolicyPrefix}${projectId}`,
         policy: policy,
       });
+      this.logger.debug(`Policy created/updated successfully`);
 
       if (!existingPolicy)
         // create analysis permission as the existing Policy didn't exist
