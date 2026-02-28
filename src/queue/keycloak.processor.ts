@@ -57,7 +57,9 @@ export class KeycloakProcessor {
         throw new Error(
           `Owner with id ${ownerId} doesn't exists. This should not happen!`,
         );
-      const ownerUsername = owner.username!;
+      if (!owner.username)
+        throw new Error(`Owner ${ownerId} has no username in Keycloak`);
+      const ownerUsername = owner.username;
 
       // get authorisationservice client
       const authClient = this.configService.get<string>('auth.clientId');
@@ -146,9 +148,16 @@ export class KeycloakProcessor {
             });
             return await this.keycloak.setUserActions(user.id);
           } else {
-            return users.map(async (user: UserRepresentation) => {
-              await this.keycloak.addUserToGroup(user.id!, createGroup.id);
-            });
+            await Promise.all(
+              users
+                .filter(
+                  (user): user is UserRepresentation & { id: string } =>
+                    !!user.id,
+                )
+                .map((user) =>
+                  this.keycloak.addUserToGroup(user.id, createGroup.id),
+                ),
+            );
           }
         });
         await Promise.all(collabQueries);
@@ -167,8 +176,10 @@ export class KeycloakProcessor {
           await this.keycloak.setUserActions(user.id);
         } else {
           const user = users[0];
-          custodianUserName = user.username!;
-          await this.keycloak.addUserToGroup(user.id!, createGroup.id);
+          if (!user.id)
+            throw new Error(`Custodian user ${custodian} has no ID`);
+          custodianUserName = user.username ?? custodian;
+          await this.keycloak.addUserToGroup(user.id, createGroup.id);
         }
         // create custodian policy
         await this.keycloak.createPolicy(client, 'user', {

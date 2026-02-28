@@ -149,6 +149,15 @@ export class AnalysisRequestService {
   }
 
   async createRequest(userId: string, dto: AnalysisDto) {
+    const existing = await this.prisma.analysis.findFirst({
+      where: { projectId: dto.projectId, request: { requestorId: userId } },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        'An access request for this project already exists',
+      );
+    }
+
     const request = {
       requestorName: dto.requestorName,
       requestorEmail: dto.requestorEmail,
@@ -185,14 +194,15 @@ export class AnalysisRequestService {
     });
 
     if (project?.isPublic) {
+      // grant Keycloak permissions first — if this fails, request stays PENDING
+      await this.keycloak.auth();
+      await this.keycloak.addUserToUserPolicy(dto.projectId, userId);
       await this.prisma.request.update({
         where: { requestId: createdRequest.requestId },
         data: {
           status: $Enums.RequestStatus.APPROVED,
         },
       });
-      await this.keycloak.auth();
-      await this.keycloak.addUserToUserPolicy(dto.projectId, userId);
     }
 
     return; // no content return
@@ -204,18 +214,20 @@ export class AnalysisRequestService {
     dto: AnalysisStatusDto,
   ) {
     const { status } = dto;
-    const result = await this.prisma.request.update({
-      where: { requestId: requestId },
-      data: {
-        status,
-      },
-    });
+
     if (status === $Enums.RequestStatus.APPROVED) {
-      // update client auth
+      const request = await this.prisma.request.findUniqueOrThrow({
+        where: { requestId },
+      });
+      // grant Keycloak permissions first — if this fails, DB stays unchanged
       await this.keycloak.auth();
-      // TODO: need proper error handling here from keycloak or go via queue
-      await this.keycloak.addUserToUserPolicy(projectId, result.requestorId);
+      await this.keycloak.addUserToUserPolicy(projectId, request.requestorId);
     }
+
+    await this.prisma.request.update({
+      where: { requestId: requestId },
+      data: { status },
+    });
     return;
   }
 

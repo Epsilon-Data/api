@@ -108,7 +108,7 @@ export class ConnectionRequestService {
       ? $Enums.RequestStatus.APPROVED
       : $Enums.RequestStatus.REJECTED;
 
-    // database credentials should exist so run database crawling
+    // run vault/connection flow first — if this fails, status stays unchanged
     if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
       await this.vaultService.runConnectionFlow(
         user,
@@ -118,13 +118,13 @@ export class ConnectionRequestService {
         accessToken,
       );
     }
+    // only update status after external operations succeed
     await this.prisma.request.update({
       where: { requestId: requestId },
       data: {
         status,
       },
     });
-    // just return, no content
     return;
   }
 

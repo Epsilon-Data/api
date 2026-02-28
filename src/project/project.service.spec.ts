@@ -210,6 +210,7 @@ describe('ProjectService', () => {
           status: {
             in: ['MAPPED'],
           },
+          isPublic: true,
         },
         select: {
           projectId: true,
@@ -219,6 +220,7 @@ describe('ProjectService', () => {
           dbKeywords: true,
           university: true,
           faculty: true,
+          isPublic: true,
         },
       });
       expect(result).toEqual(projects);

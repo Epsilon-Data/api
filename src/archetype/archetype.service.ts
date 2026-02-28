@@ -320,6 +320,7 @@ export class ArchetypeService {
       status: entityRes.entity?.attributes?.status as ArchetypeStatus,
       nodes: [],
       edges: [],
+      permissions: [],
       lastModified: new Date(entityRes.entity?.updateTime),
     };
 
@@ -369,6 +370,27 @@ export class ArchetypeService {
             target: nodeId,
           };
           templateInfo.edges!.push(edge);
+        }
+
+        // add permissions (skip root node)
+        if (entity.attributes?.level !== 0) {
+          const analysisPermission = (() => {
+            const permission = entity.classifications?.find(
+              (c) =>
+                c.typeName === 'archetype_node_analysis_permissions' &&
+                c.entityStatus === 'ACTIVE' &&
+                entity.guid === c.entityGuid,
+            );
+            return permission
+              ? {
+                  id: nodeId,
+                  permission: permission?.attributes
+                    ?.access_level as ArchetypePermission,
+                }
+              : null;
+          })();
+          if (analysisPermission)
+            templateInfo.permissions!.push(analysisPermission);
         }
       }
     }

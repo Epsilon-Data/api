@@ -91,6 +91,7 @@ export class ProjectService {
         status: {
           in: ['MAPPED'],
         },
+        isPublic: true,
       },
       select: {
         projectId: true,
@@ -100,6 +101,7 @@ export class ProjectService {
         university: true,
         faculty: true,
         dbKeywords: true,
+        isPublic: true,
       },
     });
   }
@@ -142,6 +144,7 @@ export class ProjectService {
 
     const analyses = await this.prisma.analysis.findMany({
       where: {
+        projectId: projectId,
         project: {
           ownerId: userId,
         },
@@ -415,7 +418,9 @@ export class ProjectService {
       },
     });
 
-    const memberEmails = dto.members.flatMap((m) => (m.email ? [m.email] : []));
+    const memberEmails = [
+      ...new Set(dto.members.flatMap((m) => (m.email ? [m.email] : []))),
+    ].filter((email) => email !== user.email);
 
     // add keycloak resource
     await this.queue.addResourceJob(
@@ -518,6 +523,9 @@ export class ProjectService {
   }
 
   async deleteProject(projectId: string) {
+    // delete keycloak resource first — if this fails, project stays intact
+    await this.keycloak.auth();
+    await this.keycloak.deleteResource(projectId);
     // queue Atlas cleanup (fire-and-forget, retries on its own)
     await this.queue.deleteProjectAtlasJob(projectId);
     // delete project information
@@ -530,9 +538,6 @@ export class ProjectService {
         analysis: true,
       },
     });
-    // delete keycloak resource
-    await this.keycloak.auth();
-    await this.keycloak.deleteResource(projectId);
     return;
   }
 
