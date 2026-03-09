@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import {
+  BrowseProjectsQueryDto,
   ProjectDetailsResponseDto,
   CreateProjectDto,
   ProjectRequestsResponse,
@@ -203,11 +204,9 @@ export class ProjectController {
   }
 
   @Get('all')
-  @ApiOperation({ summary: 'Get list of all projects' })
+  @ApiOperation({ summary: 'Get paginated list of all public projects' })
   @ApiOkResponse({
-    description: 'List of all projects',
-    type: ProjectSummaryInfoDto,
-    isArray: true,
+    description: 'Paginated list of public projects',
   })
   @ApiBadRequestResponse({
     description: 'Invalid request data for database operation',
@@ -235,8 +234,8 @@ export class ProjectController {
       },
     },
   })
-  async getAllProjects() {
-    return await this.projectService.getAllProjects();
+  async getAllProjects(@Query() query: BrowseProjectsQueryDto) {
+    return await this.projectService.getAllProjects(query);
   }
 
   @UseGuards(ResourceGuard)

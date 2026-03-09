@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  BrowseProjectsQueryDto,
   CreateProjectDto,
   ProjectDetailsResponseDto,
   ProjectRequestsResponse,
@@ -85,25 +86,83 @@ export class ProjectService {
     });
   }
 
-  async getAllProjects() {
-    return await this.prisma.project.findMany({
-      where: {
-        status: {
-          in: ['MAPPED'],
+  async getAllProjects(query: BrowseProjectsQueryDto = {}) {
+    const {
+      page = 1,
+      limit = 12,
+      search,
+      field = 'all',
+      sort = 'date-created',
+    } = query;
+
+    const baseWhere: Prisma.ProjectWhereInput = {
+      status: { in: ['MAPPED'] },
+      isPublic: true,
+    };
+
+    const searchWhere: Prisma.ProjectWhereInput | undefined = search
+      ? field === 'name'
+        ? { name: { contains: search, mode: 'insensitive' } }
+        : field === 'keywords'
+          ? { dbKeywords: { hasSome: [search] } }
+          : field === 'organisation'
+            ? {
+                OR: [
+                  { university: { contains: search, mode: 'insensitive' } },
+                  { faculty: { contains: search, mode: 'insensitive' } },
+                ],
+              }
+            : {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' } },
+                  { university: { contains: search, mode: 'insensitive' } },
+                  { faculty: { contains: search, mode: 'insensitive' } },
+                  { dbKeywords: { hasSome: [search] } },
+                ],
+              }
+      : undefined;
+
+    const where: Prisma.ProjectWhereInput = {
+      ...baseWhere,
+      ...(searchWhere && { AND: [searchWhere] }),
+    };
+
+    const orderBy: Prisma.ProjectOrderByWithRelationInput =
+      sort === 'title'
+        ? { name: 'asc' }
+        : sort === 'last-modified'
+          ? { lastModified: 'desc' }
+          : { createdDate: 'desc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.project.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          projectId: true,
+          name: true,
+          lastModified: true,
+          createdDate: true,
+          university: true,
+          faculty: true,
+          dbKeywords: true,
+          isPublic: true,
         },
-        isPublic: true,
+      }),
+      this.prisma.project.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      select: {
-        projectId: true,
-        name: true,
-        lastModified: true,
-        createdDate: true,
-        university: true,
-        faculty: true,
-        dbKeywords: true,
-        isPublic: true,
-      },
-    });
+    };
   }
 
   async getProjectRequests(
