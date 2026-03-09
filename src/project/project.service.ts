@@ -600,6 +600,41 @@ export class ProjectService {
     return;
   }
 
+  async retryCrawl(user: CurrentUserInfo, projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { projectId },
+      select: { status: true },
+    });
+
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.status !== 'ERROR') {
+      throw new BadRequestException(
+        `Cannot retry crawl for project with status ${project.status}`,
+      );
+    }
+
+    // resubmit using existing job data from Redis
+    try {
+      const { jobId } = await this.queue.retryCrawlJob(
+        projectId,
+        user.username,
+      );
+
+      // only set CRAWLING after job is successfully queued
+      await this.prisma.project.update({
+        where: { projectId },
+        data: { status: 'CRAWLING' },
+      });
+
+      this.logger.log(`Retry crawl for project ${projectId}, jobId: ${jobId}`);
+      return { jobId };
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Failed to retry crawl',
+      );
+    }
+  }
+
   async updateCredentials(
     user: CurrentUserInfo,
     projectId: string,
