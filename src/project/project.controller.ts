@@ -514,6 +514,20 @@ export class ProjectController {
     );
   }
 
+  @UseGuards(ResourceGuard)
+  @Scopes('edit', 'connect')
+  @Post(':projectId/retry-crawl')
+  @ApiOperation({ summary: 'Retry failed crawl for a project' })
+  @ApiOkResponse({ description: 'Crawl retried, returns jobId' })
+  @ApiBadRequestResponse({ type: GenericErrorResponseDto })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  async retryCrawl(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.projectService.retryCrawl(user, projectId);
+  }
+
   // TODO: need to see if this is needed
   @UseGuards(ResourceGuard)
   @Scopes('view', 'edit')

@@ -111,6 +111,7 @@ export class DockerService {
         },
       });
       this.logger.error(`Error running container ${instanceName}: `, error);
+      throw error;
     }
   }
 
@@ -143,19 +144,39 @@ export class DockerService {
       },
     });
 
-    // remove container if stopped
     if (existingContainers.length > 0) {
+      const existingContainer = this.docker.getContainer(
+        existingContainers[0].Id,
+      );
+
       if (await this.isContainerRunning(existingContainers[0].Id as string)) {
         this.logger.debug(`Running image ${imageName} exists, monitoring...`);
-        return await this.docker.getContainer(existingContainers[0].Id);
-      } else {
-        const existingContainer = this.docker.getContainer(
-          existingContainers[0].Id,
-        );
-        // should ne stopped, but just in case
-        await existingContainer.stop();
-        await existingContainer.remove();
+        return existingContainer;
       }
+
+      // Container exists but is stopped — check if it already finished successfully
+      const inspect = await existingContainer.inspect();
+      const exitCode = inspect.State?.ExitCode ?? 1;
+      const logs = await this.readAllLogs(existingContainer);
+      const done = /(^|\n)DONE(\r?\n|$)/.test(logs);
+
+      if (done || exitCode === 0) {
+        this.logger.log(
+          `Stopped container ${name} already completed successfully (exit=${exitCode}), reusing it.`,
+        );
+        return existingContainer;
+      }
+
+      // Container failed — clean up and create a fresh one
+      try {
+        await existingContainer.stop();
+      } catch {
+        // container may already be stopped (HTTP 304), ignore
+      }
+      await existingContainer.remove();
+      this.logger.debug(
+        `Removed existing failed container ${name} (exit=${exitCode}), creating fresh one...`,
+      );
     }
     const container = await this.docker.createContainer({
       Image: imageName,

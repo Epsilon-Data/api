@@ -21,8 +21,14 @@ import { KeycloakProcessor } from './keycloak.processor';
       }),
     }),
     BullModule.registerQueue(
-      { name: 'atlas-queue' },
-      { name: 'keycloak-queue' },
+      {
+        name: 'atlas-queue',
+        settings: { maxStalledCount: 5 },
+      },
+      {
+        name: 'keycloak-queue',
+        settings: { maxStalledCount: 5 },
+      },
     ),
     DockerModule,
   ],
