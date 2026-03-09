@@ -16,6 +16,10 @@ import {
   IsArray,
   IsEmail,
   IsBoolean,
+  IsInt,
+  IsIn,
+  Min,
+  Max,
 } from 'class-validator';
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
@@ -53,6 +57,46 @@ export class ProjectMember {
   @IsOptional()
   @IsString()
   name?: string;
+}
+
+export class BrowseProjectsQueryDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 12, minimum: 1, maximum: 100 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  limit?: number = 12;
+
+  @ApiPropertyOptional({ description: 'Search term' })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Field to search in',
+    enum: ['all', 'name', 'keywords', 'organisation'],
+    default: 'all',
+  })
+  @IsIn(['all', 'name', 'keywords', 'organisation'])
+  @IsOptional()
+  field?: 'all' | 'name' | 'keywords' | 'organisation' = 'all';
+
+  @ApiPropertyOptional({
+    description: 'Sort order',
+    enum: ['date-created', 'title', 'last-modified'],
+    default: 'date-created',
+  })
+  @IsIn(['date-created', 'title', 'last-modified'])
+  @IsOptional()
+  sort?: 'date-created' | 'title' | 'last-modified' = 'date-created';
 }
 
 export class ProjectSummaryInfoDto {
