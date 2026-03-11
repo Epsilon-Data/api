@@ -37,6 +37,10 @@ export class AuthModule implements NestModule {
       { path: 'health', method: RequestMethod.GET },
       { path: 'analysis/auth', method: RequestMethod.POST }, // analysis sdk auth path
       { path: 'coordinator/auth', method: RequestMethod.POST }, // coordinator client auth path
+      { path: 'proxy/register', method: RequestMethod.POST }, // proxy binary registration
+      { path: 'proxy/heartbeat', method: RequestMethod.POST }, // proxy binary heartbeat
+      { path: 'proxy/metadata', method: RequestMethod.POST }, // proxy binary metadata upload
+      { path: 'proxy/offline', method: RequestMethod.POST }, // proxy binary shutdown
     ];
 
     // only add docs if dev

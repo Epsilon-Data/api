@@ -20,6 +20,7 @@ import {
 import { ProjectService } from './project.service';
 import {
   BrowseProjectsQueryDto,
+  PaginationQueryDto,
   ProjectDetailsResponseDto,
   CreateProjectDto,
   ProjectRequestsResponse,
@@ -153,8 +154,11 @@ export class ProjectController {
       },
     },
   })
-  async getUserOwnedProjects(@CurrentUser() user: CurrentUserInfo) {
-    return await this.projectService.getUserOwnedProjects(user.id);
+  async getUserOwnedProjects(
+    @CurrentUser() user: CurrentUserInfo,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return await this.projectService.getUserOwnedProjects(user.id, query);
   }
 
   @Get('shared')
@@ -190,7 +194,10 @@ export class ProjectController {
       },
     },
   })
-  async getUserSharedProjects(@Req() request: Request) {
+  async getUserSharedProjects(
+    @Req() request: Request,
+    @Query() query: PaginationQueryDto,
+  ) {
     // check for user resource permissions against keycloak
     // TODO: perhaps call this once and cache or make it into a helper/decorator
     const authzRequest = {
@@ -200,7 +207,7 @@ export class ProjectController {
       authzRequest,
       request,
     );
-    return await this.projectService.getUserSharedProjects(permissions);
+    return await this.projectService.getUserSharedProjects(permissions, query);
   }
 
   @Get('all')

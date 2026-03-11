@@ -22,6 +22,7 @@ import { AuthConfigService } from './config/auth-config.service';
 import { AnalysisModule } from './analysis/analysis.module';
 import { CoordinatorModule } from './coordinator/coordinator.module';
 import { JobModule } from './job/job.module';
+import { ProxyModule } from './proxy/proxy.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { JobModule } from './job/job.module';
     DockerModule,
     CoordinatorModule,
     JobModule,
+    ProxyModule,
   ],
   controllers: [AppController],
   providers: [AdminConfigService, AuthConfigService],
