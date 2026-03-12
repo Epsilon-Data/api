@@ -115,11 +115,7 @@ export class DockerService {
     }
   }
 
-  async runDataBrokerLoadOnly(
-    ownerId: string,
-    projectId: string,
-    metadataPath: string,
-  ) {
+  async runDataBrokerLoadOnly(ownerId: string, projectId: string) {
     this.logger.log(
       `Preparing to run crawler container (LOAD_ONLY) for project ${projectId}...`,
     );
@@ -130,8 +126,8 @@ export class DockerService {
       `OWNER=${ownerId}`,
       `PROJECT_ID=${projectId}`,
       `LOAD_ONLY=true`,
-      `SCHEMA_PATH=/data/schema.json`,
-      `ERD_PATH=/data/erd.txt`,
+      `SCHEMA_PATH=/proxy-metadata/${projectId}/schema.json`,
+      `ERD_PATH=/proxy-metadata/${projectId}/erd.txt`,
       `DB_TYPE=pg`,
       `DB_HOST=proxy`,
       `DB_PORT=5432`,
@@ -149,7 +145,7 @@ export class DockerService {
         this.imageName,
         envArgs,
         instanceName,
-        [`${metadataPath}:/data:ro`],
+        ['epsilon_proxy_metadata:/proxy-metadata:ro'],
       );
 
       try {
