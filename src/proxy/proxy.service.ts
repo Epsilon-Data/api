@@ -223,7 +223,7 @@ export class ProxyService {
 
     const needsCrawl =
       proxy.project.connectionType === 'PROXY' &&
-      ['PENDING', 'ERROR', 'CRAWLING'].includes(proxy.project.status) &&
+      ['PENDING', 'ERROR'].includes(proxy.project.status) &&
       Boolean(meta?.databaseReachable);
 
     return needsCrawl ? { action: 'crawl' } : {};
