@@ -119,6 +119,7 @@ export class QueueService implements OnModuleInit {
   }
 
   private async syncJobState(job: Job, state: 'completed' | 'failed') {
+    if (!job?.data) return;
     const { jobId, projectId } = (job.data as BullJobData) ?? {};
     if (!jobId) return;
 
@@ -237,6 +238,34 @@ export class QueueService implements OnModuleInit {
       },
       {
         jobId: `process-data-broker:${requestId}`,
+        attempts: 5,
+        backoff: 10000,
+      },
+    );
+    return { jobId };
+  }
+
+  async dataBrokerLoadOnlyJob(
+    owner: string,
+    projectId: string,
+    metadataPath: string,
+  ) {
+    this.logger.log(
+      `Submitting 'process-data-broker' (LOAD_ONLY) to queue for projectId ${projectId}`,
+    );
+    const jobId = await this.jobService.createJob('process-data-broker');
+    await this.atlasQueue.add(
+      'process-data-broker',
+      {
+        jobId,
+        owner,
+        projectId,
+        requestId: `proxy-${projectId}`,
+        loadOnly: true,
+        metadataPath,
+      },
+      {
+        jobId: `process-data-broker:proxy:${jobId}`,
         attempts: 5,
         backoff: 10000,
       },

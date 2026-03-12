@@ -80,6 +80,14 @@ export class DataBrokerJobDataDto {
   requestId!: string;
 
   @ValidateNested()
+  @IsOptional()
   @Type(() => DatabaseInfoDto)
-  database!: DatabaseInfoDto;
+  database?: DatabaseInfoDto;
+
+  @IsOptional()
+  loadOnly?: boolean;
+
+  @IsString()
+  @IsOptional()
+  metadataPath?: string;
 }

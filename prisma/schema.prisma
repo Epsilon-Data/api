@@ -58,26 +58,29 @@ model Analysis {
 }
 
 model Project {
-  projectId       String        @id(map: "project_pkey") @default(uuid()) @db.Uuid
-  ownerId         String        @db.Uuid
-  name            String        @db.Text
-  lead            String        @db.Text
-  university      String        @db.Text
-  faculty         String        @db.Text
-  ethicsId        String        @db.Text
-  description     String        @db.Text
-  startDate       DateTime      @db.Date
-  endDate         DateTime      @db.Date
-  lastModified    DateTime      @default(now()) @db.Timestamp(6)
-  participantsNum Int           @db.Integer
-  members         Json?         @db.Json
+  projectId       String         @id(map: "project_pkey") @default(uuid()) @db.Uuid
+  ownerId         String         @db.Uuid
+  name            String         @db.Text
+  lead            String         @db.Text
+  university      String         @db.Text
+  faculty         String         @db.Text
+  ethicsId        String         @db.Text
+  description     String         @db.Text
+  startDate       DateTime       @db.Date
+  endDate         DateTime       @db.Date
+  lastModified    DateTime       @default(now()) @db.Timestamp(6)
+  participantsNum Int            @db.Integer
+  members         Json?          @db.Json
   dbKeywords      String[]
-  createdDate     DateTime      @default(now()) @db.Date
-  visualizations  Json?         @db.Json
-  status          ProjectStatus @default(PENDING)
-  isPublic        Boolean       @default(false)
+  createdDate     DateTime       @default(now()) @db.Date
+  visualizations  Json?          @db.Json
+  status          ProjectStatus  @default(PENDING)
+  isPublic        Boolean        @default(false)
+  connectionType  ConnectionType @default(CLOUD_CONNECT)
   connection      Connection?
   analysis        Analysis[]
+  proxy              Proxy?
+  proxyInstallTokens ProxyInstallToken[]
 
   @@unique([ownerId, projectId])
 }
@@ -131,6 +134,12 @@ enum ProjectStatus {
   MAPPED
 }
 
+enum ConnectionType {
+  CLOUD_CONNECT
+  DIRECT_DB
+  PROXY
+}
+
 enum RequestStatus {
   PENDING
   REVISION
@@ -153,4 +162,37 @@ model BackgroundJob {
   error        String?   @db.Text
   createdDate  DateTime  @default(now()) @db.Timestamp(6)
   lastModified DateTime  @default(now()) @updatedAt @db.Timestamp(6)
+}
+
+model Proxy {
+  id              String      @id(map: "proxy_pkey") @default(uuid()) @db.Uuid
+  projectId       String      @unique @db.Uuid
+  project         Project     @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_proxy_project_id")
+  proxyToken      String?     @unique @db.Text
+  ratholeToken    String?     @db.Text
+  noisePublicKey  String?     @db.Text
+  noisePrivateKey String?     @db.Text
+  assignedPort    Int?        @unique @db.Integer
+  status          ProxyStatus @default(PENDING)
+  version         String?     @db.Text
+  lastSeenAt      DateTime?   @db.Timestamp(6)
+  createdAt       DateTime    @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime    @default(now()) @updatedAt @db.Timestamp(6)
+}
+
+model ProxyInstallToken {
+  id          String    @id(map: "proxy_install_token_pkey") @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  project     Project   @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_proxy_install_token_project_id")
+  name        String    @db.Text
+  tokenHash   String    @unique @db.Text
+  tokenPrefix String    @db.VarChar(16)
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  lastUsedAt  DateTime? @db.Timestamp(6)
+}
+
+enum ProxyStatus {
+  PENDING
+  ONLINE
+  OFFLINE
 }

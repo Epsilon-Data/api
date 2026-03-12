@@ -8,10 +8,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   BrowseProjectsQueryDto,
   CreateProjectDto,
+  PaginationQueryDto,
   ProjectDetailsResponseDto,
   ProjectRequestsResponse,
   ProjectRequestsResponseDto,
-  ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
   UpdateCredentialsDto,
@@ -39,51 +39,86 @@ export class ProjectService {
     private readonly keycloak: KeycloakAdminService,
   ) {}
 
+  private buildPaginationOrderBy(
+    sort: PaginationQueryDto['sort'],
+  ): Prisma.ProjectOrderByWithRelationInput {
+    return sort === 'title'
+      ? { name: 'asc' }
+      : sort === 'last-modified'
+        ? { lastModified: 'desc' }
+        : { createdDate: 'desc' };
+  }
+
+  private readonly projectSummarySelect = {
+    projectId: true,
+    name: true,
+    lastModified: true,
+    status: true,
+    university: true,
+    lead: true,
+    faculty: true,
+    createdDate: true,
+  } as const;
+
   // Queries
-  async getUserOwnedProjects(userId: string): Promise<ProjectSummaryInfoDto[]> {
-    return await this.prisma.project.findMany({
-      where: {
-        ownerId: userId,
-      },
-      select: {
-        projectId: true,
-        name: true,
-        lastModified: true,
-        status: true,
-        university: true,
-        lead: true,
-        faculty: true,
-        createdDate: true,
-      },
-    });
+  async getUserOwnedProjects(userId: string, query: PaginationQueryDto = {}) {
+    const { page = 1, limit = 12, sort = 'date-created', search } = query;
+
+    const where: Prisma.ProjectWhereInput = {
+      ownerId: userId,
+      ...(search && { name: { contains: search, mode: 'insensitive' } }),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.project.findMany({
+        where,
+        orderBy: this.buildPaginationOrderBy(sort),
+        skip: (page - 1) * limit,
+        take: limit,
+        select: this.projectSummarySelect,
+      }),
+      this.prisma.project.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getUserSharedProjects(
     permissions: KeycloakPermissionDto[],
-  ): Promise<ProjectSummaryInfoDto[]> {
+    query: PaginationQueryDto = {},
+  ) {
+    const { page = 1, limit = 12, sort = 'date-created', search } = query;
+
     const uuids = permissions
       .filter(
         (item) =>
           item.scopes.includes('view') && !item.scopes.includes('delete'),
       )
       .map((item) => item.rsname.split(':').at(1)!);
-    return await this.prisma.project.findMany({
-      where: {
-        projectId: {
-          in: uuids, // find all projects associated
-        },
-      },
-      select: {
-        projectId: true,
-        name: true,
-        lastModified: true,
-        createdDate: true,
-        lead: true,
-        status: true,
-        university: true,
-        faculty: true,
-      },
-    });
+
+    const where: Prisma.ProjectWhereInput = {
+      projectId: { in: uuids },
+      ...(search && { name: { contains: search, mode: 'insensitive' } }),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.project.findMany({
+        where,
+        orderBy: this.buildPaginationOrderBy(sort),
+        skip: (page - 1) * limit,
+        take: limit,
+        select: this.projectSummarySelect,
+      }),
+      this.prisma.project.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getAllProjects(query: BrowseProjectsQueryDto = {}) {
@@ -430,6 +465,11 @@ export class ProjectService {
     const members = dto.members
       ? (dto.members as unknown as Prisma.JsonArray)
       : undefined;
+    const connectionType = (dto.connectionType ?? 'CLOUD_CONNECT') as
+      | 'CLOUD_CONNECT'
+      | 'DIRECT_DB'
+      | 'PROXY';
+
     const request = {
       ownerId,
       name: dto.name,
@@ -441,11 +481,13 @@ export class ProjectService {
       startDate: dto.startDate,
       endDate: dto.endDate,
       participantsNum: dto.participantsNum,
+      connectionType,
 
       ...(members && {
         members,
       }),
       dbKeywords: dto.dbKeywords,
+      ...(dto.isPublic !== undefined && { isPublic: dto.isPublic }),
     };
 
     // check if database credential request is needed
@@ -501,6 +543,12 @@ export class ProjectService {
           },
         });
       }
+    } else if (connectionType === 'PROXY') {
+      // Proxy mode: no credentials needed, no crawling
+      // Data owner will install epsilon-proxy and register it later
+      this.logger.log(
+        `Project ${project.projectId} created with PROXY connection type — awaiting proxy registration`,
+      );
     } else {
       // database credentials should exist so run database crawling
       if (dto.connection.dbDetails?.url) {
@@ -603,14 +651,26 @@ export class ProjectService {
   async retryCrawl(user: CurrentUserInfo, projectId: string) {
     const project = await this.prisma.project.findUnique({
       where: { projectId },
-      select: { status: true },
+      select: { status: true, connectionType: true },
     });
 
     if (!project) throw new NotFoundException('Project not found');
-    if (project.status !== 'ERROR') {
+    if (!['ERROR', 'CRAWLING'].includes(project.status)) {
       throw new BadRequestException(
         `Cannot retry crawl for project with status ${project.status}`,
       );
+    }
+
+    // For PROXY projects: reset to PENDING so proxy's heartbeat triggers re-crawl
+    if (project.connectionType === 'PROXY') {
+      await this.prisma.project.update({
+        where: { projectId },
+        data: { status: 'PENDING' },
+      });
+      this.logger.log(
+        `Retry crawl for PROXY project ${projectId}: reset to PENDING`,
+      );
+      return { status: 'pending', message: 'Waiting for proxy to re-crawl' };
     }
 
     // resubmit using existing job data from Redis

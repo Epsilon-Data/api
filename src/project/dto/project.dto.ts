@@ -59,6 +59,37 @@ export class ProjectMember {
   name?: string;
 }
 
+export class PaginationQueryDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 12, minimum: 1, maximum: 100 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  limit?: number = 12;
+
+  @ApiPropertyOptional({
+    description: 'Sort order',
+    enum: ['date-created', 'title', 'last-modified'],
+    default: 'date-created',
+  })
+  @IsIn(['date-created', 'title', 'last-modified'])
+  @IsOptional()
+  sort?: 'date-created' | 'title' | 'last-modified' = 'date-created';
+
+  @ApiPropertyOptional({ description: 'Search by project name' })
+  @IsString()
+  @IsOptional()
+  search?: string;
+}
+
 export class BrowseProjectsQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @Type(() => Number)
@@ -292,6 +323,15 @@ export class CreateProjectDto {
   @IsDefined()
   @IsString({ each: true })
   dbKeywords!: string[];
+
+  @ApiPropertyOptional({
+    description: 'How the platform accesses this database',
+    enum: ['CLOUD_CONNECT', 'DIRECT_DB', 'PROXY'],
+    default: 'CLOUD_CONNECT',
+  })
+  @IsOptional()
+  @IsIn(['CLOUD_CONNECT', 'DIRECT_DB', 'PROXY'])
+  connectionType?: string;
 
   @ApiProperty({
     description: 'Connection metadata & crawling request info',

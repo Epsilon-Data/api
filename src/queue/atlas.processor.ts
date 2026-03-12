@@ -49,19 +49,35 @@ export class AtlasProcessor {
 
   @Process('process-data-broker')
   async handleDataBrokerJob(job: Job) {
-    const { jobId, owner, projectId, requestId, database } =
-      job.data as DataBrokerJobDataDto;
+    const {
+      jobId,
+      owner,
+      projectId,
+      requestId,
+      database,
+      loadOnly,
+      metadataPath,
+    } = job.data as DataBrokerJobDataDto;
     this.logger.log(
-      `Handling 'process-data-broker' for requestId ${requestId}...`,
+      `Handling 'process-data-broker' ${loadOnly ? '(LOAD_ONLY) ' : ''}for requestId ${requestId}...`,
     );
     await this.jobService.markActive(jobId);
     try {
-      const result = await this.docker.runDataBroker(
-        owner,
-        projectId,
-        requestId,
-        database,
-      );
+      let result: unknown;
+      if (loadOnly && metadataPath) {
+        result = await this.docker.runDataBrokerLoadOnly(
+          owner,
+          projectId,
+          metadataPath,
+        );
+      } else {
+        result = await this.docker.runDataBroker(
+          owner,
+          projectId,
+          requestId,
+          database!,
+        );
+      }
       await this.jobService.markCompleted(jobId, result);
       return result;
     } catch (error) {

@@ -115,6 +115,82 @@ export class DockerService {
     }
   }
 
+  async runDataBrokerLoadOnly(
+    ownerId: string,
+    projectId: string,
+    metadataPath: string,
+  ) {
+    this.logger.log(
+      `Preparing to run crawler container (LOAD_ONLY) for project ${projectId}...`,
+    );
+    const envArgs = [
+      `ATLAS_URI=${this.isDev ? this.atlasUrl.replace('localhost', 'host.docker.internal') : this.atlasUrl}`,
+      `ATLAS_ADMIN_USER=${this.username}`,
+      `ATLAS_ADMIN_PASSWORD=${this.password}`,
+      `OWNER=${ownerId}`,
+      `PROJECT_ID=${projectId}`,
+      `LOAD_ONLY=true`,
+      `SCHEMA_PATH=/data/schema.json`,
+      `ERD_PATH=/data/erd.txt`,
+      `DB_TYPE=pg`,
+      `DB_HOST=proxy`,
+      `DB_PORT=5432`,
+      `DB_SSLMODE=unknown`,
+    ];
+
+    const instanceName = `data-broker-proxy-${projectId}`;
+    try {
+      this.logger.debug(`Checking for base image ${this.imageName}...`);
+      void this.imageExistsLocally(this.imageName);
+
+      this.logger.debug(`Starting the container ${instanceName}...`);
+
+      const container = await this.createAndStartContainer(
+        this.imageName,
+        envArgs,
+        instanceName,
+        [`${metadataPath}:/data:ro`],
+      );
+
+      try {
+        this.logger.debug(
+          `Waiting for the container ${instanceName} to finish...`,
+        );
+        await this.monitorContainer(container);
+
+        const output = await this.readAllLogs(container);
+        const done = /(^|\n)DONE(\r?\n|$)/.test(output);
+        const inspect = await container.inspect();
+        const exitCode = inspect.State?.ExitCode ?? 1;
+        const success = done || exitCode === 0;
+
+        if (!success) {
+          throw new Error(
+            `Container finished without DONE marker and non-zero exit code with output ${output}`,
+          );
+        }
+        this.logger.log(
+          `Container ${instanceName} run successfully (LOAD_ONLY) for project ${projectId}.`,
+        );
+        await this.prisma.project.update({
+          where: { projectId },
+          data: { status: 'READY' },
+        });
+      } finally {
+        this.logger.debug(`Removing container ${instanceName}...`);
+        await container.remove({ force: true });
+        this.logger.debug(`Container ${instanceName} removed successfully.`);
+      }
+    } catch (error) {
+      await this.prisma.project.update({
+        where: { projectId },
+        data: { status: 'ERROR' },
+      });
+      this.logger.error(`Error running container ${instanceName}: `, error);
+      throw error;
+    }
+  }
+
   private async imageExistsLocally(imageName) {
     try {
       const image = this.docker.getImage(imageName);
@@ -136,6 +212,7 @@ export class DockerService {
     imageName: string,
     envVariables: string[],
     name: string,
+    binds?: string[],
   ): Promise<Container> {
     const existingContainers = await this.docker.listContainers({
       all: true,
@@ -185,6 +262,7 @@ export class DockerService {
       // run runDataBroker function should remove the container
       HostConfig: {
         AutoRemove: false,
+        ...(binds?.length ? { Binds: binds } : {}),
       },
       // only for dev + testing
       NetworkingConfig: {

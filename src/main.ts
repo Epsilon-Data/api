@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as express from 'express';
 
 import { ConfigService } from '@nestjs/config';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
@@ -13,7 +14,11 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    bodyParser: false, // Use custom body parser with increased limit
   });
+  // Increase global body size limit for proxy metadata uploads (schema JSON can be large)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true }));
   const configService = app.get(ConfigService);
   app.setGlobalPrefix(configService.get<string>('apiBaseUrl')!);
   app.enableCors({
