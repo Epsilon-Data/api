@@ -314,4 +314,24 @@ export class DatasetDetailsResponseDto {
   @IsOptional()
   @IsObject()
   properties?: Record<string, any>;
+
+  @ApiProperty({
+    description: 'Project connection type',
+    enum: ['CLOUD_CONNECT', 'DIRECT_DB', 'PROXY'],
+    required: false,
+  })
+  @IsOptional()
+  connectionType?: string;
+
+  @ApiProperty({
+    description: 'Proxy connection info (only present for PROXY projects)',
+    required: false,
+  })
+  @IsOptional()
+  proxyInfo?: {
+    proxyId: string;
+    proxyToken: string;
+    assignedPort: number;
+    status: string;
+  };
 }
