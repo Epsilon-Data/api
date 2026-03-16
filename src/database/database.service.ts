@@ -343,6 +343,23 @@ export class DatabaseService {
         }
       }
     }
+    // Include project connection type and proxy info
+    const project = await this.prisma.project.findUnique({
+      where: { projectId },
+      include: { proxy: true },
+    });
+    if (project) {
+      result.connectionType = project.connectionType;
+      if (project.connectionType === 'PROXY' && project.proxy) {
+        result.proxyInfo = {
+          proxyId: project.proxy.projectId,
+          proxyToken: project.proxy.proxyToken ?? '',
+          assignedPort: project.proxy.assignedPort ?? 0,
+          status: project.proxy.status,
+        };
+      }
+    }
+
     return result;
   }
 
