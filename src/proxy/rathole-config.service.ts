@@ -97,13 +97,22 @@ export class RatholeConfigService implements OnModuleInit {
       );
     }
 
-    const header = ['[server]', `bind_addr = "0.0.0.0:${this.bindPort}"`];
+    const header = [
+      '[server]',
+      `bind_addr = "0.0.0.0:${this.bindPort}"`,
+      'heartbeat_interval = 15',
+    ];
 
     if (this.noisePrivateKey) {
       header.push(
         '',
         '[server.transport]',
         'type = "noise"',
+        '',
+        '[server.transport.tcp]',
+        'nodelay = true',
+        'keepalive_secs = 15',
+        'keepalive_interval = 5',
         '',
         '[server.transport.noise]',
         `local_private_key = "${this.noisePrivateKey}"`,
