@@ -259,6 +259,9 @@ export class DockerService {
       HostConfig: {
         AutoRemove: false,
         ...(binds?.length ? { Binds: binds } : {}),
+        ...(this.isDev
+          ? { ExtraHosts: ['host.docker.internal:host-gateway'] }
+          : {}),
       },
       // only for dev + testing
       NetworkingConfig: {
