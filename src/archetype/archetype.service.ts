@@ -7,6 +7,7 @@ import {
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { $Enums } from 'src/generated/prisma/client';
 import {
   ALLOWED_TRANSITIONS,
@@ -39,7 +40,34 @@ export class ArchetypeService {
     private readonly queue: QueueService,
     private prisma: PrismaService,
     private keycloak: KeycloakAdminService,
+    private readonly fileStorage: FileStorageService,
   ) {}
+
+  // Synthetic dataset bucket — must match ProjectService.SYNTHETIC_BUCKET
+  private static readonly SYNTHETIC_BUCKET = 'synthetic';
+
+  /**
+   * Resolve the synthetic dataset URL the SDK should download for a project:
+   * the pasted public link, or a signed URL for an uploaded object. Returns
+   * undefined when no synthetic dataset is attached.
+   */
+  private async resolveSyntheticDataUrl(
+    projectId: string,
+  ): Promise<string | undefined> {
+    const project = await this.prisma.project.findUnique({
+      where: { projectId },
+      select: { syntheticDataUrl: true, syntheticDataKey: true },
+    });
+    if (!project) return undefined;
+    if (project.syntheticDataUrl) return project.syntheticDataUrl;
+    if (project.syntheticDataKey) {
+      return this.fileStorage.getFileUrl(
+        ArchetypeService.SYNTHETIC_BUCKET,
+        project.syntheticDataKey,
+      );
+    }
+    return undefined;
+  }
 
   // Queries
   async fetchArchetypes(projectId: string, token?: string) {
@@ -442,12 +470,14 @@ export class ArchetypeService {
       const archetypeId = templateEntity.entity.attributes.qualifiedName
         .split('@')
         .at(-1) as string;
+      const syntheticDataUrl = await this.resolveSyntheticDataUrl(projectId);
       const schema = {
         $id: `${projectId}/${archetypeId}`,
         $schema: 'https://json-schema.org/draft/2020-12/schema#',
         title: res.attributes?.values[0][0],
         type: 'object',
         properties,
+        ...(syntheticDataUrl ? { syntheticDataUrl } : {}),
       };
       // TODO: handle errors
       for (const key in templateEntity?.referredEntities) {

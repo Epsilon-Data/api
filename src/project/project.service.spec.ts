@@ -53,6 +53,7 @@ describe('ProjectService', () => {
     getFileUrl: jest.fn(),
     deleteFile: jest.fn(),
     putFile: jest.fn(),
+    createBucketIfNotExists: jest.fn(),
   } as unknown as FileStorageService;
 
   const keycloakMock = {
@@ -757,6 +758,145 @@ describe('ProjectService', () => {
       );
 
       expect(result).toBe(file.buffer);
+    });
+  });
+
+  describe('synthetic dataset', () => {
+    const projectId = 'proj-1';
+
+    it('getSyntheticData returns a link when syntheticDataUrl is set', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataUrl: 'https://nectar.example/data.csv',
+        syntheticDataKey: null,
+        syntheticDataFileName: null,
+      });
+
+      const result = await service.getSyntheticData(projectId);
+
+      expect(result).toEqual({
+        type: 'link',
+        url: 'https://nectar.example/data.csv',
+        fileName: null,
+      });
+      expect(fileStorageMock.getFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('getSyntheticData signs a URL when a file was uploaded', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataUrl: null,
+        syntheticDataKey: `${projectId}/synthetic.csv`,
+        syntheticDataFileName: 'individuals.csv',
+      });
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/signed',
+      );
+
+      const result = await service.getSyntheticData(projectId);
+
+      expect(fileStorageMock.getFileUrl).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/synthetic.csv`,
+      );
+      expect(result).toEqual({
+        type: 'file',
+        url: 'https://s3.example/signed',
+        fileName: 'individuals.csv',
+      });
+    });
+
+    it('getSyntheticData returns none when nothing is attached', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataUrl: null,
+        syntheticDataKey: null,
+        syntheticDataFileName: null,
+      });
+
+      const result = await service.getSyntheticData(projectId);
+
+      expect(result).toEqual({ type: 'none', url: null, fileName: null });
+    });
+
+    it('setSyntheticDataLink deletes a prior upload and stores the link', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/synthetic.csv`,
+      });
+
+      const url = 'https://nectar.example/data.csv';
+      const result = await service.setSyntheticDataLink(projectId, url);
+
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/synthetic.csv`,
+      );
+      expect(prismaMock.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: expect.objectContaining({
+          syntheticDataUrl: url,
+          syntheticDataKey: null,
+          syntheticDataFileName: null,
+        }),
+      });
+      expect(result).toEqual({ type: 'link', url, fileName: null });
+    });
+
+    it('uploadSyntheticData stores the file in S3 and clears any link', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/signed',
+      );
+      const file = {
+        originalname: 'individuals.csv',
+        buffer: Buffer.from('a,b\n1,2\n'),
+        mimetype: 'text/csv',
+      } as Express.Multer.File;
+
+      const result = await service.uploadSyntheticData(projectId, file);
+
+      expect(fileStorageMock.createBucketIfNotExists).toHaveBeenCalledWith(
+        'synthetic',
+      );
+      expect(fileStorageMock.putFile).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/synthetic.csv`,
+        file,
+      );
+      expect(prismaMock.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: expect.objectContaining({
+          syntheticDataKey: `${projectId}/synthetic.csv`,
+          syntheticDataFileName: 'individuals.csv',
+          syntheticDataUrl: null,
+        }),
+      });
+      expect(result).toEqual({
+        type: 'file',
+        url: 'https://s3.example/signed',
+        fileName: 'individuals.csv',
+      });
+    });
+
+    it('removeSyntheticData deletes the object and clears all fields', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/synthetic.csv`,
+      });
+
+      const result = await service.removeSyntheticData(projectId);
+
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/synthetic.csv`,
+      );
+      expect(prismaMock.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: expect.objectContaining({
+          syntheticDataUrl: null,
+          syntheticDataKey: null,
+          syntheticDataFileName: null,
+        }),
+      });
+      expect(result).toEqual({ type: 'none', url: null, fileName: null });
     });
   });
 });

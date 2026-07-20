@@ -77,6 +77,12 @@ model Project {
   status          ProjectStatus  @default(PENDING)
   isPublic        Boolean        @default(false)
   connectionType  ConnectionType @default(CLOUD_CONNECT)
+  // Synthetic dataset the data owner attaches after the archetype is published.
+  // Either a pasted public link (syntheticDataUrl) OR an uploaded object in S3
+  // (syntheticDataKey + original file name) — never both.
+  syntheticDataUrl      String? @db.Text
+  syntheticDataKey      String? @db.Text
+  syntheticDataFileName String? @db.Text
   connection      Connection?
   analysis        Analysis[]
   proxy              Proxy?

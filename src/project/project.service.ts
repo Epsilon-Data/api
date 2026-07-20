@@ -14,6 +14,7 @@ import {
   ProjectRequestsResponseDto,
   SettingsDto,
   SettingsResponseDto,
+  SyntheticDataResponseDto,
   UpdateCredentialsDto,
   UpdateProjectDto,
 } from './dto';
@@ -777,5 +778,135 @@ export class ProjectService {
       projectId,
       ciphertext,
     );
+  }
+
+  // ---- Synthetic dataset ----
+  // A project can have at most one synthetic dataset, attached by the data owner
+  // after the archetype is published. It is either a pasted public link
+  // (syntheticDataUrl) or an uploaded CSV stored in S3 (syntheticDataKey). The SDK
+  // downloads it in place of generating dummy data.
+  private static readonly SYNTHETIC_BUCKET = 'synthetic';
+
+  private syntheticKey(projectId: string): string {
+    return `${projectId}/synthetic.csv`;
+  }
+
+  /** Current synthetic-dataset state for the project detail page. */
+  async getSyntheticData(projectId: string): Promise<SyntheticDataResponseDto> {
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: {
+        syntheticDataUrl: true,
+        syntheticDataKey: true,
+        syntheticDataFileName: true,
+      },
+    });
+
+    if (project.syntheticDataUrl) {
+      return { type: 'link', url: project.syntheticDataUrl, fileName: null };
+    }
+    if (project.syntheticDataKey) {
+      const url = await this.fileStorage.getFileUrl(
+        ProjectService.SYNTHETIC_BUCKET,
+        project.syntheticDataKey,
+      );
+      return { type: 'file', url, fileName: project.syntheticDataFileName };
+    }
+    return { type: 'none', url: null, fileName: null };
+  }
+
+  /** Attach a synthetic dataset by public link; clears any previous upload. */
+  async setSyntheticDataLink(
+    projectId: string,
+    url: string,
+  ): Promise<SyntheticDataResponseDto> {
+    // Remove a previously uploaded object so we don't leak orphaned S3 files.
+    const existing = await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: { syntheticDataKey: true },
+    });
+    if (existing.syntheticDataKey) {
+      await this.fileStorage.deleteFile(
+        ProjectService.SYNTHETIC_BUCKET,
+        existing.syntheticDataKey,
+      );
+    }
+
+    await this.prisma.project.update({
+      where: { projectId },
+      data: {
+        syntheticDataUrl: url,
+        syntheticDataKey: null,
+        syntheticDataFileName: null,
+        lastModified: new Date(),
+      },
+    });
+
+    return { type: 'link', url, fileName: null };
+  }
+
+  /** Attach a synthetic dataset by uploading a CSV to S3; clears any previous link. */
+  async uploadSyntheticData(
+    projectId: string,
+    file: Express.Multer.File,
+  ): Promise<SyntheticDataResponseDto> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: { projectId: true },
+    });
+
+    const key = this.syntheticKey(projectId);
+    await this.fileStorage.createBucketIfNotExists(
+      ProjectService.SYNTHETIC_BUCKET,
+    );
+    await this.fileStorage.putFile(ProjectService.SYNTHETIC_BUCKET, key, file);
+
+    await this.prisma.project.update({
+      where: { projectId },
+      data: {
+        syntheticDataKey: key,
+        syntheticDataFileName: file.originalname,
+        syntheticDataUrl: null,
+        lastModified: new Date(),
+      },
+    });
+
+    const url = await this.fileStorage.getFileUrl(
+      ProjectService.SYNTHETIC_BUCKET,
+      key,
+    );
+    return { type: 'file', url, fileName: file.originalname };
+  }
+
+  /** Detach the synthetic dataset (link or upload). */
+  async removeSyntheticData(
+    projectId: string,
+  ): Promise<SyntheticDataResponseDto> {
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: { syntheticDataKey: true },
+    });
+    if (project.syntheticDataKey) {
+      await this.fileStorage.deleteFile(
+        ProjectService.SYNTHETIC_BUCKET,
+        project.syntheticDataKey,
+      );
+    }
+
+    await this.prisma.project.update({
+      where: { projectId },
+      data: {
+        syntheticDataUrl: null,
+        syntheticDataKey: null,
+        syntheticDataFileName: null,
+        lastModified: new Date(),
+      },
+    });
+
+    return { type: 'none', url: null, fileName: null };
   }
 }

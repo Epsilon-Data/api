@@ -134,4 +134,15 @@ export class AnalysisArchetypeResponseDto {
   @IsDefined()
   @IsObject()
   properties!: Record<string, object>;
+
+  @ApiPropertyOptional({
+    description:
+      'Public URL to the synthetic dataset for this project, if the data owner attached one. ' +
+      'The SDK downloads this into generated/data.csv for local testing instead of generating dummy data.',
+    example:
+      'https://object-store.example/seaco/individuals_codebook_p10000.csv',
+  })
+  @IsOptional()
+  @IsString()
+  syntheticDataUrl?: string;
 }
