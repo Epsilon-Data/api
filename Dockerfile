@@ -8,6 +8,8 @@ RUN apk add --no-cache docker-cli
 # private git packages creds
 ARG GITHUB_NPM_TOKEN
 ENV GITHUB_NPM_TOKEN=${GITHUB_NPM_TOKEN}
+# .npmrc reads ${NODE_AUTH_TOKEN} (CI convention); expose the same token under that name for the Docker build
+ENV NODE_AUTH_TOKEN=${GITHUB_NPM_TOKEN}
 
 # broker image name
 ARG BROKER_IMAGE
