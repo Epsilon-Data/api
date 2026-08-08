@@ -18,6 +18,7 @@ import {
 } from 'src/atlas/dto';
 import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { $Enums } from 'src/generated/prisma/client';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 
@@ -43,7 +44,7 @@ describe('ArchetypeService', () => {
         {
           provide: PrismaService,
           useValue: {
-            project: { update: jest.fn() },
+            project: { update: jest.fn(), findUnique: jest.fn() },
           },
         },
         { provide: QueueService, useValue: mockQueue },
@@ -52,6 +53,10 @@ describe('ArchetypeService', () => {
           useValue: {
             getUserInfoById: jest.fn(),
           },
+        },
+        {
+          provide: FileStorageService,
+          useValue: { getFileUrl: jest.fn() },
         },
       ],
     }).compile();

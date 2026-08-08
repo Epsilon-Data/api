@@ -11,6 +11,17 @@ export const coverOptions: MulterOptions = {
   },
 };
 
+export const syntheticDataOptions: MulterOptions = {
+  storage: memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  fileFilter: (req, file, callback) => {
+    if (!file.originalname.match(/\.csv$/i)) {
+      return callback(new Error('Only CSV files are allowed!'), false);
+    }
+    callback(null, true);
+  },
+};
+
 export const scriptOptions: MulterOptions = {
   storage: memoryStorage(),
   limits: { fileSize: 5000000 },

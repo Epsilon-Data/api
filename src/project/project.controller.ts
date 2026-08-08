@@ -27,6 +27,8 @@ import {
   ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
+  SyntheticDataLinkDto,
+  SyntheticDataResponseDto,
   UpdateProjectDto,
   UpdateCredentialsDto,
 } from './dto';
@@ -43,7 +45,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { coverOptions } from 'src/utils/options.util';
+import { coverOptions, syntheticDataOptions } from 'src/utils/options.util';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
@@ -663,5 +665,72 @@ export class ProjectController {
   ) {
     const result = this.projectService.uploadProjectCover(projectId, file);
     return result;
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view')
+  @Get(':projectId/synthetic-data')
+  @ApiOperation({ summary: 'Get the synthetic dataset attached to a project' })
+  @ApiOkResponse({
+    description: 'Current synthetic dataset state',
+    type: SyntheticDataResponseDto,
+  })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  async getSyntheticData(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.projectService.getSyntheticData(projectId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Put(':projectId/synthetic-data/link')
+  @ApiOperation({
+    summary: 'Attach a synthetic dataset to a project by public link',
+  })
+  @ApiOkResponse({
+    description: 'Synthetic dataset link saved',
+    type: SyntheticDataResponseDto,
+  })
+  @ApiBadRequestResponse({ type: GenericErrorResponseDto })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  async setSyntheticDataLink(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: SyntheticDataLinkDto,
+  ) {
+    return await this.projectService.setSyntheticDataLink(projectId, dto.url);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Post(':projectId/synthetic-data')
+  @UseInterceptors(FileInterceptor('file', syntheticDataOptions))
+  @ApiOperation({
+    summary: 'Attach a synthetic dataset to a project by uploading a CSV',
+  })
+  @ApiOkResponse({
+    description: 'Synthetic dataset uploaded',
+    type: SyntheticDataResponseDto,
+  })
+  @ApiBadRequestResponse({ type: GenericErrorResponseDto })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  async uploadSyntheticData(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @UploadedFile(new ParseFilePipe()) file: Express.Multer.File,
+  ) {
+    return await this.projectService.uploadSyntheticData(projectId, file);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Delete(':projectId/synthetic-data')
+  @ApiOperation({ summary: 'Detach the synthetic dataset from a project' })
+  @ApiOkResponse({
+    description: 'Synthetic dataset removed',
+    type: SyntheticDataResponseDto,
+  })
+  @ApiNotFoundResponse({ type: GenericErrorResponseDto })
+  async removeSyntheticData(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+  ) {
+    return await this.projectService.removeSyntheticData(projectId);
   }
 }

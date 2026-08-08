@@ -615,6 +615,66 @@ export class ProjectDetailsResponseDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Public link to the synthetic dataset for this project, if one was attached via a URL',
+    nullable: true,
+    example:
+      'https://object-store.example/seaco/individuals_codebook_p10000.csv',
+  })
+  @IsOptional()
+  @IsString()
+  syntheticDataUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Original file name of the synthetic dataset, if one was uploaded instead of linked',
+    nullable: true,
+    example: 'individuals_codebook_p10000.csv',
+  })
+  @IsOptional()
+  @IsString()
+  syntheticDataFileName?: string | null;
+}
+
+export class SyntheticDataLinkDto {
+  @ApiProperty({
+    description: 'Public URL to the synthetic dataset CSV (e.g. on Nectar)',
+    example:
+      'https://object-store.example/seaco/individuals_codebook_p10000.csv',
+  })
+  @IsDefined()
+  @IsString()
+  @IsNotEmpty()
+  @IsUrl({ require_tld: false })
+  url!: string;
+}
+
+export class SyntheticDataResponseDto {
+  @ApiProperty({
+    description:
+      "How the synthetic dataset is attached: 'link' (external URL), 'file' (uploaded), or 'none'",
+    enum: ['link', 'file', 'none'],
+    example: 'link',
+  })
+  type!: 'link' | 'file' | 'none';
+
+  @ApiPropertyOptional({
+    description:
+      'The synthetic dataset URL (the link, or a signed URL for an upload)',
+    nullable: true,
+    example:
+      'https://object-store.example/seaco/individuals_codebook_p10000.csv',
+  })
+  url?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Original file name when the dataset was uploaded',
+    nullable: true,
+    example: 'individuals_codebook_p10000.csv',
+  })
+  fileName?: string | null;
 }
 
 export class ProjectRequestsResponseDto {
