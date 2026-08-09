@@ -29,8 +29,12 @@ import {
   AtlasSearchBasicHeadlessResponseDto,
   AtlasSearchBasicResponseDto,
 } from 'src/atlas/dto';
-import { AnalysisArchetypeResponseDto } from 'src/analysis/dto';
+import {
+  AnalysisArchetypeResponseDto,
+  SyntheticDataPreviewDto,
+} from 'src/analysis/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { Readable } from 'stream';
 
 @Injectable()
 export class ArchetypeService {
@@ -67,6 +71,122 @@ export class ArchetypeService {
       );
     }
     return undefined;
+  }
+
+  /**
+   * Read-only preview of the synthetic dataset for a researcher: the header row
+   * plus the first `maxRows` data rows. The full CSV / its URL are never returned
+   * to the client — only a capped sample is read server-side and sent as JSON.
+   */
+  async getSyntheticDataPreview(
+    projectId: string,
+    maxRows = 20,
+  ): Promise<SyntheticDataPreviewDto> {
+    const rowLimit = Math.min(Math.max(maxRows, 1), 100);
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: { syntheticDataUrl: true, syntheticDataKey: true },
+    });
+
+    let stream: Readable;
+    if (project.syntheticDataKey) {
+      stream = await this.fileStorage.getFile(
+        ArchetypeService.SYNTHETIC_BUCKET,
+        project.syntheticDataKey,
+      );
+    } else if (project.syntheticDataUrl) {
+      const response = await fetch(project.syntheticDataUrl);
+      if (!response.ok || !response.body) {
+        throw new BadRequestException(
+          `Could not read synthetic dataset (HTTP ${response.status})`,
+        );
+      }
+      stream = Readable.fromWeb(response.body as never);
+    } else {
+      return { attached: false, columns: [], rows: [], rowCount: 0 };
+    }
+
+    // header + rowLimit data rows
+    const head = await this.readCsvHead(stream, rowLimit + 1);
+    const records = this.parseCsv(head, rowLimit + 1);
+    const columns = records.length > 0 ? records[0] : [];
+    const rows = records.slice(1, rowLimit + 1);
+    return { attached: true, columns, rows, rowCount: rows.length };
+  }
+
+  /**
+   * Consume a CSV stream only until `maxRecords` top-level rows are seen (or a
+   * 2MB safety cap is hit), then stop — so we never load a large dataset into
+   * memory. Quote-aware so newlines inside quoted fields don't end a record.
+   */
+  private async readCsvHead(
+    stream: Readable,
+    maxRecords: number,
+  ): Promise<string> {
+    const MAX_BYTES = 2 * 1024 * 1024;
+    let buffer = '';
+    let bytes = 0;
+    let records = 0;
+    let inQuotes = false;
+    try {
+      for await (const chunk of stream) {
+        const text: string = Buffer.isBuffer(chunk)
+          ? chunk.toString('utf8')
+          : String(chunk);
+        buffer += text;
+        bytes += Buffer.byteLength(text);
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (ch === '"') inQuotes = !inQuotes;
+          else if (ch === '\n' && !inQuotes) records++;
+        }
+        if (records >= maxRecords || bytes >= MAX_BYTES) break;
+      }
+    } finally {
+      stream.destroy();
+    }
+    return buffer;
+  }
+
+  /** Minimal RFC4180-ish CSV parser, capped at `maxRecords` rows. */
+  private parseCsv(text: string, maxRecords: number): string[][] {
+    const records: string[][] = [];
+    let field = '';
+    let row: string[] = [];
+    let inQuotes = false;
+    const pushRow = () => {
+      row.push(field);
+      records.push(row.map((v) => v.replace(/\r$/, '')));
+      row = [];
+      field = '';
+    };
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        row.push(field);
+        field = '';
+      } else if (ch === '\n') {
+        pushRow();
+        if (records.length >= maxRecords) return records;
+      } else {
+        field += ch;
+      }
+    }
+    if (field.length > 0 || row.length > 0) pushRow();
+    return records.slice(0, maxRecords);
   }
 
   // Queries
