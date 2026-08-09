@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -23,6 +24,7 @@ import {
   AnalysisArchetypeResponseDto,
   DatasetDto,
   LoginDto,
+  SyntheticDataPreviewDto,
 } from './dto/analysis.dto';
 import { ArchetypeService } from 'src/archetype/archetype.service';
 import { Resource } from 'src/common/decorators/resource.decorator';
@@ -154,5 +156,28 @@ export class AnalysisController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return this.archetypeService.getAnalysisArchetype(projectId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('analysis')
+  @Get('datasets/:projectId/synthetic-preview')
+  @ApiOperation({
+    summary: 'Preview the first rows of a dataset’s synthetic data',
+  })
+  @ApiOkResponse({
+    description: 'Capped, read-only sample of the synthetic dataset',
+    type: SyntheticDataPreviewDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials',
+    type: GenericErrorResponseDto,
+  })
+  async getDatasetSyntheticPreview(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query('rows') rows?: string,
+  ): Promise<SyntheticDataPreviewDto> {
+    const parsed = Number.parseInt(rows ?? '', 10);
+    const maxRows = Number.isFinite(parsed) ? parsed : 20;
+    return this.archetypeService.getSyntheticDataPreview(projectId, maxRows);
   }
 }

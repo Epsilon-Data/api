@@ -146,3 +146,35 @@ export class AnalysisArchetypeResponseDto {
   @IsString()
   syntheticDataUrl?: string;
 }
+
+export class SyntheticDataPreviewDto {
+  @ApiProperty({
+    description: 'Whether a synthetic dataset is attached to the project.',
+    example: true,
+  })
+  attached!: boolean;
+
+  @ApiProperty({
+    description: 'CSV header row (column names).',
+    example: ['household_id', 'sex', 'age', 'ethnicity'],
+    type: [String],
+  })
+  columns!: string[];
+
+  @ApiProperty({
+    description: 'Capped sample of data rows; each row aligns with `columns`.',
+    example: [
+      ['H0001', 'Female', '54', 'Malay'],
+      ['H0002', 'Male', '36', 'Chinese'],
+    ],
+    type: 'array',
+    items: { type: 'array', items: { type: 'string' } },
+  })
+  rows!: string[][];
+
+  @ApiProperty({
+    description: 'Number of data rows returned in this preview.',
+    example: 20,
+  })
+  rowCount!: number;
+}
