@@ -16,9 +16,11 @@ ARG BROKER_IMAGE
 ENV BROKER_IMAGE=${BROKER_IMAGE}
 
 WORKDIR /app
-# install packages
-RUN npm install -g pnpm
+# install packages (pin to pnpm 10 — v11 drops package.json pnpm.overrides, breaking the lockfile)
+RUN npm install -g pnpm@10
 COPY [".", "/app/"]
+# pnpm ignores ${VAR} auth in a committed project .npmrc (security); write the token to the trusted user-level file
+RUN echo "//npm.pkg.github.com/:_authToken=${GITHUB_NPM_TOKEN}" > /root/.npmrc
 RUN pnpm install
 
 # build app
