@@ -27,6 +27,7 @@ import {
   Logic,
   UserRepresentation,
 } from '@epsilon-data/keycloak-admin-client';
+import { JobService } from 'src/job/job.service';
 import type { Job } from 'bull';
 
 describe('KeycloakProcessor.handleAddResource', () => {
@@ -50,6 +51,13 @@ describe('KeycloakProcessor.handleAddResource', () => {
     get: jest.fn(),
   };
 
+  const jobServiceMock = {
+    createJob: jest.fn(),
+    markActive: jest.fn(),
+    markCompleted: jest.fn(),
+    markFailed: jest.fn(),
+  };
+
   // Bull job mock
   const makeJob = (data: unknown): Job =>
     ({
@@ -66,6 +74,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
         KeycloakProcessor,
         { provide: KeycloakAdminService, useValue: keycloakMock },
         { provide: ConfigService, useValue: configServiceMock },
+        { provide: JobService, useValue: jobServiceMock },
       ],
     }).compile();
 
@@ -332,7 +341,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
     );
   });
 
-  it('logs error and stops further work when owner cannot be resolved', async () => {
+  it('logs error, marks the job failed and rethrows when owner cannot be resolved', async () => {
     const errorSpy = jest
       .spyOn((processor as any).logger, 'error')
       .mockImplementation(() => undefined);
@@ -340,21 +349,28 @@ describe('KeycloakProcessor.handleAddResource', () => {
     keycloakMock.getUserById.mockResolvedValueOnce(null);
 
     const job = makeJob({
+      jobId: 'bg-job-1',
       id: 'proj-123',
       ownerId: 'owner-missing',
       collaborators: undefined,
       custodian: undefined,
     });
 
-    await processor.handleAddResource(job);
+    await expect(processor.handleAddResource(job)).rejects.toThrow(
+      "Owner with id owner-missing doesn't exists",
+    );
 
     expect(errorSpy).toHaveBeenCalled();
+    expect(jobServiceMock.markFailed).toHaveBeenCalledWith(
+      'bg-job-1',
+      expect.any(String),
+    );
     // should fail before creating anything
     expect(keycloakMock.createResource).not.toHaveBeenCalled();
     expect(keycloakMock.createGroup).not.toHaveBeenCalled();
   });
 
-  it('logs error if keycloak.auth throws', async () => {
+  it('logs error, marks the job failed and rethrows if keycloak.auth throws', async () => {
     const errorSpy = jest
       .spyOn((processor as any).logger, 'error')
       .mockImplementation(() => undefined);
@@ -362,15 +378,22 @@ describe('KeycloakProcessor.handleAddResource', () => {
     keycloakMock.auth.mockRejectedValueOnce(new Error('auth failed'));
 
     const job = makeJob({
+      jobId: 'bg-job-1',
       id: 'proj-123',
       ownerId: 'owner-1',
       collaborators: undefined,
       custodian: undefined,
     });
 
-    await processor.handleAddResource(job);
+    await expect(processor.handleAddResource(job)).rejects.toThrow(
+      'auth failed',
+    );
 
     expect(errorSpy).toHaveBeenCalled();
+    expect(jobServiceMock.markFailed).toHaveBeenCalledWith(
+      'bg-job-1',
+      expect.any(String),
+    );
     expect(keycloakMock.getUserById).not.toHaveBeenCalled();
     expect(keycloakMock.createResource).not.toHaveBeenCalled();
   });
