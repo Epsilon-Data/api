@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException } from '@nestjs/common';
+import { Readable } from 'stream';
 import { ArchetypeService } from './archetype.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
@@ -27,6 +29,7 @@ describe('ArchetypeService', () => {
   let atlas: jest.Mocked<AtlasService>;
   let prisma: jest.Mocked<PrismaService>;
   let keycloak: jest.Mocked<KeycloakAdminService>;
+  let fileStorage: jest.Mocked<FileStorageService>;
   let moduleRef: TestingModule;
 
   const mockQueue = {} as unknown as jest.Mocked<QueueService>;
@@ -44,7 +47,11 @@ describe('ArchetypeService', () => {
         {
           provide: PrismaService,
           useValue: {
-            project: { update: jest.fn(), findUnique: jest.fn() },
+            project: {
+              update: jest.fn(),
+              findUnique: jest.fn(),
+              findUniqueOrThrow: jest.fn(),
+            },
           },
         },
         { provide: QueueService, useValue: mockQueue },
@@ -56,7 +63,7 @@ describe('ArchetypeService', () => {
         },
         {
           provide: FileStorageService,
-          useValue: { getFileUrl: jest.fn() },
+          useValue: { getFileUrl: jest.fn(), getFile: jest.fn() },
         },
       ],
     }).compile();
@@ -65,6 +72,7 @@ describe('ArchetypeService', () => {
     atlas = moduleRef.get(AtlasService);
     prisma = moduleRef.get(PrismaService);
     keycloak = moduleRef.get(KeycloakAdminService);
+    fileStorage = moduleRef.get(FileStorageService);
     jest.clearAllMocks();
   });
 
@@ -1139,12 +1147,24 @@ describe('ArchetypeService', () => {
       };
       atlas.get.mockResolvedValueOnce(columnEntity);
 
+      // synthetic dataset with a manifest attached -> descriptor is available
+      (prisma.project.findUnique as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/v3/synthetic.csv`,
+        syntheticDataSchemaHash: 'hash-abc',
+        syntheticDataVersion: 3,
+      });
+
       const schema = (await service.getAnalysisArchetype(projectId, token)) as {
         $id: string;
         $schema: 'https://json-schema.org/draft/2020-12/schema#';
         title: string;
         type: 'object';
         properties: Record<string, object>;
+        syntheticData?: {
+          available: boolean;
+          schemaHash?: string;
+          version?: number;
+        };
       };
 
       // Assert atlas.post called with endpoint, body, token
@@ -1215,6 +1235,32 @@ describe('ArchetypeService', () => {
           description: 'Age',
         },
       });
+
+      // synthetic dataset descriptor replaces the old syntheticDataUrl field
+      expect(schema.syntheticData).toEqual({
+        available: true,
+        schemaHash: 'hash-abc',
+        version: 3,
+      });
+      expect(schema).not.toHaveProperty('syntheticDataUrl');
+    });
+
+    it('marks the synthetic descriptor unavailable for legacy attachments', async () => {
+      const { projectId } = mockPublishedTemplateWithLeaves();
+
+      // legacy: S3 key without a manifest hash (predates manifest support)
+      (prisma.project.findUnique as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/synthetic.csv`,
+        syntheticDataSchemaHash: null,
+        syntheticDataVersion: 0,
+      });
+
+      const schema = (await service.getAnalysisArchetype(projectId)) as {
+        syntheticData?: object;
+      };
+
+      expect(schema.syntheticData).toEqual({ available: false });
+      expect(schema).not.toHaveProperty('syntheticDataUrl');
     });
 
     it('throws not found when no published archetype is found', async () => {
@@ -1229,6 +1275,379 @@ describe('ArchetypeService', () => {
         'No published archetypes found for project proj-empty',
       );
       expect(atlas.get).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Mock a PUBLISHED template with two allowed leaves:
+   *  - "Age" under parent "Patient Info" -> path patient_info.age, column age_years
+   *  - "Sex" at the root -> path sex, column sex
+   * Returns the ids used by the mocks.
+   */
+  const mockPublishedTemplateWithLeaves = () => {
+    const projectId = '638c6f81-00c8-47f4-82ec-6b94240e757d';
+    const archetypeId = 'Xa7BAIWZCA8u';
+    const templateGuid = 'tpl-guid';
+    const parentQN = `${projectId}@${archetypeId}@node_parent`;
+
+    const headless: AtlasSearchBasicHeadlessResponseDto = {
+      queryType: AtlasQueryType.BASIC,
+      searchParameters: {},
+      attributes: {
+        name: ['name', '__guid'],
+        values: [['My Archetype', templateGuid]],
+      },
+      approximateCount: 1,
+    };
+    atlas.post.mockResolvedValue(headless);
+
+    const templateEntity = {
+      entity: {
+        guid: templateGuid,
+        typeName: AtlasArchetypeTypeName.Template,
+        attributes: {
+          qualifiedName: `${projectId}@${archetypeId}`,
+          name: 'My Archetype',
+          status: 'PUBLISHED',
+        },
+      },
+      referredEntities: {
+        PARENT: {
+          guid: 'PARENT',
+          typeName: 'archetype_node',
+          status: 'ACTIVE',
+          attributes: { qualifiedName: parentQN, label: 'Patient Info' },
+          relationshipAttributes: {
+            parent_node: null,
+            child_nodes: [{}],
+          },
+          classifications: [
+            {
+              typeName: 'root_node',
+              entityGuid: 'PARENT',
+              entityStatus: 'ACTIVE',
+            },
+          ],
+        },
+        CHILD: {
+          guid: 'CHILD',
+          typeName: 'archetype_node',
+          status: 'ACTIVE',
+          attributes: {
+            qualifiedName: `${projectId}@${archetypeId}@node_child`,
+            label: 'Age',
+          },
+          relationshipAttributes: {
+            parent_node: {
+              typeName: 'archetype_node',
+              relationshipStatus: 'ACTIVE',
+              displayText: 'Patient Info',
+              qualifiedName: parentQN,
+            },
+            column: {
+              typeName: 'rdbms_column',
+              relationshipStatus: 'ACTIVE',
+              guid: 'col-age',
+              qualifiedName: `${projectId}@public.examination@age_years`,
+            },
+          },
+          classifications: [
+            {
+              typeName: 'archetype_node_analysis_permissions',
+              entityStatus: 'ACTIVE',
+              entityGuid: 'CHILD',
+              attributes: { access_level: 'DETAILED' },
+            },
+          ],
+        },
+        SEX: {
+          guid: 'SEX',
+          typeName: 'archetype_node',
+          status: 'ACTIVE',
+          attributes: {
+            qualifiedName: `${projectId}@${archetypeId}@node_sex`,
+            label: 'Sex',
+          },
+          relationshipAttributes: {
+            parent_node: null,
+            column: {
+              typeName: 'rdbms_column',
+              relationshipStatus: 'ACTIVE',
+              guid: 'col-sex',
+              qualifiedName: `${projectId}@public.examination@sex`,
+            },
+          },
+          classifications: [
+            {
+              typeName: 'archetype_node_analysis_permissions',
+              entityStatus: 'ACTIVE',
+              entityGuid: 'SEX',
+              attributes: { access_level: 'DETAILED' },
+            },
+          ],
+        },
+      },
+    };
+
+    atlas.get.mockImplementation(((endpoint: string) => {
+      if (endpoint === `/entity/guid/${templateGuid}`)
+        return Promise.resolve(templateEntity);
+      if (endpoint === '/entity/guid/col-age')
+        return Promise.resolve({
+          entity: {
+            guid: 'col-age',
+            typeName: 'rdbms_column',
+            attributes: { data_type: 'int', name: 'age_years' },
+          },
+          referredEntities: {},
+        });
+      if (endpoint === '/entity/guid/col-sex')
+        return Promise.resolve({
+          entity: {
+            guid: 'col-sex',
+            typeName: 'rdbms_column',
+            attributes: { data_type: 'string', name: 'sex' },
+          },
+          referredEntities: {},
+        });
+      return Promise.reject(new Error(`unexpected atlas GET ${endpoint}`));
+    }) as never);
+
+    return { projectId, archetypeId, templateGuid };
+  };
+
+  describe('getProjectedSyntheticData', () => {
+    it('serves the CSV projected to the archetype leaves with renamed headers', async () => {
+      const { projectId } = mockPublishedTemplateWithLeaves();
+
+      (prisma.project.findUnique as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/v2/synthetic.csv`,
+        syntheticDataSchemaHash: 'hash-1',
+        syntheticDataColumns: ['age_years', 'sex', 'extra'],
+        syntheticDataVersion: 2,
+      });
+      (fileStorage.getFile as jest.Mock).mockResolvedValue(
+        Readable.from(['age_years,sex,extra\n54,Female,x\n"3,6",Male,y\n']),
+      );
+
+      const result = await service.getProjectedSyntheticData(projectId);
+
+      expect(fileStorage.getFile).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/v2/synthetic.csv`,
+      );
+      // projected to the two leaves, renamed to property paths, RFC4180-quoted;
+      // the 'extra' source column is never exposed
+      expect(result.csv).toBe('patient_info.age,sex\n54,Female\n"3,6",Male\n');
+      expect(result.schemaHash).toBe('hash-1');
+      expect(result.version).toBe(2);
+    });
+
+    it('collapses colliding normalized leaf paths instead of emitting duplicate headers', async () => {
+      const projectId = 'proj-collide';
+      const templateGuid = 'tpl-collide';
+      atlas.post.mockResolvedValue({
+        queryType: AtlasQueryType.BASIC,
+        searchParameters: {},
+        attributes: {
+          name: ['name', '__guid'],
+          values: [['My Archetype', templateGuid]],
+        },
+        approximateCount: 1,
+      } as AtlasSearchBasicHeadlessResponseDto);
+
+      // two allowed root leaves whose labels normalize to the same path 'age'
+      const leaf = (guid: string, label: string, columnGuid: string) => ({
+        guid,
+        typeName: 'archetype_node',
+        status: 'ACTIVE',
+        attributes: { qualifiedName: `${projectId}@arch@${guid}`, label },
+        relationshipAttributes: {
+          parent_node: null,
+          column: {
+            typeName: 'rdbms_column',
+            relationshipStatus: 'ACTIVE',
+            guid: columnGuid,
+            qualifiedName: `${projectId}@public.t@${columnGuid}`,
+          },
+        },
+        classifications: [
+          {
+            typeName: 'archetype_node_analysis_permissions',
+            entityStatus: 'ACTIVE',
+            entityGuid: guid,
+            attributes: { access_level: 'DETAILED' },
+          },
+        ],
+      });
+      const templateEntity = {
+        entity: {
+          guid: templateGuid,
+          typeName: AtlasArchetypeTypeName.Template,
+          attributes: {
+            qualifiedName: `${projectId}@arch`,
+            name: 'My Archetype',
+            status: 'PUBLISHED',
+          },
+        },
+        referredEntities: {
+          A: leaf('A', 'Age', 'col-a'),
+          B: leaf('B', 'AGE', 'col-b'),
+        },
+      };
+      atlas.get.mockImplementation(((endpoint: string) => {
+        if (endpoint === `/entity/guid/${templateGuid}`)
+          return Promise.resolve(templateEntity);
+        if (endpoint === '/entity/guid/col-a')
+          return Promise.resolve({
+            entity: {
+              guid: 'col-a',
+              typeName: 'rdbms_column',
+              attributes: { data_type: 'int', name: 'age_a' },
+            },
+            referredEntities: {},
+          });
+        if (endpoint === '/entity/guid/col-b')
+          return Promise.resolve({
+            entity: {
+              guid: 'col-b',
+              typeName: 'rdbms_column',
+              attributes: { data_type: 'int', name: 'age_b' },
+            },
+            referredEntities: {},
+          });
+        return Promise.reject(new Error(`unexpected atlas GET ${endpoint}`));
+      }) as never);
+
+      (prisma.project.findUnique as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/v1/synthetic.csv`,
+        syntheticDataSchemaHash: 'hash-1',
+        syntheticDataColumns: ['age_a', 'age_b'],
+        syntheticDataVersion: 1,
+      });
+      (fileStorage.getFile as jest.Mock).mockResolvedValue(
+        Readable.from(['age_a,age_b\n1,2\n3,4\n']),
+      );
+
+      const result = await service.getProjectedSyntheticData(projectId);
+
+      // one 'age' header only — the last leaf wins, mirroring the schema's
+      // object-spread merge, so the CSV always matches the advertised schema
+      expect(result.csv).toBe('age\n2\n4\n');
+    });
+
+    it('throws 409 with missingColumns when the manifest lacks archetype columns', async () => {
+      const { projectId } = mockPublishedTemplateWithLeaves();
+
+      (prisma.project.findUnique as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/v2/synthetic.csv`,
+        syntheticDataSchemaHash: 'hash-1',
+        syntheticDataColumns: ['sex', 'extra'],
+        syntheticDataVersion: 2,
+      });
+
+      const err: unknown = await service
+        .getProjectedSyntheticData(projectId)
+        .catch((e) => e as unknown);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).getResponse()).toMatchObject({
+        statusCode: 409,
+        missingColumns: ['age_years'],
+      });
+      expect(fileStorage.getFile).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 when no published archetype exists', async () => {
+      atlas.post.mockResolvedValueOnce({
+        approximateCount: 0,
+        queryType: 'BASIC',
+        searchParameters: {},
+      } as AtlasSearchBasicHeadlessResponseDto);
+
+      await expect(
+        service.getProjectedSyntheticData('proj-empty'),
+      ).rejects.toThrow('No published archetypes found for project proj-empty');
+    });
+
+    it('throws 404 for legacy attachments without a manifest', async () => {
+      const { projectId } = mockPublishedTemplateWithLeaves();
+
+      (prisma.project.findUnique as jest.Mock).mockResolvedValue({
+        syntheticDataKey: null,
+        syntheticDataSchemaHash: null,
+        syntheticDataColumns: null,
+        syntheticDataVersion: 0,
+      });
+
+      await expect(
+        service.getProjectedSyntheticData(projectId),
+      ).rejects.toThrow(
+        `No synthetic dataset with a manifest is attached to project ${projectId}`,
+      );
+      expect(fileStorage.getFile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSyntheticDataPreview', () => {
+    it('previews only the projected + renamed archetype columns', async () => {
+      const { projectId } = mockPublishedTemplateWithLeaves();
+
+      (prisma.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/v2/synthetic.csv`,
+        syntheticDataSchemaHash: 'hash-1',
+      });
+      (fileStorage.getFile as jest.Mock).mockResolvedValue(
+        Readable.from(['age_years,sex,extra\n54,Female,x\n36,Male,y\n']),
+      );
+
+      const result = await service.getSyntheticDataPreview(projectId, 20);
+
+      expect(result).toEqual({
+        attached: true,
+        columns: ['patient_info.age', 'sex'],
+        rows: [
+          ['54', 'Female'],
+          ['36', 'Male'],
+        ],
+        rowCount: 2,
+      });
+    });
+
+    it('returns attached:false when there is no published archetype', async () => {
+      atlas.post.mockResolvedValueOnce({
+        approximateCount: 0,
+        queryType: 'BASIC',
+        searchParameters: {},
+      } as AtlasSearchBasicHeadlessResponseDto);
+
+      const result = await service.getSyntheticDataPreview('proj-empty');
+
+      expect(result).toEqual({
+        attached: false,
+        columns: [],
+        rows: [],
+        rowCount: 0,
+      });
+      expect(fileStorage.getFile).not.toHaveBeenCalled();
+    });
+
+    it('returns attached:false when the dataset has no manifest', async () => {
+      const { projectId } = mockPublishedTemplateWithLeaves();
+
+      (prisma.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/synthetic.csv`,
+        syntheticDataSchemaHash: null,
+      });
+
+      const result = await service.getSyntheticDataPreview(projectId);
+
+      expect(result).toEqual({
+        attached: false,
+        columns: [],
+        rows: [],
+        rowCount: 0,
+      });
+      expect(fileStorage.getFile).not.toHaveBeenCalled();
     });
   });
 

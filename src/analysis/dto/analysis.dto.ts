@@ -137,14 +137,38 @@ export class AnalysisArchetypeResponseDto {
 
   @ApiPropertyOptional({
     description:
-      'Public URL to the synthetic dataset for this project, if the data owner attached one. ' +
-      'The SDK downloads this into generated/data.csv for local testing instead of generating dummy data.',
-    example:
-      'https://object-store.example/seaco/individuals_codebook_p10000.csv',
+      'Synthetic dataset descriptor. When available, the SDK downloads the projected CSV ' +
+      'from the authenticated synthetic-data endpoint instead of generating dummy data.',
+    type: () => SyntheticDataDescriptorDto,
   })
   @IsOptional()
-  @IsString()
-  syntheticDataUrl?: string;
+  @IsObject()
+  syntheticData?: SyntheticDataDescriptorDto;
+}
+
+export class SyntheticDataDescriptorDto {
+  @ApiProperty({
+    description:
+      'Whether a synthetic dataset with a column manifest is attached to the project. ' +
+      'Legacy attachments (url-only, or an upload without a manifest) are not available.',
+    example: true,
+  })
+  available!: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'sha256 hex digest of the sorted source CSV header names. Only present when available=true; ' +
+      'the SDK compares this string against its stored schema_hash, never recomputes it.',
+    example: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  })
+  schemaHash?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Monotonic dataset version, bumped on every attach. Only present when available=true.',
+    example: 3,
+  })
+  version?: number;
 }
 
 export class SyntheticDataPreviewDto {
