@@ -87,13 +87,15 @@ describe('ProjectController', () => {
   describe('getUserOwnedProjects', () => {
     it('should return user owned projects', async () => {
       const projects = [{ projectId: 'p1', name: 'Project 1' }];
+      const query = { page: 1, limit: 12 } as any;
       projectServiceMock.getUserOwnedProjects.mockResolvedValue(projects);
 
-      const result = await controller.getUserOwnedProjects(mockUser);
+      const result = await controller.getUserOwnedProjects(mockUser, query);
 
       expect(result).toEqual(projects);
       expect(projectServiceMock.getUserOwnedProjects).toHaveBeenCalledWith(
         'user-123',
+        query,
       );
     });
   });
@@ -102,14 +104,16 @@ describe('ProjectController', () => {
     it('should get permissions and return shared projects', async () => {
       const permissions = [{ rsname: 'project:p1', scopes: ['view'] }];
       const projects = [{ projectId: 'p1', name: 'Shared Project' }];
+      const query = { page: 1, limit: 12 } as any;
       keycloakServiceMock.getPermissions.mockResolvedValue(permissions);
       projectServiceMock.getUserSharedProjects.mockResolvedValue(projects);
 
-      const result = await controller.getUserSharedProjects(mockRequest);
+      const result = await controller.getUserSharedProjects(mockRequest, query);
 
       expect(keycloakServiceMock.getPermissions).toHaveBeenCalled();
       expect(projectServiceMock.getUserSharedProjects).toHaveBeenCalledWith(
         permissions,
+        query,
       );
       expect(result).toEqual(projects);
     });

@@ -11,9 +11,15 @@ export const coverOptions: MulterOptions = {
   },
 };
 
+// Single cap for the synthetic dataset everywhere it is buffered — the multer
+// upload, the link materialisation and the projected download all derive from
+// this constant so an attached dataset can never exceed what the download
+// path is willing to serve.
+export const MAX_SYNTHETIC_DATA_BYTES = 100 * 1024 * 1024; // 100MB
+
 export const syntheticDataOptions: MulterOptions = {
   storage: memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: { fileSize: MAX_SYNTHETIC_DATA_BYTES },
   fileFilter: (req, file, callback) => {
     if (!file.originalname.match(/\.csv$/i)) {
       return callback(new Error('Only CSV files are allowed!'), false);
