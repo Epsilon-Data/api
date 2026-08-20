@@ -998,19 +998,50 @@ export class ArchetypeService {
   }
 
   private atlasTypeToJSONType(dataType: string): string {
-    switch (dataType) {
+    // Normalise: crawlers report native SQL type names (e.g. Postgres
+    // 'character varying(255)', 'numeric(10,2)') — lowercase and strip any
+    // length/precision qualifier so the switch matches the base type.
+    const base = (dataType ?? '').toLowerCase().replace(/\(.*$/, '').trim();
+    switch (base) {
       case 'string':
       case 'date':
+      case 'timestamp':
+      case 'timestamp without time zone':
+      case 'timestamp with time zone':
+      case 'time':
+      case 'text':
+      case 'varchar':
+      case 'character varying':
+      case 'char':
+      case 'character':
+      case 'uuid':
+      case 'json':
+      case 'jsonb':
         return 'string';
       case 'int':
       case 'integer':
+      case 'int2':
+      case 'int4':
+      case 'int8':
+      case 'smallint':
+      case 'bigint':
+      case 'serial':
+      case 'bigserial':
         return 'integer';
       case 'long':
       case 'float':
+      case 'float4':
+      case 'float8':
       case 'double':
+      case 'double precision':
+      case 'real':
+      case 'numeric':
+      case 'decimal':
+      case 'money':
       case 'short':
         return 'number';
       case 'boolean':
+      case 'bool':
         return 'boolean';
       case 'array<string>':
       case 'list<string>':

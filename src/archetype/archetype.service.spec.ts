@@ -1651,5 +1651,47 @@ describe('ArchetypeService', () => {
     });
   });
 
+  describe('atlasTypeToJSONType (column data_type -> JSON Schema type)', () => {
+    const map = (dt: string): string =>
+      (
+        service as unknown as { atlasTypeToJSONType(d: string): string }
+      ).atlasTypeToJSONType(dt);
+
+    it('maps Atlas-native type names', () => {
+      expect(map('string')).toBe('string');
+      expect(map('int')).toBe('integer');
+      expect(map('integer')).toBe('integer');
+      expect(map('double')).toBe('number');
+      expect(map('boolean')).toBe('boolean');
+      expect(map('array<string>')).toBe('array');
+    });
+
+    it('maps native SQL/Postgres type names (regression: text/numeric no longer fall through to object)', () => {
+      expect(map('text')).toBe('string');
+      expect(map('varchar')).toBe('string');
+      expect(map('character varying')).toBe('string');
+      expect(map('uuid')).toBe('string');
+      expect(map('timestamp')).toBe('string');
+      expect(map('numeric')).toBe('number');
+      expect(map('decimal')).toBe('number');
+      expect(map('real')).toBe('number');
+      expect(map('double precision')).toBe('number');
+      expect(map('bigint')).toBe('integer');
+      expect(map('smallint')).toBe('integer');
+      expect(map('bool')).toBe('boolean');
+    });
+
+    it('normalises case and strips length/precision qualifiers', () => {
+      expect(map('VARCHAR(255)')).toBe('string');
+      expect(map('numeric(10,2)')).toBe('number');
+      expect(map('Character Varying(64)')).toBe('string');
+    });
+
+    it('falls back to object for genuinely unknown types', () => {
+      expect(map('geometry')).toBe('object');
+      expect(map('')).toBe('object');
+    });
+  });
+
   // NODE: methods that implement queue will be tested in atlas.processor.spec.ts
 });
