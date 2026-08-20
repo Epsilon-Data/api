@@ -8,6 +8,7 @@ import { AtlasProcessor } from './atlas.processor';
 import { DockerService } from 'src/docker/docker.service';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { JobService } from 'src/job/job.service';
 import { Job } from 'bull';
 
 import { ArchetypeJobDataDto } from './dto';
@@ -968,6 +969,15 @@ describe('AtlasProcessor', () => {
         {
           provide: PrismaService,
           useValue: { project: { update: jest.fn() } },
+        },
+        {
+          provide: JobService,
+          useValue: {
+            createJob: jest.fn(),
+            markActive: jest.fn(),
+            markCompleted: jest.fn(),
+            markFailed: jest.fn(),
+          },
         },
       ],
     }).compile();

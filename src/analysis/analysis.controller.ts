@@ -8,10 +8,13 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -156,6 +159,60 @@ export class AnalysisController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return this.archetypeService.getAnalysisArchetype(projectId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('analysis')
+  @Get('datasets/:projectId/synthetic-data')
+  @ApiOperation({
+    summary:
+      'Download the synthetic dataset projected to the published archetype',
+  })
+  @ApiOkResponse({
+    description:
+      'Synthetic dataset CSV, projected to the archetype leaves and with headers ' +
+      'renamed to the archetype property paths. The schema hash and dataset ' +
+      'version are returned in the X-Epsilon-Schema-Hash / X-Epsilon-Dataset-Version headers.',
+    content: {
+      'text/csv': {
+        schema: { type: 'string' },
+        example: 'patient_info.age,patient_info.sex\n54,Female\n36,Male\n',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials',
+    type: GenericErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description:
+      'No published archetype for the project, or no synthetic dataset with a manifest attached',
+    type: GenericErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description:
+      'Published archetype references columns missing from the synthetic dataset',
+    content: {
+      'application/json': {
+        example: {
+          statusCode: 409,
+          message:
+            'Published archetype references columns missing from the synthetic dataset: heart_rate — re-attach a CSV containing them',
+          missingColumns: ['heart_rate'],
+        },
+      },
+    },
+  })
+  async getDatasetSyntheticData(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<string> {
+    const { csv, schemaHash, version } =
+      await this.archetypeService.getProjectedSyntheticData(projectId);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('X-Epsilon-Schema-Hash', schemaHash);
+    res.setHeader('X-Epsilon-Dataset-Version', String(version));
+    return csv;
   }
 
   @UseGuards(ResourceGuard)

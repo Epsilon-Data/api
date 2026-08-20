@@ -115,7 +115,7 @@ describe('DatabaseService', () => {
         {
           provide: PrismaService,
           useValue: {
-            project: { update: jest.fn() },
+            project: { update: jest.fn(), findUnique: jest.fn() },
           },
         },
         {
@@ -482,6 +482,7 @@ describe('DatabaseService', () => {
       expect(result).toEqual<DatasetDetailsResponseDto>({
         tableReferences: {},
         dataObjects: {},
+        properties: {},
       });
     });
   });

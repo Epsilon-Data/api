@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -31,10 +32,22 @@ import {
 } from 'src/atlas/dto';
 import {
   AnalysisArchetypeResponseDto,
+  SyntheticDataDescriptorDto,
   SyntheticDataPreviewDto,
 } from 'src/analysis/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { Readable } from 'stream';
+import { parseCsvText } from 'src/utils/csv-manifest.util';
+import { MAX_SYNTHETIC_DATA_BYTES } from 'src/utils/options.util';
+
+/**
+ * A published-archetype leaf: its dot-joined property path (as used for the
+ * schema property keys) and the real database column name it maps to.
+ */
+interface ArchetypeLeafRef {
+  path: string;
+  columnName: string;
+}
 
 @Injectable()
 export class ArchetypeService {
@@ -51,66 +64,54 @@ export class ArchetypeService {
   private static readonly SYNTHETIC_BUCKET = 'synthetic';
 
   /**
-   * Resolve the synthetic dataset URL the SDK should download for a project:
-   * the pasted public link, or a signed URL for an uploaded object. Returns
-   * undefined when no synthetic dataset is attached.
-   */
-  private async resolveSyntheticDataUrl(
-    projectId: string,
-  ): Promise<string | undefined> {
-    const project = await this.prisma.project.findUnique({
-      where: { projectId },
-      select: { syntheticDataUrl: true, syntheticDataKey: true },
-    });
-    if (!project) return undefined;
-    if (project.syntheticDataUrl) return project.syntheticDataUrl;
-    if (project.syntheticDataKey) {
-      return this.fileStorage.getFileUrl(
-        ArchetypeService.SYNTHETIC_BUCKET,
-        project.syntheticDataKey,
-      );
-    }
-    return undefined;
-  }
-
-  /**
-   * Read-only preview of the synthetic dataset for a researcher: the header row
-   * plus the first `maxRows` data rows. The full CSV / its URL are never returned
-   * to the client — only a capped sample is read server-side and sent as JSON.
+   * Read-only preview of the synthetic dataset for a researcher: the projected
+   * header row plus the first `maxRows` data rows, scoped to the published
+   * archetype leaves and renamed to the archetype property paths. Columns
+   * outside the archetype are never exposed — without a published archetype or
+   * a column manifest there is no preview.
    */
   async getSyntheticDataPreview(
     projectId: string,
     maxRows = 20,
   ): Promise<SyntheticDataPreviewDto> {
     const rowLimit = Math.min(Math.max(maxRows, 1), 100);
+
+    let leafMap: ArchetypeLeafRef[];
+    try {
+      ({ leafMap } = await this.getPublishedArchetypeSchema(projectId));
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return { attached: false, columns: [], rows: [], rowCount: 0 };
+      }
+      throw error;
+    }
+
     const project = await this.prisma.project.findUniqueOrThrow({
       where: { projectId },
-      select: { syntheticDataUrl: true, syntheticDataKey: true },
+      select: { syntheticDataKey: true, syntheticDataSchemaHash: true },
     });
-
-    let stream: Readable;
-    if (project.syntheticDataKey) {
-      stream = await this.fileStorage.getFile(
-        ArchetypeService.SYNTHETIC_BUCKET,
-        project.syntheticDataKey,
-      );
-    } else if (project.syntheticDataUrl) {
-      const response = await fetch(project.syntheticDataUrl);
-      if (!response.ok || !response.body) {
-        throw new BadRequestException(
-          `Could not read synthetic dataset (HTTP ${response.status})`,
-        );
-      }
-      stream = Readable.fromWeb(response.body as never);
-    } else {
+    if (!project.syntheticDataKey || !project.syntheticDataSchemaHash) {
+      // nothing attached, or a legacy attachment without a manifest
       return { attached: false, columns: [], rows: [], rowCount: 0 };
     }
 
+    const stream = await this.fileStorage.getFile(
+      ArchetypeService.SYNTHETIC_BUCKET,
+      project.syntheticDataKey,
+    );
+
     // header + rowLimit data rows
     const head = await this.readCsvHead(stream, rowLimit + 1);
-    const records = this.parseCsv(head, rowLimit + 1);
-    const columns = records.length > 0 ? records[0] : [];
-    const rows = records.slice(1, rowLimit + 1);
+    const records = this.parseCsv(head.replace(/^\uFEFF/, ''), rowLimit + 1);
+    const headers = records.length > 0 ? records[0] : [];
+    // project + rename to the archetype property paths; leaves whose column is
+    // missing are skipped here (the full download reconciles strictly)
+    const present = leafMap.filter((leaf) => headers.includes(leaf.columnName));
+    const indices = present.map((leaf) => headers.indexOf(leaf.columnName));
+    const columns = present.map((leaf) => leaf.path);
+    const rows = records
+      .slice(1, rowLimit + 1)
+      .map((row) => indices.map((i) => row[i] ?? ''));
     return { attached: true, columns, rows, rowCount: rows.length };
   }
 
@@ -148,45 +149,13 @@ export class ArchetypeService {
     return buffer;
   }
 
-  /** Minimal RFC4180-ish CSV parser, capped at `maxRecords` rows. */
+  /**
+   * Minimal RFC4180-ish CSV parser, capped at `maxRecords` rows. Delegates to
+   * the shared manifest parser so the preview and the projected download can
+   * never disagree on how a record is split.
+   */
   private parseCsv(text: string, maxRecords: number): string[][] {
-    const records: string[][] = [];
-    let field = '';
-    let row: string[] = [];
-    let inQuotes = false;
-    const pushRow = () => {
-      row.push(field);
-      records.push(row.map((v) => v.replace(/\r$/, '')));
-      row = [];
-      field = '';
-    };
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      if (inQuotes) {
-        if (ch === '"') {
-          if (text[i + 1] === '"') {
-            field += '"';
-            i++;
-          } else {
-            inQuotes = false;
-          }
-        } else {
-          field += ch;
-        }
-      } else if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ',') {
-        row.push(field);
-        field = '';
-      } else if (ch === '\n') {
-        pushRow();
-        if (records.length >= maxRecords) return records;
-      } else {
-        field += ch;
-      }
-    }
-    if (field.length > 0 || row.length > 0) pushRow();
-    return records.slice(0, maxRecords);
+    return parseCsvText(text).slice(0, maxRecords);
   }
 
   // Queries
@@ -549,6 +518,123 @@ export class ArchetypeService {
     projectId: string,
     token?: string,
   ): Promise<AnalysisArchetypeResponseDto> {
+    const { schema } = await this.getPublishedArchetypeSchema(projectId, token);
+    const project = await this.prisma.project.findUnique({
+      where: { projectId },
+      select: {
+        syntheticDataKey: true,
+        syntheticDataSchemaHash: true,
+        syntheticDataVersion: true,
+      },
+    });
+    // available only when the CSV is materialised in S3 AND has a manifest —
+    // legacy attachments (url-only, or an S3 key without a manifest) are not
+    const available = Boolean(
+      project?.syntheticDataKey && project?.syntheticDataSchemaHash,
+    );
+    const syntheticData: SyntheticDataDescriptorDto = available
+      ? {
+          available: true,
+          schemaHash: project!.syntheticDataSchemaHash!,
+          version: project!.syntheticDataVersion,
+        }
+      : { available: false };
+    return { ...schema, syntheticData };
+  }
+
+  /**
+   * Serve the synthetic dataset projected to only the columns covered by the
+   * project's PUBLISHED archetype leaves, with headers renamed to the dot-joined
+   * archetype property paths. The full source CSV is never exposed to
+   * researchers.
+   */
+  async getProjectedSyntheticData(
+    projectId: string,
+    token?: string,
+  ): Promise<{ csv: string; schemaHash: string; version: number }> {
+    const { leafMap } = await this.getPublishedArchetypeSchema(
+      projectId,
+      token,
+    );
+    const project = await this.prisma.project.findUnique({
+      where: { projectId },
+      select: {
+        syntheticDataKey: true,
+        syntheticDataSchemaHash: true,
+        syntheticDataColumns: true,
+        syntheticDataVersion: true,
+      },
+    });
+    if (!project?.syntheticDataKey || !project.syntheticDataSchemaHash) {
+      throw new NotFoundException(
+        `No synthetic dataset with a manifest is attached to project ${projectId} (or it predates manifest support — re-attach it)`,
+      );
+    }
+
+    // reconcile the archetype leaves against the stored column manifest
+    const manifestColumns = (project.syntheticDataColumns as string[]) ?? [];
+    const missingColumns = [
+      ...new Set(
+        leafMap
+          .map((leaf) => leaf.columnName)
+          .filter((name) => !manifestColumns.includes(name)),
+      ),
+    ];
+    if (missingColumns.length > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: `Published archetype references columns missing from the synthetic dataset: ${missingColumns.join(', ')} — re-attach a CSV containing them`,
+        missingColumns,
+      });
+    }
+
+    const stream = await this.fileStorage.getFile(
+      ArchetypeService.SYNTHETIC_BUCKET,
+      project.syntheticDataKey,
+    );
+    const records = parseCsvText(await this.readCsvFull(stream));
+    const headers = records.length > 0 ? records[0] : [];
+    const indices = leafMap.map((leaf) => headers.indexOf(leaf.columnName));
+    // the stored object always matches its manifest; guard against drift anyway
+    const notInCsv = [
+      ...new Set(
+        leafMap
+          .filter((_, i) => indices[i] === -1)
+          .map((leaf) => leaf.columnName),
+      ),
+    ];
+    if (notInCsv.length > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: `Published archetype references columns missing from the synthetic dataset: ${notInCsv.join(', ')} — re-attach a CSV containing them`,
+        missingColumns: notInCsv,
+      });
+    }
+
+    const lines = [leafMap.map((leaf) => this.toCsvField(leaf.path)).join(',')];
+    for (const row of records.slice(1)) {
+      lines.push(indices.map((i) => this.toCsvField(row[i] ?? '')).join(','));
+    }
+    return {
+      csv: lines.join('\n') + '\n',
+      schemaHash: project.syntheticDataSchemaHash,
+      version: project.syntheticDataVersion,
+    };
+  }
+
+  /**
+   * Atlas walk for the PUBLISHED archetype of a project: builds the JSON Schema
+   * served to researchers plus the leaf map (property path -> real database
+   * column name) used to project the synthetic dataset. Throws NotFoundException
+   * when the project has no published archetype.
+   */
+  private async getPublishedArchetypeSchema(
+    projectId: string,
+    token?: string,
+  ): Promise<{
+    schema: AnalysisArchetypeResponseDto;
+    leafMap: ArchetypeLeafRef[];
+  }> {
     // get ID of PUBLISHED archetype
     const body = {
       typeName: AtlasArchetypeTypeName.Template,
@@ -590,15 +676,18 @@ export class ArchetypeService {
       const archetypeId = templateEntity.entity.attributes.qualifiedName
         .split('@')
         .at(-1) as string;
-      const syntheticDataUrl = await this.resolveSyntheticDataUrl(projectId);
       const schema = {
         $id: `${projectId}/${archetypeId}`,
         $schema: 'https://json-schema.org/draft/2020-12/schema#',
         title: res.attributes?.values[0][0],
         type: 'object',
         properties,
-        ...(syntheticDataUrl ? { syntheticDataUrl } : {}),
       };
+      // normalized labels can collide (e.g. 'Age' and 'AGE' both become
+      // 'age'); keep one leaf per path — first position, last column wins —
+      // mirroring the schema object-spread merge below, so the projected CSV
+      // can never emit duplicate headers that contradict the schema
+      const leafPaths = new Map<string, string>();
       // TODO: handle errors
       for (const key in templateEntity?.referredEntities) {
         const node = templateEntity.referredEntities[key];
@@ -639,6 +728,9 @@ export class ArchetypeService {
           const jsonType = this.atlasTypeToJSONType(
             entity.attributes?.data_type as string,
           );
+          // real column name — same extraction convention as DatabaseService.columns
+          const columnName =
+            (entity.attributes?.name as string) ?? entity.displayText;
           properties[objectName] = {
             type: jsonType,
             description,
@@ -666,16 +758,51 @@ export class ArchetypeService {
               >),
               ...properties,
             };
+            leafPaths.set(`${parentRef}.${objectName}`, columnName);
           } else {
             schema.properties = { ...schema.properties, ...properties };
+            leafPaths.set(objectName, columnName);
           }
         }
       }
-      return schema;
+      const leafMap: ArchetypeLeafRef[] = [...leafPaths].map(
+        ([path, columnName]) => ({ path, columnName }),
+      );
+      return { schema, leafMap };
     }
     throw new NotFoundException(
       `No published archetypes found for project ${projectId}`,
     );
+  }
+
+  /**
+   * Read the whole synthetic CSV object into memory, capped at the shared
+   * attach limit — every stored object passed that same cap at attach time,
+   * so this guard is defensive only and can never reject an attached dataset.
+   */
+  private async readCsvFull(stream: Readable): Promise<string> {
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    try {
+      for await (const chunk of stream) {
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+        bytes += buf.byteLength;
+        if (bytes > MAX_SYNTHETIC_DATA_BYTES) {
+          throw new BadRequestException(
+            `Synthetic dataset exceeds the ${MAX_SYNTHETIC_DATA_BYTES / (1024 * 1024)}MB processing limit`,
+          );
+        }
+        chunks.push(buf);
+      }
+    } finally {
+      stream.destroy();
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  }
+
+  /** RFC4180 field quoting: quote when the value contains a comma, quote or newline. */
+  private toCsvField(value: string): string {
+    return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
   }
 
   // Commands
@@ -871,19 +998,50 @@ export class ArchetypeService {
   }
 
   private atlasTypeToJSONType(dataType: string): string {
-    switch (dataType) {
+    // Normalise: crawlers report native SQL type names (e.g. Postgres
+    // 'character varying(255)', 'numeric(10,2)') — lowercase and strip any
+    // length/precision qualifier so the switch matches the base type.
+    const base = (dataType ?? '').toLowerCase().replace(/\(.*$/, '').trim();
+    switch (base) {
       case 'string':
       case 'date':
+      case 'timestamp':
+      case 'timestamp without time zone':
+      case 'timestamp with time zone':
+      case 'time':
+      case 'text':
+      case 'varchar':
+      case 'character varying':
+      case 'char':
+      case 'character':
+      case 'uuid':
+      case 'json':
+      case 'jsonb':
         return 'string';
       case 'int':
       case 'integer':
+      case 'int2':
+      case 'int4':
+      case 'int8':
+      case 'smallint':
+      case 'bigint':
+      case 'serial':
+      case 'bigserial':
         return 'integer';
       case 'long':
       case 'float':
+      case 'float4':
+      case 'float8':
       case 'double':
+      case 'double precision':
+      case 'real':
+      case 'numeric':
+      case 'decimal':
+      case 'money':
       case 'short':
         return 'number';
       case 'boolean':
+      case 'bool':
         return 'boolean';
       case 'array<string>':
       case 'list<string>':

@@ -1,16 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
+import { Readable } from 'stream';
 import { ProjectService } from './project.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueService } from 'src/queue/queue.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { DatabaseService } from 'src/database/database.service';
 import { Prisma, RequestStatus } from 'src/generated/prisma/client';
 import { SettingsDto, UpdateCredentialsDto } from './dto';
 import { NotFoundException } from '@nestjs/common/exceptions';
 import { VaultService } from 'src/vault/vault.service';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
+import { computeSchemaHash } from 'src/utils/csv-manifest.util';
+import { lookup } from 'node:dns/promises';
 
 // mock nanoid + uuid to make tests deterministic
 jest.mock('nanoid', () => ({
@@ -21,6 +25,11 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mocked-request-id'),
 }));
 
+// mock DNS so the synthetic-link SSRF guard resolves deterministically
+jest.mock('node:dns/promises', () => ({
+  lookup: jest.fn(),
+}));
+
 describe('ProjectService', () => {
   let service: ProjectService;
 
@@ -28,8 +37,10 @@ describe('ProjectService', () => {
     project: {
       findMany: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
     },
     connection: {
@@ -47,6 +58,7 @@ describe('ProjectService', () => {
   const queueMock = {
     dataBrokerJob: jest.fn(),
     addResourceJob: jest.fn(),
+    deleteProjectAtlasJob: jest.fn(),
   } as unknown as QueueService;
 
   const fileStorageMock = {
@@ -54,6 +66,7 @@ describe('ProjectService', () => {
     deleteFile: jest.fn(),
     putFile: jest.fn(),
     createBucketIfNotExists: jest.fn(),
+    listFiles: jest.fn(),
   } as unknown as FileStorageService;
 
   const keycloakMock = {
@@ -70,6 +83,10 @@ describe('ProjectService', () => {
     runConnectionFlow: jest.fn(),
   } as unknown as VaultService;
 
+  const databaseMock = {
+    columns: jest.fn(),
+  } as unknown as DatabaseService;
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -81,6 +98,7 @@ describe('ProjectService', () => {
         { provide: FileStorageService, useValue: fileStorageMock },
         { provide: KeycloakAdminService, useValue: keycloakMock },
         { provide: VaultService, useValue: vaultMock },
+        { provide: DatabaseService, useValue: databaseMock },
       ],
     }).compile();
 
@@ -88,7 +106,7 @@ describe('ProjectService', () => {
   });
 
   describe('getUserOwnedProjects', () => {
-    it('should return projects for given ownerId', async () => {
+    it('should return paginated projects for given ownerId', async () => {
       const userId = 'user-123';
       const projects = [
         {
@@ -103,11 +121,15 @@ describe('ProjectService', () => {
         },
       ];
       (prismaMock.project.findMany as jest.Mock).mockResolvedValue(projects);
+      (prismaMock.project.count as jest.Mock).mockResolvedValue(1);
 
       const result = await service.getUserOwnedProjects(userId);
 
       expect(prismaMock.project.findMany).toHaveBeenCalledWith({
         where: { ownerId: userId },
+        orderBy: { createdDate: 'desc' },
+        skip: 0,
+        take: 12,
         select: {
           projectId: true,
           name: true,
@@ -119,7 +141,13 @@ describe('ProjectService', () => {
           faculty: true,
         },
       });
-      expect(result).toEqual(projects);
+      expect(prismaMock.project.count).toHaveBeenCalledWith({
+        where: { ownerId: userId },
+      });
+      expect(result).toEqual({
+        data: projects,
+        pagination: { page: 1, limit: 12, total: 1, totalPages: 1 },
+      });
     });
   });
 
@@ -165,6 +193,7 @@ describe('ProjectService', () => {
       ];
 
       (prismaMock.project.findMany as jest.Mock).mockResolvedValue(projects);
+      (prismaMock.project.count as jest.Mock).mockResolvedValue(2);
 
       const result = await service.getUserSharedProjects(permissions);
 
@@ -174,6 +203,9 @@ describe('ProjectService', () => {
             in: ['p1', 'p3'],
           },
         },
+        orderBy: { createdDate: 'desc' },
+        skip: 0,
+        take: 12,
         select: {
           projectId: true,
           name: true,
@@ -185,7 +217,10 @@ describe('ProjectService', () => {
           faculty: true,
         },
       });
-      expect(result).toEqual(projects);
+      expect(result).toEqual({
+        data: projects,
+        pagination: { page: 1, limit: 12, total: 2, totalPages: 1 },
+      });
     });
   });
 
@@ -203,6 +238,7 @@ describe('ProjectService', () => {
       ];
 
       (prismaMock.project.findMany as jest.Mock).mockResolvedValue(projects);
+      (prismaMock.project.count as jest.Mock).mockResolvedValue(1);
 
       const result = await service.getAllProjects();
 
@@ -213,6 +249,9 @@ describe('ProjectService', () => {
           },
           isPublic: true,
         },
+        orderBy: { createdDate: 'desc' },
+        skip: 0,
+        take: 12,
         select: {
           projectId: true,
           name: true,
@@ -224,7 +263,10 @@ describe('ProjectService', () => {
           isPublic: true,
         },
       });
-      expect(result).toEqual(projects);
+      expect(result).toEqual({
+        data: projects,
+        pagination: { page: 1, limit: 12, total: 1, totalPages: 1 },
+      });
     });
   });
 
@@ -304,6 +346,7 @@ describe('ProjectService', () => {
 
       expect(prismaMock.analysis.findMany).toHaveBeenCalledWith({
         where: {
+          projectId: projectId,
           project: {
             ownerId: userId,
           },
@@ -531,7 +574,7 @@ describe('ProjectService', () => {
   });
 
   describe('deleteProject', () => {
-    it('should delete project and include connection and analysis', async () => {
+    it('should delete keycloak resource, queue Atlas cleanup and delete project', async () => {
       const projectId = 'proj-1';
       const deleted = {
         projectId,
@@ -543,6 +586,9 @@ describe('ProjectService', () => {
 
       await service.deleteProject(projectId);
 
+      expect(keycloakMock.auth).toHaveBeenCalled();
+      expect(keycloakMock.deleteResource).toHaveBeenCalledWith(projectId);
+      expect(queueMock.deleteProjectAtlasJob).toHaveBeenCalledWith(projectId);
       expect(prismaMock.project.delete).toHaveBeenCalledWith({
         where: { projectId },
         include: {
@@ -773,10 +819,12 @@ describe('ProjectService', () => {
 
       const result = await service.getSyntheticData(projectId);
 
+      // legacy link attachments have no manifest — flagged for re-attach
       expect(result).toEqual({
         type: 'link',
         url: 'https://nectar.example/data.csv',
         fileName: null,
+        needsReattach: true,
       });
       expect(fileStorageMock.getFileUrl).not.toHaveBeenCalled();
     });
@@ -797,10 +845,12 @@ describe('ProjectService', () => {
         'synthetic',
         `${projectId}/synthetic.csv`,
       );
+      // legacy upload without a manifest — flagged for re-attach
       expect(result).toEqual({
         type: 'file',
         url: 'https://s3.example/signed',
         fileName: 'individuals.csv',
+        needsReattach: true,
       });
     });
 
@@ -816,33 +866,307 @@ describe('ProjectService', () => {
       expect(result).toEqual({ type: 'none', url: null, fileName: null });
     });
 
-    it('setSyntheticDataLink deletes a prior upload and stores the link', async () => {
+    it('getSyntheticData includes the manifest fields when present', async () => {
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
-        syntheticDataKey: `${projectId}/synthetic.csv`,
+        syntheticDataUrl: null,
+        syntheticDataKey: `${projectId}/v2/synthetic.csv`,
+        syntheticDataFileName: 'individuals.csv',
+        syntheticDataColumns: ['household_id', 'age'],
+        syntheticDataSchemaHash: 'hash-1',
+        syntheticDataVersion: 2,
+        syntheticDataRowCount: 10,
       });
-
-      const url = 'https://nectar.example/data.csv';
-      const result = await service.setSyntheticDataLink(projectId, url);
-
-      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
-        'synthetic',
-        `${projectId}/synthetic.csv`,
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/signed',
       );
-      expect(prismaMock.project.update).toHaveBeenCalledWith({
-        where: { projectId },
-        data: expect.objectContaining({
-          syntheticDataUrl: url,
-          syntheticDataKey: null,
-          syntheticDataFileName: null,
-        }),
+
+      const result = await service.getSyntheticData(projectId);
+
+      expect(result).toEqual({
+        type: 'file',
+        url: 'https://s3.example/signed',
+        fileName: 'individuals.csv',
+        schemaHash: 'hash-1',
+        version: 2,
+        columns: ['household_id', 'age'],
+        rowCount: 10,
       });
-      expect(result).toEqual({ type: 'link', url, fileName: null });
     });
 
-    it('uploadSyntheticData stores the file in S3 and clears any link', async () => {
+    it('setSyntheticDataLink fetches, validates and materialises the CSV into S3', async () => {
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
         projectId,
       });
+      (lookup as jest.Mock).mockResolvedValue([
+        { address: '203.0.113.10', family: 4 },
+      ]);
+      (databaseMock.columns as jest.Mock).mockResolvedValue([]);
+      (prismaMock.project.update as jest.Mock).mockResolvedValue({
+        syntheticDataVersion: 1,
+      });
+      (prismaMock.project.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/signed',
+      );
+      const csv = 'household_id,age\nH0001,54\n';
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: Readable.from([Buffer.from(csv)]),
+      } as never);
+
+      try {
+        const result = await service.setSyntheticDataLink(
+          projectId,
+          'https://nectar.example/dir/data.csv',
+        );
+
+        expect(fetchSpy).toHaveBeenCalledWith(
+          'https://nectar.example/dir/data.csv',
+          expect.objectContaining({
+            signal: expect.anything(),
+            redirect: 'manual',
+          }),
+        );
+        expect(fileStorageMock.putFile).toHaveBeenCalledWith(
+          'synthetic',
+          `${projectId}/v1/synthetic.csv`,
+          expect.objectContaining({ mimetype: 'text/csv' }),
+        );
+        // the version is reserved with an atomic increment
+        expect(prismaMock.project.update).toHaveBeenCalledWith({
+          where: { projectId },
+          data: { syntheticDataVersion: { increment: 1 } },
+          select: { syntheticDataVersion: true },
+        });
+        // materialised as a file — the invariant 'never both url and key'
+        // holds, and the manifest write is guarded on the reserved version
+        expect(prismaMock.project.updateMany).toHaveBeenCalledWith({
+          where: { projectId, syntheticDataVersion: 1 },
+          data: expect.objectContaining({
+            syntheticDataKey: `${projectId}/v1/synthetic.csv`,
+            syntheticDataFileName: 'data.csv',
+            syntheticDataUrl: null,
+            syntheticDataColumns: ['household_id', 'age'],
+            syntheticDataSchemaHash: computeSchemaHash(['household_id', 'age']),
+            syntheticDataRowCount: 1,
+          }),
+        });
+        expect(result).toMatchObject({
+          type: 'file',
+          fileName: 'data.csv',
+          version: 1,
+          columns: ['household_id', 'age'],
+        });
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('setSyntheticDataLink rejects non-http(s) URLs', async () => {
+      await expect(
+        service.setSyntheticDataLink(projectId, 'ftp://host/data.csv'),
+      ).rejects.toThrow('http or https');
+      expect(fileStorageMock.putFile).not.toHaveBeenCalled();
+    });
+
+    it('setSyntheticDataLink rejects links resolving to private addresses (SSRF)', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      (lookup as jest.Mock).mockResolvedValue([
+        { address: '10.0.0.5', family: 4 },
+      ]);
+      const fetchSpy = jest.spyOn(global, 'fetch');
+
+      try {
+        await expect(
+          service.setSyntheticDataLink(
+            projectId,
+            'https://internal.example/data.csv',
+          ),
+        ).rejects.toThrow('publicly reachable host');
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect(fileStorageMock.putFile).not.toHaveBeenCalled();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('setSyntheticDataLink re-validates every redirect hop (SSRF)', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      (lookup as jest.Mock).mockResolvedValue([
+        { address: '203.0.113.10', family: 4 },
+      ]);
+      // public host redirects to the cloud metadata endpoint
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 302,
+        headers: new Map([
+          ['location', 'http://169.254.169.254/latest/meta-data/'],
+        ]) as never,
+        body: null,
+      } as never);
+
+      try {
+        await expect(
+          service.setSyntheticDataLink(
+            projectId,
+            'https://nectar.example/data.csv',
+          ),
+        ).rejects.toThrow('publicly reachable host');
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        expect(fileStorageMock.putFile).not.toHaveBeenCalled();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('uploadSyntheticData stores a versioned object with its manifest', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      (databaseMock.columns as jest.Mock).mockResolvedValue([
+        { id: 'g1', name: 'household_id', table: 'individuals' },
+      ]);
+      (prismaMock.project.update as jest.Mock).mockResolvedValue({
+        syntheticDataVersion: 3,
+      });
+      (prismaMock.project.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/signed',
+      );
+      const file = {
+        originalname: 'individuals.csv',
+        buffer: Buffer.from('household_id,age\nH0001,54\nH0002,36\n'),
+        mimetype: 'text/csv',
+      } as Express.Multer.File;
+
+      const result = await service.uploadSyntheticData(projectId, file);
+
+      const expectedHash = computeSchemaHash(['household_id', 'age']);
+      expect(fileStorageMock.createBucketIfNotExists).toHaveBeenCalledWith(
+        'synthetic',
+      );
+      // stored under a NEW versioned key; prior versions are never deleted
+      expect(fileStorageMock.putFile).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/v3/synthetic.csv`,
+        expect.objectContaining({ mimetype: 'text/csv' }),
+      );
+      expect(fileStorageMock.deleteFile).not.toHaveBeenCalled();
+      // atomic version reservation, then a guarded manifest write
+      expect(prismaMock.project.update).toHaveBeenCalledWith({
+        where: { projectId },
+        data: { syntheticDataVersion: { increment: 1 } },
+        select: { syntheticDataVersion: true },
+      });
+      expect(prismaMock.project.updateMany).toHaveBeenCalledWith({
+        where: { projectId, syntheticDataVersion: 3 },
+        data: expect.objectContaining({
+          syntheticDataKey: `${projectId}/v3/synthetic.csv`,
+          syntheticDataFileName: 'individuals.csv',
+          syntheticDataUrl: null,
+          syntheticDataColumns: ['household_id', 'age'],
+          syntheticDataSchemaHash: expectedHash,
+          syntheticDataRowCount: 2,
+        }),
+      });
+      expect(result).toEqual({
+        type: 'file',
+        url: 'https://s3.example/signed',
+        fileName: 'individuals.csv',
+        schemaHash: expectedHash,
+        version: 3,
+        columns: ['household_id', 'age'],
+        rowCount: 2,
+      });
+    });
+
+    it('uploadSyntheticData rejects a CSV that is not valid UTF-8', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      const file = {
+        originalname: 'individuals.csv',
+        // 0xE9 is 'é' in Latin-1 but an invalid UTF-8 sequence
+        buffer: Buffer.concat([
+          Buffer.from('household_id,ag'),
+          Buffer.from([0xe9]),
+          Buffer.from('\nH0001,54\n'),
+        ]),
+        mimetype: 'text/csv',
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadSyntheticData(projectId, file),
+      ).rejects.toThrow('not valid UTF-8');
+      expect(fileStorageMock.putFile).not.toHaveBeenCalled();
+      expect(prismaMock.project.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('uploadSyntheticData throws 409 when a concurrent attach superseded it', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      (databaseMock.columns as jest.Mock).mockResolvedValue([]);
+      (prismaMock.project.update as jest.Mock).mockResolvedValue({
+        syntheticDataVersion: 3,
+      });
+      // another attach bumped the counter between reservation and manifest write
+      (prismaMock.project.updateMany as jest.Mock).mockResolvedValue({
+        count: 0,
+      });
+      const file = {
+        originalname: 'individuals.csv',
+        buffer: Buffer.from('household_id,age\nH0001,54\n'),
+        mimetype: 'text/csv',
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadSyntheticData(projectId, file),
+      ).rejects.toThrow('attached concurrently');
+    });
+
+    it('uploadSyntheticData rejects a CSV with zero crawled-column matches', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataVersion: 0,
+      });
+      (databaseMock.columns as jest.Mock).mockResolvedValue([
+        { id: 'g1', name: 'heart_rate', table: 'examination' },
+      ]);
+      const file = {
+        originalname: 'individuals.csv',
+        buffer: Buffer.from('a,b\n1,2\n'),
+        mimetype: 'text/csv',
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadSyntheticData(projectId, file),
+      ).rejects.toThrow("match this project's crawled database schema");
+      expect(fileStorageMock.putFile).not.toHaveBeenCalled();
+      expect(prismaMock.project.update).not.toHaveBeenCalled();
+    });
+
+    it('uploadSyntheticData skips reconciliation when Atlas is unavailable', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      (prismaMock.project.update as jest.Mock).mockResolvedValue({
+        syntheticDataVersion: 1,
+      });
+      (prismaMock.project.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (databaseMock.columns as jest.Mock).mockRejectedValue(
+        new Error('atlas down'),
+      );
       (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
         'https://s3.example/signed',
       );
@@ -854,39 +1178,64 @@ describe('ProjectService', () => {
 
       const result = await service.uploadSyntheticData(projectId, file);
 
-      expect(fileStorageMock.createBucketIfNotExists).toHaveBeenCalledWith(
-        'synthetic',
-      );
       expect(fileStorageMock.putFile).toHaveBeenCalledWith(
         'synthetic',
-        `${projectId}/synthetic.csv`,
-        file,
+        `${projectId}/v1/synthetic.csv`,
+        expect.objectContaining({ mimetype: 'text/csv' }),
       );
-      expect(prismaMock.project.update).toHaveBeenCalledWith({
-        where: { projectId },
-        data: expect.objectContaining({
-          syntheticDataKey: `${projectId}/synthetic.csv`,
-          syntheticDataFileName: 'individuals.csv',
-          syntheticDataUrl: null,
-        }),
-      });
-      expect(result).toEqual({
-        type: 'file',
-        url: 'https://s3.example/signed',
-        fileName: 'individuals.csv',
-      });
+      expect(result).toMatchObject({ type: 'file', version: 1 });
     });
 
-    it('removeSyntheticData deletes the object and clears all fields', async () => {
+    it('uploadSyntheticData skips reconciliation when the project has no crawled columns', async () => {
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
-        syntheticDataKey: `${projectId}/synthetic.csv`,
+        projectId,
       });
+      (prismaMock.project.update as jest.Mock).mockResolvedValue({
+        syntheticDataVersion: 1,
+      });
+      (prismaMock.project.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (databaseMock.columns as jest.Mock).mockResolvedValue([]);
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/signed',
+      );
+      const file = {
+        originalname: 'individuals.csv',
+        buffer: Buffer.from('a,b\n1,2\n'),
+        mimetype: 'text/csv',
+      } as Express.Multer.File;
+
+      const result = await service.uploadSyntheticData(projectId, file);
+
+      expect(fileStorageMock.putFile).toHaveBeenCalled();
+      expect(result).toMatchObject({ type: 'file', version: 1 });
+    });
+
+    it('removeSyntheticData deletes every stored version and nulls the manifest fields', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        syntheticDataKey: `${projectId}/v2/synthetic.csv`,
+      });
+      (fileStorageMock.listFiles as jest.Mock).mockResolvedValue([
+        `${projectId}/v1/synthetic.csv`,
+        `${projectId}/v2/synthetic.csv`,
+      ]);
 
       const result = await service.removeSyntheticData(projectId);
 
+      // ALL versions under the project prefix are purged, not just the latest
+      expect(fileStorageMock.listFiles).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/`,
+      );
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledTimes(2);
       expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
         'synthetic',
-        `${projectId}/synthetic.csv`,
+        `${projectId}/v1/synthetic.csv`,
+      );
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
+        'synthetic',
+        `${projectId}/v2/synthetic.csv`,
       );
       expect(prismaMock.project.update).toHaveBeenCalledWith({
         where: { projectId },
@@ -894,8 +1243,15 @@ describe('ProjectService', () => {
           syntheticDataUrl: null,
           syntheticDataKey: null,
           syntheticDataFileName: null,
+          syntheticDataColumns: Prisma.DbNull,
+          syntheticDataSchemaHash: null,
+          syntheticDataRowCount: null,
         }),
       });
+      // the monotonic version counter is never reset
+      const [updateArgs] = (prismaMock.project.update as jest.Mock).mock
+        .calls[0] as [{ data: Record<string, unknown> }];
+      expect(updateArgs.data).not.toHaveProperty('syntheticDataVersion');
       expect(result).toEqual({ type: 'none', url: null, fileName: null });
     });
   });

@@ -83,6 +83,13 @@ model Project {
   syntheticDataUrl      String? @db.Text
   syntheticDataKey      String? @db.Text
   syntheticDataFileName String? @db.Text
+  // Column manifest captured at attach time: CSV header names, sha256 schema
+  // hash, monotonic version counter and row count. Legacy attachments predate
+  // these fields and have them unset (version stays — it never resets).
+  syntheticDataColumns    Json?   @db.Json
+  syntheticDataSchemaHash String? @db.Text
+  syntheticDataVersion    Int     @default(0)
+  syntheticDataRowCount   Int?
   connection      Connection?
   analysis        Analysis[]
   proxy              Proxy?

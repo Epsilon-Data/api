@@ -675,6 +675,39 @@ export class SyntheticDataResponseDto {
     example: 'individuals_codebook_p10000.csv',
   })
   fileName?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'sha256 hex digest of the sorted source CSV header names; set when the dataset has a column manifest',
+    example: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  })
+  schemaHash?: string;
+
+  @ApiPropertyOptional({
+    description: 'Monotonic dataset version, bumped on every attach',
+    example: 3,
+  })
+  version?: number;
+
+  @ApiPropertyOptional({
+    description: 'CSV header column names captured at attach time',
+    type: [String],
+    example: ['household_id', 'sex', 'age'],
+  })
+  columns?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Number of data rows in the attached CSV',
+    example: 10000,
+  })
+  rowCount?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Set for legacy attachments without a column manifest — researchers cannot download the dataset until the data owner re-attaches it',
+    example: true,
+  })
+  needsReattach?: boolean;
 }
 
 export class ProjectRequestsResponseDto {

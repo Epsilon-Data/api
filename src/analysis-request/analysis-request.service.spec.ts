@@ -21,11 +21,15 @@ describe('AnalysisRequestService', () => {
     request: {
       update: jest.Mock;
       findFirst: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       delete: jest.Mock;
     };
     comment: {
       create: jest.Mock;
       findMany: jest.Mock;
+    };
+    project: {
+      findUnique: jest.Mock;
     };
   };
 
@@ -50,11 +54,15 @@ describe('AnalysisRequestService', () => {
       request: {
         update: jest.fn(),
         findFirst: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         delete: jest.fn(),
       },
       comment: {
         create: jest.fn(),
         findMany: jest.fn(),
+      },
+      project: {
+        findUnique: jest.fn(),
       },
     };
 
@@ -369,7 +377,9 @@ describe('AnalysisRequestService', () => {
         projectEthicsId: 'ETH-1',
       };
 
-      prisma.analysis.create.mockResolvedValue({});
+      prisma.analysis.findFirst.mockResolvedValue(null);
+      prisma.analysis.create.mockResolvedValue({ requestId: 'req-1' });
+      prisma.project.findUnique.mockResolvedValue({ isPublic: false });
 
       const result = await service.createRequest(userId, dto);
 
@@ -403,6 +413,10 @@ describe('AnalysisRequestService', () => {
       const projectId = 'proj-1';
       const dto = { status: $Enums.RequestStatus.APPROVED };
 
+      prisma.request.findUniqueOrThrow.mockResolvedValue({
+        requestId,
+        requestorId: 'requestor-123',
+      });
       prisma.request.update.mockResolvedValue({
         requestId,
         status: $Enums.RequestStatus.APPROVED,
