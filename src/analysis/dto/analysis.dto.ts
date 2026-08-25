@@ -60,6 +60,34 @@ export class DatasetDto {
   lastModified!: Date;
 }
 
+// Declared before AnalysisArchetypeResponseDto: NestJS emitDecoratorMetadata emits an
+// eager `design:type` reference to this class for the `syntheticData` property, so it
+// must be initialized first or the module throws a TDZ ReferenceError at load time.
+export class SyntheticDataDescriptorDto {
+  @ApiProperty({
+    description:
+      'Whether a synthetic dataset with a column manifest is attached to the project. ' +
+      'Legacy attachments (url-only, or an upload without a manifest) are not available.',
+    example: true,
+  })
+  available!: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'sha256 hex digest of the sorted source CSV header names. Only present when available=true; ' +
+      'the SDK compares this string against its stored schema_hash, never recomputes it.',
+    example: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  })
+  schemaHash?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Monotonic dataset version, bumped on every attach. Only present when available=true.',
+    example: 3,
+  })
+  version?: number;
+}
+
 export class AnalysisArchetypeResponseDto {
   @ApiProperty({
     description: 'Id of the Archetype',
@@ -144,31 +172,6 @@ export class AnalysisArchetypeResponseDto {
   @IsOptional()
   @IsObject()
   syntheticData?: SyntheticDataDescriptorDto;
-}
-
-export class SyntheticDataDescriptorDto {
-  @ApiProperty({
-    description:
-      'Whether a synthetic dataset with a column manifest is attached to the project. ' +
-      'Legacy attachments (url-only, or an upload without a manifest) are not available.',
-    example: true,
-  })
-  available!: boolean;
-
-  @ApiPropertyOptional({
-    description:
-      'sha256 hex digest of the sorted source CSV header names. Only present when available=true; ' +
-      'the SDK compares this string against its stored schema_hash, never recomputes it.',
-    example: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  })
-  schemaHash?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Monotonic dataset version, bumped on every attach. Only present when available=true.',
-    example: 3,
-  })
-  version?: number;
 }
 
 export class SyntheticDataPreviewDto {
