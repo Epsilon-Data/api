@@ -19,7 +19,7 @@
   "scripts": {
     "prisma:dev:deploy": "prisma migrate deploy",
     "prepare": "pnpm simple-git-hooks",
-    "db:prepare": "pnpm dlx prisma migrate deploy",
+    "db:prepare": "prisma migrate deploy",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
