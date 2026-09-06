@@ -13,7 +13,6 @@ import {
   Query,
   Req,
   ServiceUnavailableException,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ConnectionRequestService } from './connection-request.service';
@@ -32,7 +31,6 @@ import {
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
-  ApiUnauthorizedResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
@@ -160,11 +158,9 @@ export class ConnectionRequestController {
   @ApiOkResponse({
     description: 'Connection test successful',
   })
-  @ApiUnauthorizedResponse({
-    description: 'Wrong credentials (e.g. 28P01)',
-  })
   @ApiBadRequestResponse({
-    description: 'Invalid database / config (e.g. DB does not exist)',
+    description:
+      'Wrong credentials (e.g. 28P01) or invalid database / config (e.g. DB does not exist)',
     content: {
       'application/json': {
         schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
@@ -201,7 +197,10 @@ export class ConnectionRequestController {
         const code = errObj.code;
         switch (code) {
           case '28P01':
-            throw new UnauthorizedException('Wrong credentials or database');
+            // 400, not 401: the target database rejected its credentials —
+            // the caller's platform session is fine, and a 401 triggers the
+            // frontend's session-expired logout redirect.
+            throw new BadRequestException('Wrong credentials or database');
           case '3D000':
             throw new BadRequestException('Database does not exist');
           case 'ECONNREFUSED':
@@ -229,7 +228,7 @@ export class ConnectionRequestController {
           lower.includes('password') ||
           lower.includes('authentication failed')
         ) {
-          throw new UnauthorizedException('Wrong credentials or database');
+          throw new BadRequestException('Wrong credentials or database');
         }
 
         if (

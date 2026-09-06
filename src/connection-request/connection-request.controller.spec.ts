@@ -4,7 +4,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConnectionRequestController } from './connection-request.controller';
 import { ConnectionRequestService } from './connection-request.service';
 import {
-  UnauthorizedException,
   BadRequestException,
   ServiceUnavailableException,
   InternalServerErrorException,
@@ -94,12 +93,12 @@ describe('ConnectionRequestController', () => {
       expect(result).toEqual({ success: true });
     });
 
-    it('should throw UnauthorizedException on wrong credentials (28P01)', async () => {
+    it('should throw BadRequestException on wrong credentials (28P01)', async () => {
       serviceMock.testConnection.mockRejectedValue({ code: '28P01' });
 
       await expect(
         controller.testConnection({ url: 'postgres://...' } as any),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException on non-existent database (3D000)', async () => {
@@ -126,14 +125,14 @@ describe('ConnectionRequestController', () => {
       ).rejects.toThrow(ServiceUnavailableException);
     });
 
-    it('should throw UnauthorizedException on password-related message', async () => {
+    it('should throw BadRequestException on password-related message', async () => {
       serviceMock.testConnection.mockRejectedValue({
         message: 'password authentication failed',
       });
 
       await expect(
         controller.testConnection({ url: 'postgres://...' } as any),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException on "does not exist" message', async () => {
