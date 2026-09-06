@@ -19,6 +19,7 @@ describe('ProjectController', () => {
 
   const mockUser: CurrentUserInfo = {
     id: 'user-123',
+    username: 'testuser',
     email: 'test@example.org',
     given_name: 'Test',
     family_name: 'User',
@@ -124,7 +125,7 @@ describe('ProjectController', () => {
       const projects = [{ projectId: 'p1', name: 'Public Project' }];
       projectServiceMock.getAllProjects.mockResolvedValue(projects);
 
-      const result = await controller.getAllProjects();
+      const result = await controller.getAllProjects({} as any);
 
       expect(result).toEqual(projects);
       expect(projectServiceMock.getAllProjects).toHaveBeenCalled();

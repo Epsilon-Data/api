@@ -19,6 +19,7 @@ describe('ConnectionRequestController', () => {
 
   const mockUser: CurrentUserInfo = {
     id: 'user-123',
+    username: 'testuser',
     email: 'test@example.org',
     given_name: 'Test',
     family_name: 'User',
