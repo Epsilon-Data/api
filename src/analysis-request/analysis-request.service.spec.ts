@@ -566,6 +566,23 @@ describe('AnalysisRequestService', () => {
 
       expect(result).toEqual(updated);
     });
+    it('should scope the update to the requesting user (no cross-user edits)', async () => {
+      prisma.analysis.update.mockRejectedValue(
+        new Error('Record to update not found'),
+      );
+
+      await expect(
+        service.update('other-user', 'req-1', {
+          projectName: 'Hijack',
+        } as AnalysisDto),
+      ).rejects.toThrow();
+
+      expect(prisma.analysis.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { requestId: 'req-1', request: { requestorId: 'other-user' } },
+        }),
+      );
+    });
   });
 
   describe('delete', () => {
