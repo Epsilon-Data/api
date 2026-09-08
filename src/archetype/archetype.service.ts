@@ -9,7 +9,7 @@ import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
-import { $Enums } from 'src/generated/prisma/client';
+import { ProjectStatus } from '@prisma/client';
 import {
   ALLOWED_TRANSITIONS,
   ArchetypeDto,
@@ -916,8 +916,8 @@ export class ArchetypeService {
       nextStatus === ArchetypeStatus.PUBLISHED || hadOtherPublishedBefore;
 
     const newProjectStatus = projectNowHasPublished
-      ? $Enums.ProjectStatus.MAPPED
-      : $Enums.ProjectStatus.READY;
+      ? ProjectStatus.MAPPED
+      : ProjectStatus.READY;
 
     await this.prisma.project.update({
       where: { projectId },

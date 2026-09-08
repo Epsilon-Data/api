@@ -7,7 +7,7 @@ import {
   AdminNotificationsQueryDto,
   AdminArchetypesQueryDto,
 } from './dto';
-import { Prisma } from 'src/generated/prisma/client';
+import { Prisma } from '@prisma/client';
 import { ArchetypeService } from 'src/archetype/archetype.service';
 import { KeycloakAdminService } from './keycloak/keycloak-admin.service';
 import { groupPrefix, analysisPolicyPrefix } from 'src/utils/options.util';

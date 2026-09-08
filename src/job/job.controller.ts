@@ -2,7 +2,7 @@ import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JobService } from './job.service';
 import { JobStatusResponseDto } from './dto';
-import { $Enums } from 'src/generated/prisma/client';
+import { JobStatus } from '@prisma/client';
 
 @ApiTags('Jobs')
 @Controller('jobs')
@@ -17,13 +17,12 @@ export class JobController {
   ): Promise<JobStatusResponseDto> {
     const job = await this.jobService.getJobStatus(jobId);
 
-    const statusMap: Record<$Enums.JobStatus, JobStatusResponseDto['status']> =
-      {
-        PENDING: 'pending',
-        ACTIVE: 'pending',
-        COMPLETED: 'completed',
-        FAILED: 'error',
-      };
+    const statusMap: Record<JobStatus, JobStatusResponseDto['status']> = {
+      PENDING: 'pending',
+      ACTIVE: 'pending',
+      COMPLETED: 'completed',
+      FAILED: 'error',
+    };
 
     return {
       jobId: job.jobId,

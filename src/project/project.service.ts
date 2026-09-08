@@ -30,7 +30,7 @@ import { KeycloakPermissionDto } from 'src/auth/dto';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseInfoDto } from 'src/connection-request/dto';
-import { Prisma } from 'src/generated/prisma/client';
+import { Prisma } from '@prisma/client';
 import { VaultService } from 'src/vault/vault.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { DatabaseService } from 'src/database/database.service';
