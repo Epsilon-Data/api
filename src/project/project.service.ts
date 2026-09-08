@@ -486,6 +486,42 @@ export class ProjectService {
     };
   }
 
+  // Images are served through the API rather than as presigned object-store
+  // URLs: the S3 endpoint (S3_URI) is only resolvable inside the Docker
+  // network, so a presigned link would never load in a browser.
+  static imageContentUrl(projectId: string, imageId: string): string {
+    const apiBase = process.env.API_BASE_URL || '/api/v1/hub';
+    return `${apiBase}/project/${projectId}/images/${imageId}/content`;
+  }
+
+  async getProjectImageContent(projectId: string, imageId: string) {
+    const image = (await this.projectImages.findFirstOrThrow({
+      where: { imageId, projectId },
+      select: {
+        storageKey: true,
+        contentType: true,
+        fileName: true,
+        project: { select: { isPublic: true, ownerId: true } },
+      },
+    })) as {
+      storageKey: string;
+      contentType: string;
+      fileName: string;
+      project: { isPublic: boolean; ownerId: string };
+    };
+
+    return {
+      stream: await this.fileStorage.getFile(
+        ProjectService.PROJECT_IMAGES_BUCKET,
+        image.storageKey,
+      ),
+      contentType: image.contentType,
+      fileName: image.fileName,
+      isPublic: image.project.isPublic,
+      ownerId: image.project.ownerId,
+    };
+  }
+
   async getProjectImages(projectId: string): Promise<ProjectImageDto[]> {
     await this.prisma.project.findUniqueOrThrow({
       where: { projectId },
@@ -506,24 +542,19 @@ export class ProjectService {
       },
     });
 
-    return Promise.all(
-      images.map(async (image: Record<string, unknown>) => {
-        const storageKey = image.storageKey as string;
-        return {
-          imageId: image.imageId as string,
-          fileName: image.fileName as string,
-          storageKey,
-          contentType: image.contentType as string,
-          caption: (image.caption as string | null) ?? null,
-          sortOrder: image.sortOrder as number,
-          createdDate: image.createdDate as Date,
-          url: await this.fileStorage.getFileUrl(
-            ProjectService.PROJECT_IMAGES_BUCKET,
-            storageKey,
-          ),
-        };
-      }),
-    );
+    return images.map((image: Record<string, unknown>) => {
+      const storageKey = image.storageKey as string;
+      return {
+        imageId: image.imageId as string,
+        fileName: image.fileName as string,
+        storageKey,
+        contentType: image.contentType as string,
+        caption: (image.caption as string | null) ?? null,
+        sortOrder: image.sortOrder as number,
+        createdDate: image.createdDate as Date,
+        url: ProjectService.imageContentUrl(projectId, image.imageId as string),
+      };
+    });
   }
 
   async getProjectSettings(projectId: string): Promise<SettingsResponseDto> {
