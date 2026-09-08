@@ -80,6 +80,7 @@ describe('ProjectService', () => {
 
   const fileStorageMock = {
     getFileUrl: jest.fn(),
+    getFile: jest.fn(),
     deleteFile: jest.fn(),
     putFile: jest.fn(),
     createBucketIfNotExists: jest.fn(),
@@ -847,7 +848,7 @@ describe('ProjectService', () => {
   describe('project images', () => {
     const projectId = 'proj-1';
 
-    it('getProjectImages returns signed image URLs', async () => {
+    it('getProjectImages returns API content URLs (never presigned store URLs)', async () => {
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
         projectId,
       });
@@ -890,9 +891,38 @@ describe('ProjectService', () => {
           caption: 'Overview',
           sortOrder: 0,
           createdDate: new Date('2026-09-08T00:00:00Z'),
-          url: 'https://s3.example/project-image',
+          url: '/api/v1/hub/project/proj-1/images/img-1/content',
         },
       ]);
+      expect(fileStorageMock.getFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('getProjectImageContent streams the object with its stored metadata', async () => {
+      const stream = { pipe: jest.fn() };
+      prismaMock.projectImage.findFirstOrThrow.mockResolvedValue({
+        storageKey: `${projectId}/img-1.png`,
+        contentType: 'image/png',
+        fileName: 'overview.png',
+        project: { isPublic: false, ownerId: 'owner-1' },
+      });
+      (fileStorageMock.getFile as jest.Mock).mockResolvedValue(stream);
+
+      const result = await service.getProjectImageContent(projectId, 'img-1');
+
+      expect(prismaMock.projectImage.findFirstOrThrow).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { imageId: 'img-1', projectId } }),
+      );
+      expect(fileStorageMock.getFile).toHaveBeenCalledWith(
+        'project-images',
+        `${projectId}/img-1.png`,
+      );
+      expect(result).toEqual({
+        stream,
+        contentType: 'image/png',
+        fileName: 'overview.png',
+        isPublic: false,
+        ownerId: 'owner-1',
+      });
     });
 
     it('uploadProjectImage stores a new object and returns the refreshed list', async () => {

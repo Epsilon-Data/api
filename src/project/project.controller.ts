@@ -16,6 +16,9 @@ import {
   HttpCode,
   HttpStatus,
   Patch,
+  Res,
+  StreamableFile,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import {
@@ -56,7 +59,7 @@ import {
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { Resource } from 'src/common/decorators/resource.decorator';
 import { Scopes } from 'src/common/decorators/scopes.decorator';
@@ -427,6 +430,49 @@ export class ProjectController {
   })
   async getProjectImages(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.projectService.getProjectImages(projectId);
+  }
+
+  // Deliberately not behind ResourceGuard: images of public projects must
+  // load for any signed-in user (browse hub), so the permission check runs
+  // only for private projects.
+  @Get(':projectId/images/:imageId/content')
+  @ApiOperation({ summary: 'Get the binary content of a project image' })
+  @ApiOkResponse({ description: 'Image bytes' })
+  async getProjectImageContent(
+    @Req() request: Request,
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const image = await this.projectService.getProjectImageContent(
+      projectId,
+      imageId,
+    );
+
+    if (!image.isPublic && image.ownerId !== user.id) {
+      const allowed = await this.keycloakConnect.checkPermission(
+        {
+          permissions: [{ id: `project:${projectId}`, scopes: ['view'] }],
+          response_mode: 'permissions',
+        },
+        request,
+      );
+      if (!allowed) {
+        throw new ForbiddenException('No access to this project image');
+      }
+    }
+
+    res.setHeader(
+      'Content-Type',
+      image.contentType || 'application/octet-stream',
+    );
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(image.fileName)}"`,
+    );
+    return new StreamableFile(image.stream);
   }
 
   @UseGuards(ResourceGuard)
