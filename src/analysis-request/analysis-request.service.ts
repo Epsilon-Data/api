@@ -252,34 +252,13 @@ export class AnalysisRequestService {
   }
 
   async update(userId: string, requestId: string, dto: AnalysisDto) {
-    // Verify ownership first
-    const analysis = await this.prisma.analysis.findUniqueOrThrow({
-      where: { requestId },
-      select: { requestId: true },
-    });
-
-    if (!analysis) {
-      throw new NotFoundException('Analysis request not found');
-    }
-
-    // Verify request ownership
-    const request = await this.prisma.request.findFirst({
+    return await this.prisma.analysis.update({
       where: {
-        requestId: analysis.requestId,
-        analysis: {
-          requestId: requestId,
+        requestId: requestId,
+        request: {
+          requestorId: userId,
         },
       },
-    });
-
-    if (!request) {
-      throw new NotFoundException(
-        'Analysis request not found or not owned by user',
-      );
-    }
-
-    return await this.prisma.analysis.update({
-      where: { requestId },
       data: {
         projectName: dto.projectName,
         projectStartDate: dto.projectStartDate,
