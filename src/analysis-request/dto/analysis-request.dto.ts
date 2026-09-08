@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { $Enums } from 'src/generated/prisma/client';
+import { RequestStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,
@@ -197,11 +197,11 @@ export class AnalysisRequestSummaryInfoDto {
 
   @ApiProperty({
     description: 'Current status of the access request',
-    enum: $Enums.RequestStatus,
-    example: $Enums.RequestStatus.PENDING,
+    enum: RequestStatus,
+    example: RequestStatus.PENDING,
   })
-  @IsEnum($Enums.RequestStatus)
-  status!: $Enums.RequestStatus;
+  @IsEnum(RequestStatus)
+  status!: RequestStatus;
 
   @ApiProperty({
     description: 'Date and time when the request was created',
@@ -261,12 +261,12 @@ export class AnalysisRequestDetailsResponseDto extends AnalysisDto {
 export class AnalysisStatusDto {
   @ApiProperty({
     description: 'Current status of the access request',
-    enum: $Enums.RequestStatus,
-    example: $Enums.RequestStatus.PENDING,
+    enum: RequestStatus,
+    example: RequestStatus.PENDING,
   })
   @IsDefined()
-  @IsEnum($Enums.RequestStatus)
-  status!: $Enums.RequestStatus;
+  @IsEnum(RequestStatus)
+  status!: RequestStatus;
 }
 
 export class AnalysisDecisionDto {

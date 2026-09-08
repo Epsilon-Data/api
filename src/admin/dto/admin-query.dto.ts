@@ -5,7 +5,7 @@ import {
   ProjectStatus,
   RequestStatus,
   NotificationStatus,
-} from 'src/generated/prisma/client';
+} from '@prisma/client';
 import { ArchetypeStatus } from 'src/archetype/dto';
 
 export class PaginationQueryDto {

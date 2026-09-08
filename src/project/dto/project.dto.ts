@@ -23,7 +23,7 @@ import {
 } from 'class-validator';
 import { parseInteger, transformDateString } from 'src/utils/class.util';
 
-import { $Enums, Prisma } from 'src/generated/prisma/client';
+import { RequestStatus, ProjectStatus, Prisma } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   ConnectionDto,
@@ -183,11 +183,11 @@ export class ProjectSummaryInfoDto {
 
   @ApiProperty({
     description: 'Current project lifecycle status',
-    enum: $Enums.ProjectStatus,
-    example: $Enums.ProjectStatus.READY,
+    enum: ProjectStatus,
+    example: ProjectStatus.READY,
   })
-  @IsEnum($Enums.ProjectStatus)
-  status!: $Enums.ProjectStatus;
+  @IsEnum(ProjectStatus)
+  status!: ProjectStatus;
 
   @ApiProperty({
     description: 'Project creation date',
@@ -365,12 +365,12 @@ export class UpdateProjectDto extends PartialType(CreateProjectDto) {
 
   @ApiPropertyOptional({
     description: 'Current project lifecycle status',
-    enum: $Enums.ProjectStatus,
-    example: $Enums.ProjectStatus.PENDING,
+    enum: ProjectStatus,
+    example: ProjectStatus.PENDING,
   })
-  @IsEnum($Enums.ProjectStatus)
+  @IsEnum(ProjectStatus)
   @IsOptional()
-  status?: $Enums.ProjectStatus;
+  status?: ProjectStatus;
 }
 
 export class SettingsDto {
@@ -496,12 +496,12 @@ export class ProjectDetailsResponseDto {
 
   @ApiPropertyOptional({
     description: 'Current project lifecycle status',
-    enum: $Enums.ProjectStatus,
-    example: $Enums.ProjectStatus.READY,
+    enum: ProjectStatus,
+    example: ProjectStatus.READY,
   })
-  @IsEnum($Enums.ProjectStatus)
+  @IsEnum(ProjectStatus)
   @IsOptional()
-  status?: $Enums.ProjectStatus;
+  status?: ProjectStatus;
 
   @ApiProperty({
     description: 'Owner user ID (UUID)',
@@ -833,12 +833,12 @@ export class ProjectRequestsResponseDto {
   projectName!: string;
 
   @ApiProperty({
-    enum: $Enums.RequestStatus,
+    enum: RequestStatus,
     description: 'The status of the request',
-    example: $Enums.RequestStatus.PENDING,
+    example: RequestStatus.PENDING,
   })
-  @IsEnum($Enums.RequestStatus)
-  status: $Enums.RequestStatus;
+  @IsEnum(RequestStatus)
+  status: RequestStatus;
 
   @ApiProperty({
     description: 'Name of the person requesting access',
