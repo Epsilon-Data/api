@@ -53,7 +53,24 @@ describe('ProjectService', () => {
     comment: {
       create: jest.fn(),
     },
-  } as unknown as PrismaService;
+    projectImage: {
+      findMany: jest.fn(),
+      aggregate: jest.fn(),
+      create: jest.fn(),
+      findFirstOrThrow: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  } as unknown as PrismaService & {
+    projectImage: {
+      findMany: jest.Mock;
+      aggregate: jest.Mock;
+      create: jest.Mock;
+      findFirstOrThrow: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
+  };
 
   const queueMock = {
     dataBrokerJob: jest.fn(),
@@ -504,6 +521,7 @@ describe('ProjectService', () => {
       (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue(
         project,
       );
+      prismaMock.projectImage.findMany.mockResolvedValue([]);
 
       const result = await service.getProjectDetails(projectId);
 
@@ -521,7 +539,10 @@ describe('ProjectService', () => {
           },
         },
       });
-      expect(result).toEqual(project);
+      expect(result).toEqual({
+        ...project,
+        datasetImages: [],
+      });
     });
   });
 
@@ -582,6 +603,10 @@ describe('ProjectService', () => {
         analysis: [],
       };
 
+      (fileStorageMock.listFiles as jest.Mock).mockResolvedValue([
+        `${projectId}/img-1.png`,
+        `${projectId}/img-2.png`,
+      ]);
       (prismaMock.project.delete as jest.Mock).mockResolvedValue(deleted);
 
       await service.deleteProject(projectId);
@@ -589,6 +614,18 @@ describe('ProjectService', () => {
       expect(keycloakMock.auth).toHaveBeenCalled();
       expect(keycloakMock.deleteResource).toHaveBeenCalledWith(projectId);
       expect(queueMock.deleteProjectAtlasJob).toHaveBeenCalledWith(projectId);
+      expect(fileStorageMock.listFiles).toHaveBeenCalledWith(
+        'project-images',
+        `${projectId}/`,
+      );
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
+        'project-images',
+        `${projectId}/img-1.png`,
+      );
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
+        'project-images',
+        `${projectId}/img-2.png`,
+      );
       expect(prismaMock.project.delete).toHaveBeenCalledWith({
         where: { projectId },
         include: {
@@ -804,6 +841,125 @@ describe('ProjectService', () => {
       );
 
       expect(result).toBe(file.buffer);
+    });
+  });
+
+  describe('project images', () => {
+    const projectId = 'proj-1';
+
+    it('getProjectImages returns signed image URLs', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      prismaMock.projectImage.findMany.mockResolvedValue([
+        {
+          imageId: 'img-1',
+          fileName: 'overview.png',
+          storageKey: `${projectId}/img-1.png`,
+          contentType: 'image/png',
+          caption: 'Overview',
+          sortOrder: 0,
+          createdDate: new Date('2026-09-08T00:00:00Z'),
+        },
+      ]);
+      (fileStorageMock.getFileUrl as jest.Mock).mockResolvedValue(
+        'https://s3.example/project-image',
+      );
+
+      const result = await service.getProjectImages(projectId);
+
+      expect(prismaMock.projectImage.findMany).toHaveBeenCalledWith({
+        where: { projectId },
+        orderBy: [{ sortOrder: 'asc' }, { createdDate: 'asc' }],
+        select: {
+          imageId: true,
+          fileName: true,
+          storageKey: true,
+          contentType: true,
+          caption: true,
+          sortOrder: true,
+          createdDate: true,
+        },
+      });
+      expect(result).toEqual([
+        {
+          imageId: 'img-1',
+          fileName: 'overview.png',
+          storageKey: `${projectId}/img-1.png`,
+          contentType: 'image/png',
+          caption: 'Overview',
+          sortOrder: 0,
+          createdDate: new Date('2026-09-08T00:00:00Z'),
+          url: 'https://s3.example/project-image',
+        },
+      ]);
+    });
+
+    it('uploadProjectImage stores a new object and returns the refreshed list', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      prismaMock.projectImage.aggregate.mockResolvedValue({
+        _max: { sortOrder: 1 },
+      });
+      prismaMock.projectImage.create.mockResolvedValue({});
+      prismaMock.projectImage.findMany.mockResolvedValue([]);
+      const file = {
+        originalname: 'overview.webp',
+        buffer: Buffer.from('image-bytes'),
+        mimetype: 'image/webp',
+      } as Express.Multer.File;
+
+      const result = await service.uploadProjectImage(
+        projectId,
+        file,
+        'Overview caption',
+      );
+
+      expect(fileStorageMock.createBucketIfNotExists).toHaveBeenCalledWith(
+        'project-images',
+      );
+      expect(fileStorageMock.putFile).toHaveBeenCalledWith(
+        'project-images',
+        expect.stringMatching(
+          new RegExp(`^${projectId}/mocked-request-id\\.webp$`),
+        ),
+        file,
+      );
+      expect(prismaMock.projectImage.create).toHaveBeenCalledWith({
+        data: {
+          imageId: 'mocked-request-id',
+          projectId,
+          fileName: 'overview.webp',
+          storageKey: `proj-1/mocked-request-id.webp`,
+          contentType: 'image/webp',
+          caption: 'Overview caption',
+          sortOrder: 2,
+        },
+      });
+      expect(result).toEqual([]);
+    });
+
+    it('removeProjectImage deletes the file and database row', async () => {
+      (prismaMock.project.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+        projectId,
+      });
+      prismaMock.projectImage.findFirstOrThrow.mockResolvedValue({
+        storageKey: `${projectId}/img-1.png`,
+      });
+      prismaMock.projectImage.delete.mockResolvedValue({});
+      prismaMock.projectImage.findMany.mockResolvedValue([]);
+
+      const result = await service.removeProjectImage(projectId, 'img-1');
+
+      expect(fileStorageMock.deleteFile).toHaveBeenCalledWith(
+        'project-images',
+        `${projectId}/img-1.png`,
+      );
+      expect(prismaMock.projectImage.delete).toHaveBeenCalledWith({
+        where: { imageId: 'img-1' },
+      });
+      expect(result).toEqual([]);
     });
   });
 
