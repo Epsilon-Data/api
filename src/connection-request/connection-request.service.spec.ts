@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConnectionRequestService } from './connection-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { $Enums } from 'src/generated/prisma/client';
+import { RequestStatus } from '@prisma/client';
 
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { GetRequestCommentsDto } from 'src/common/dto';
@@ -72,7 +72,7 @@ describe('ConnectionRequestService', () => {
           },
           request: {
             requestId: 'req-1',
-            status: $Enums.RequestStatus.PENDING,
+            status: RequestStatus.PENDING,
             createdDate: new Date('2025-01-01T00:00:00Z'),
             lastModified: new Date('2025-01-02T00:00:00Z'),
           },
@@ -133,7 +133,7 @@ describe('ConnectionRequestService', () => {
         request: {
           comments: 'Some comments',
           requestId: 'req-123',
-          status: $Enums.RequestStatus.PENDING,
+          status: RequestStatus.PENDING,
           createdDate: new Date('2025-02-01T00:00:00Z'),
           lastModified: new Date('2025-02-02T00:00:00Z'),
         },
@@ -236,7 +236,7 @@ describe('ConnectionRequestService', () => {
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: {
-          status: $Enums.RequestStatus.APPROVED,
+          status: RequestStatus.APPROVED,
         },
       });
 
@@ -267,7 +267,7 @@ describe('ConnectionRequestService', () => {
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: {
-          status: $Enums.RequestStatus.APPROVED,
+          status: RequestStatus.APPROVED,
         },
       });
 
@@ -299,7 +299,7 @@ describe('ConnectionRequestService', () => {
       expect(prismaMock.request.update).toHaveBeenCalledWith({
         where: { requestId },
         data: {
-          status: $Enums.RequestStatus.REJECTED,
+          status: RequestStatus.REJECTED,
         },
       });
 

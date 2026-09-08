@@ -3,7 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
-import { $Enums } from 'src/generated/prisma/client';
+import { ProjectStatus, RequestStatus } from '@prisma/client';
 import { AnalysisDto, AnalysisStatusDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
@@ -112,7 +112,7 @@ describe('AnalysisRequestService', () => {
         request: {
           requestId,
           requestorId: userId,
-          status: $Enums.RequestStatus.PENDING,
+          status: RequestStatus.PENDING,
           createdDate: new Date('2025-01-10T00:00:00.000Z'),
           lastModified: new Date('2025-01-11T00:00:00.000Z'),
           comments: [
@@ -195,7 +195,7 @@ describe('AnalysisRequestService', () => {
         request: {
           requestId,
           requestorId: 'requestor-abc',
-          status: $Enums.RequestStatus.PENDING,
+          status: RequestStatus.PENDING,
           createdDate: new Date('2025-01-10T00:00:00.000Z'),
           lastModified: new Date('2025-01-11T00:00:00.000Z'),
           comments: [],
@@ -239,7 +239,7 @@ describe('AnalysisRequestService', () => {
             university: 'Uni 1',
           },
           request: {
-            status: $Enums.RequestStatus.PENDING,
+            status: RequestStatus.PENDING,
             createdDate: new Date('2025-01-01T00:00:00.000Z'),
             lastModified: new Date('2025-01-02T00:00:00.000Z'),
           },
@@ -252,7 +252,7 @@ describe('AnalysisRequestService', () => {
             university: 'Uni 2',
           },
           request: {
-            status: $Enums.RequestStatus.APPROVED,
+            status: RequestStatus.APPROVED,
             createdDate: new Date('2025-02-01T00:00:00.000Z'),
             lastModified: new Date('2025-02-02T00:00:00.000Z'),
           },
@@ -282,7 +282,7 @@ describe('AnalysisRequestService', () => {
           projectId: 'proj-1',
           projectName: 'Project 1',
           projectUniversity: 'Uni 1',
-          status: $Enums.RequestStatus.PENDING,
+          status: RequestStatus.PENDING,
           createdDate: requestList[0].request.createdDate,
           lastModified: requestList[0].request.lastModified,
         },
@@ -291,7 +291,7 @@ describe('AnalysisRequestService', () => {
           projectId: 'proj-2',
           projectName: 'Project 2',
           projectUniversity: 'Uni 2',
-          status: $Enums.RequestStatus.APPROVED,
+          status: RequestStatus.APPROVED,
           createdDate: requestList[1].request.createdDate,
           lastModified: requestList[1].request.lastModified,
         },
@@ -312,7 +312,7 @@ describe('AnalysisRequestService', () => {
           university: 'Monash University',
         },
         request: {
-          status: $Enums.RequestStatus.PENDING,
+          status: RequestStatus.PENDING,
           createdDate: new Date('2025-01-01T00:00:00.000Z'),
           lastModified: new Date('2025-01-02T00:00:00.000Z'),
         },
@@ -411,7 +411,7 @@ describe('AnalysisRequestService', () => {
     it('should set status APPROVED and call keycloak', async () => {
       const requestId = 'req-1';
       const projectId = 'proj-1';
-      const dto = { status: $Enums.RequestStatus.APPROVED };
+      const dto = { status: RequestStatus.APPROVED };
 
       prisma.request.findUniqueOrThrow.mockResolvedValue({
         requestId,
@@ -419,7 +419,7 @@ describe('AnalysisRequestService', () => {
       });
       prisma.request.update.mockResolvedValue({
         requestId,
-        status: $Enums.RequestStatus.APPROVED,
+        status: RequestStatus.APPROVED,
         requestorId: 'requestor-123',
       });
 
@@ -431,7 +431,7 @@ describe('AnalysisRequestService', () => {
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
-        data: { status: $Enums.RequestStatus.APPROVED },
+        data: { status: RequestStatus.APPROVED },
       });
 
       expect(keycloakMock.auth).toHaveBeenCalledTimes(1);
@@ -445,11 +445,11 @@ describe('AnalysisRequestService', () => {
     it('should only set status REJECTED and not call keycloak', async () => {
       const requestId = 'req-1';
       const projectId = 'proj-1';
-      const dto = { status: $Enums.RequestStatus.REJECTED };
+      const dto = { status: RequestStatus.REJECTED };
 
       prisma.request.update.mockResolvedValue({
         requestId,
-        status: $Enums.RequestStatus.REJECTED,
+        status: RequestStatus.REJECTED,
         requestorId: 'requestor-123',
       });
 
@@ -461,7 +461,7 @@ describe('AnalysisRequestService', () => {
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
-        data: { status: $Enums.RequestStatus.REJECTED },
+        data: { status: RequestStatus.REJECTED },
       });
 
       expect(keycloakMock.auth).not.toHaveBeenCalled();
@@ -471,11 +471,11 @@ describe('AnalysisRequestService', () => {
     it('should only set status PENDING and not call keycloak', async () => {
       const requestId = 'req-1';
       const projectId = 'proj-1';
-      const dto = { status: $Enums.RequestStatus.PENDING };
+      const dto = { status: RequestStatus.PENDING };
 
       prisma.request.update.mockResolvedValue({
         requestId,
-        status: $Enums.RequestStatus.PENDING,
+        status: RequestStatus.PENDING,
         requestorId: 'requestor-123',
       });
 
@@ -487,7 +487,7 @@ describe('AnalysisRequestService', () => {
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
-        data: { status: $Enums.RequestStatus.PENDING },
+        data: { status: RequestStatus.PENDING },
       });
 
       expect(keycloakMock.auth).not.toHaveBeenCalled();
@@ -497,11 +497,11 @@ describe('AnalysisRequestService', () => {
     it('should only set status REVISION and not call keycloak', async () => {
       const requestId = 'req-1';
       const projectId = 'proj-1';
-      const dto = { status: $Enums.RequestStatus.REVISION };
+      const dto = { status: RequestStatus.REVISION };
 
       prisma.request.update.mockResolvedValue({
         requestId,
-        status: $Enums.RequestStatus.REVISION,
+        status: RequestStatus.REVISION,
         requestorId: 'requestor-123',
       });
 
@@ -513,7 +513,7 @@ describe('AnalysisRequestService', () => {
 
       expect(prisma.request.update).toHaveBeenCalledWith({
         where: { requestId },
-        data: { status: $Enums.RequestStatus.REVISION },
+        data: { status: RequestStatus.REVISION },
       });
 
       expect(keycloakMock.auth).not.toHaveBeenCalled();
@@ -719,13 +719,13 @@ describe('AnalysisRequestService', () => {
         where: {
           request: {
             is: {
-              status: $Enums.RequestStatus.APPROVED,
+              status: RequestStatus.APPROVED,
               requestorId: userId,
             },
           },
           project: {
             is: {
-              status: $Enums.ProjectStatus.MAPPED,
+              status: ProjectStatus.MAPPED,
             },
           },
         },
@@ -799,7 +799,7 @@ describe('AnalysisRequestService', () => {
           projectId,
           request: {
             requestorId: userId,
-            status: $Enums.RequestStatus.APPROVED,
+            status: RequestStatus.APPROVED,
           },
         },
         select: {

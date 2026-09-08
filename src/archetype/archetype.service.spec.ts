@@ -21,7 +21,7 @@ import {
 import { ArchetypeNodeType, ArchetypePermission, ArchetypeStatus } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
-import { $Enums } from 'src/generated/prisma/client';
+import { ProjectStatus } from '@prisma/client';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 
 describe('ArchetypeService', () => {
@@ -943,7 +943,7 @@ describe('ArchetypeService', () => {
         where: { projectId },
         data: {
           lastModified: expect.any(Date),
-          status: $Enums.ProjectStatus.MAPPED,
+          status: ProjectStatus.MAPPED,
         },
       });
     });
