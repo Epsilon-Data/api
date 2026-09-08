@@ -7,11 +7,13 @@ import {
 } from '@nestjs/common';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { extname } from 'node:path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   BrowseProjectsQueryDto,
   CreateProjectDto,
   PaginationQueryDto,
+  ProjectImageDto,
   ProjectDetailsResponseDto,
   ProjectRequestsResponse,
   ProjectRequestsResponseDto,
@@ -37,6 +39,33 @@ import {
   decodeUtf8Csv,
 } from 'src/utils/csv-manifest.util';
 import { MAX_SYNTHETIC_DATA_BYTES } from 'src/utils/options.util';
+
+// Type-safe delegate for ProjectImage model (workaround for Prisma client generation)
+interface ProjectImageDelegate {
+  findMany(args: {
+    where: Record<string, unknown>;
+    orderBy?: Record<string, unknown>[];
+    select?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>[]>;
+  aggregate(args: {
+    where: Record<string, unknown>;
+    _max: Record<string, unknown>;
+  }): Promise<{ _max: { sortOrder: number | null } }>;
+  create(args: {
+    data: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+  findFirstOrThrow(args: {
+    where: Record<string, unknown>;
+    select?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+  update(args: {
+    where: Record<string, unknown>;
+    data: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+  delete(args: {
+    where: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+}
 
 @Injectable()
 export class ProjectService {
@@ -70,6 +99,14 @@ export class ProjectService {
     faculty: true,
     createdDate: true,
   } as const;
+
+  private static readonly PROJECT_IMAGES_BUCKET = 'project-images';
+
+  private get projectImages(): ProjectImageDelegate {
+    return (
+      this.prisma as PrismaService & { projectImage: ProjectImageDelegate }
+    ).projectImage;
+  }
 
   // Queries
   async getUserOwnedProjects(userId: string, query: PaginationQueryDto = {}) {
@@ -373,7 +410,7 @@ export class ProjectService {
   async getProjectDetails(
     projectId: string,
   ): Promise<ProjectDetailsResponseDto> {
-    return await this.prisma.project.findUniqueOrThrow({
+    const project = await this.prisma.project.findUniqueOrThrow({
       where: {
         projectId: projectId,
       },
@@ -389,6 +426,10 @@ export class ProjectService {
         },
       },
     });
+    return {
+      ...project,
+      datasetImages: await this.getProjectImages(projectId),
+    };
   }
 
   async getProjectPublicDetails(
@@ -441,7 +482,48 @@ export class ProjectService {
       dbKeywords: projectInfo.dbKeywords,
       members: projectInfo.members,
       isPublic: projectInfo.isPublic,
+      datasetImages: await this.getProjectImages(projectId),
     };
+  }
+
+  async getProjectImages(projectId: string): Promise<ProjectImageDto[]> {
+    await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: { projectId: true },
+    });
+
+    const images = await this.projectImages.findMany({
+      where: { projectId },
+      orderBy: [{ sortOrder: 'asc' }, { createdDate: 'asc' }],
+      select: {
+        imageId: true,
+        fileName: true,
+        storageKey: true,
+        contentType: true,
+        caption: true,
+        sortOrder: true,
+        createdDate: true,
+      },
+    });
+
+    return Promise.all(
+      images.map(async (image: Record<string, unknown>) => {
+        const storageKey = image.storageKey as string;
+        return {
+          imageId: image.imageId as string,
+          fileName: image.fileName as string,
+          storageKey,
+          contentType: image.contentType as string,
+          caption: (image.caption as string | null) ?? null,
+          sortOrder: image.sortOrder as number,
+          createdDate: image.createdDate as Date,
+          url: await this.fileStorage.getFileUrl(
+            ProjectService.PROJECT_IMAGES_BUCKET,
+            storageKey,
+          ),
+        };
+      }),
+    );
   }
 
   async getProjectSettings(projectId: string): Promise<SettingsResponseDto> {
@@ -646,6 +728,7 @@ export class ProjectService {
     await this.keycloak.deleteResource(projectId);
     // queue Atlas cleanup (fire-and-forget, retries on its own)
     await this.queue.deleteProjectAtlasJob(projectId);
+    await this.deleteProjectImages(projectId);
     // delete project information
     await this.prisma.project.delete({
       where: {
@@ -752,6 +835,117 @@ export class ProjectService {
     return projectId;
   }
 
+  async uploadProjectImage(
+    projectId: string,
+    file: Express.Multer.File,
+    caption?: string | null,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { projectId },
+      select: { projectId: true },
+    });
+
+    const imageId = uuidv4();
+    const extension = extname(file.originalname).toLowerCase() || '.png';
+    const storageKey = `${project.projectId}/${imageId}${extension}`;
+
+    const sortOrderResult = (await this.projectImages.aggregate({
+      where: { projectId },
+      _max: { sortOrder: true },
+    })) as { _max: { sortOrder: number | null } };
+    const sortOrder = (sortOrderResult._max.sortOrder ?? -1) + 1;
+
+    await this.fileStorage.createBucketIfNotExists(
+      ProjectService.PROJECT_IMAGES_BUCKET,
+    );
+    await this.fileStorage.putFile(
+      ProjectService.PROJECT_IMAGES_BUCKET,
+      storageKey,
+      file,
+    );
+
+    try {
+      await this.projectImages.create({
+        data: {
+          imageId,
+          projectId,
+          fileName: file.originalname,
+          storageKey,
+          contentType: file.mimetype,
+          caption: caption?.trim() ? caption.trim() : null,
+          sortOrder,
+        },
+      });
+      await this.prisma.project.update({
+        where: { projectId },
+        data: { lastModified: new Date() },
+      });
+    } catch (error) {
+      await this.fileStorage.deleteFile(
+        ProjectService.PROJECT_IMAGES_BUCKET,
+        storageKey,
+      );
+      throw error;
+    }
+
+    return await this.getProjectImages(projectId);
+  }
+
+  async updateProjectImage(
+    projectId: string,
+    imageId: string,
+    dto: { caption?: string | null; sortOrder?: number },
+  ) {
+    await this.projectImages.findFirstOrThrow({
+      where: { imageId, projectId },
+      select: { imageId: true },
+    });
+
+    await this.projectImages.update({
+      where: { imageId },
+      data: {
+        ...(dto.caption !== undefined && {
+          caption: dto.caption?.trim() ? dto.caption.trim() : null,
+        }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+      },
+    });
+
+    await this.prisma.project.update({
+      where: { projectId },
+      data: { lastModified: new Date() },
+    });
+
+    return await this.getProjectImages(projectId);
+  }
+
+  async removeProjectImage(projectId: string, imageId: string) {
+    const image = (await this.projectImages.findFirstOrThrow({
+      where: { imageId, projectId },
+      select: { storageKey: true },
+    })) as { storageKey: string };
+
+    await this.fileStorage.deleteFile(
+      ProjectService.PROJECT_IMAGES_BUCKET,
+      image.storageKey,
+    );
+
+    await this.projectImages.delete({
+      where: { imageId },
+    });
+
+    await this.prisma.project.update({
+      where: { projectId },
+      data: { lastModified: new Date() },
+    });
+
+    return await this.getProjectImages(projectId);
+  }
+
   async uploadProjectCover(projectId: string, file: Express.Multer.File) {
     await this.prisma.project.update({
       where: {
@@ -787,6 +981,27 @@ export class ProjectService {
       token,
       projectId,
       ciphertext,
+    );
+  }
+
+  private async deleteProjectImages(projectId: string): Promise<void> {
+    let keys: string[] = [];
+    try {
+      keys = (await this.fileStorage.listFiles(
+        ProjectService.PROJECT_IMAGES_BUCKET,
+        `${projectId}/`,
+      )) as string[];
+    } catch (error) {
+      this.logger.warn(
+        `Could not list project images for project ${projectId}: ${String(error)}`,
+      );
+    }
+
+    const toDelete = new Set(keys.filter((key) => Boolean(key)));
+    await Promise.all(
+      [...toDelete].map((key) =>
+        this.fileStorage.deleteFile(ProjectService.PROJECT_IMAGES_BUCKET, key),
+      ),
     );
   }
 

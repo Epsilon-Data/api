@@ -467,6 +467,15 @@ export class SettingsResponseDto {
 
 export class ProjectDetailsResponseDto {
   @ApiPropertyOptional({
+    description: 'Uploaded dataset images for the project',
+    type: () => [ProjectImageDto],
+  })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ProjectImageDto)
+  datasetImages?: ProjectImageDto[];
+
+  @ApiPropertyOptional({
     type: () => ConnectionRequestDto,
     nullable: true,
     description: 'Request object, null if no request exists',
@@ -636,6 +645,100 @@ export class ProjectDetailsResponseDto {
   @IsOptional()
   @IsString()
   syntheticDataFileName?: string | null;
+}
+
+export class ProjectImageDto {
+  @ApiProperty({
+    description: 'Unique project image identifier',
+    format: 'uuid',
+    example: '9d3f4ef6-9a75-4b67-b2b5-5fd7ebef5d9b',
+  })
+  @IsDefined()
+  @IsUUID()
+  imageId!: string;
+
+  @ApiProperty({
+    description: 'Original file name provided by the project owner',
+    example: 'dataset-overview.png',
+  })
+  @IsDefined()
+  @IsString()
+  fileName!: string;
+
+  @ApiProperty({
+    description: 'Storage object key inside the image bucket',
+    example:
+      '6d3cffa2-43b5-48a2-ba73-50931ddf07b2/9d3f4ef6-9a75-4b67-b2b5-5fd7ebef5d9b.png',
+  })
+  @IsDefined()
+  @IsString()
+  storageKey!: string;
+
+  @ApiProperty({
+    description: 'Image content type',
+    example: 'image/png',
+  })
+  @IsDefined()
+  @IsString()
+  contentType!: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional caption displayed with the image',
+    example: 'Study site overview',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  caption?: string | null;
+
+  @ApiProperty({
+    description: 'Sort order used for display',
+    example: 0,
+  })
+  @IsDefined()
+  @IsNumber()
+  sortOrder!: number;
+
+  @ApiProperty({
+    description: 'When the image was uploaded',
+    type: String,
+    format: 'date-time',
+    example: '2026-09-08T08:00:00.000Z',
+  })
+  @IsDefined()
+  @IsDate()
+  @Transform(({ value }) => transformDateString(value))
+  createdDate!: Date;
+
+  @ApiProperty({
+    description: 'Signed or public URL for the image',
+    format: 'uri',
+    example:
+      'https://object-store.example/project-images/6d3cffa2-43b5-48a2-ba73-50931ddf07b2/9d3f4ef6-9a75-4b67-b2b5-5fd7ebef5d9b.png',
+  })
+  @IsDefined()
+  @IsUrl()
+  url!: string;
+}
+
+export class UpdateProjectImageDto {
+  @ApiPropertyOptional({
+    description: 'Optional image caption',
+    nullable: true,
+    example: 'Overview of the dataset layout',
+  })
+  @IsOptional()
+  @IsString()
+  caption?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Optional sort order for the image',
+    example: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
 }
 
 export class SyntheticDataLinkDto {
