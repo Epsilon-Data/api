@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   ConnectionDecisionDto,
@@ -6,7 +6,7 @@ import {
   DatabaseTestDto,
 } from './dto';
 import { testConnection } from '@epsilon-data/epsilon-connector';
-import { $Enums } from 'src/generated/prisma/client';
+import { RequestStatus } from '@prisma/client';
 import { CurrentUserInfo } from 'src/common/decorators/user.decorator';
 import { GetRequestCommentsDto, RequestCommentDto } from 'src/common/dto';
 import { VaultService } from 'src/vault/vault.service';
@@ -48,12 +48,12 @@ export class ConnectionRequestService {
     email: string,
     requestId: string,
   ): Promise<ConnectionRequestResponseDto> {
-    return await this.prisma.connection.findUniqueOrThrow({
+    const connection = await this.prisma.connection.findUniqueOrThrow({
       where: {
         requestId: requestId,
-        orgAdminEmail: email,
       },
       select: {
+        orgAdminEmail: true,
         project: {
           select: {
             projectId: true,
@@ -80,6 +80,14 @@ export class ConnectionRequestService {
         },
       },
     });
+
+    if (connection.orgAdminEmail !== email) {
+      throw new BadRequestException('Email does not match');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { orgAdminEmail, ...result } = connection;
+    return result as ConnectionRequestResponseDto;
   }
 
   async testConnection(database: DatabaseTestDto) {
@@ -105,11 +113,11 @@ export class ConnectionRequestService {
     accessToken: string,
   ) {
     const status = dto.isApproved
-      ? $Enums.RequestStatus.APPROVED
-      : $Enums.RequestStatus.REJECTED;
+      ? RequestStatus.APPROVED
+      : RequestStatus.REJECTED;
 
     // run vault/connection flow first — if this fails, status stays unchanged
-    if (status === $Enums.RequestStatus.APPROVED && dto.dbDetails?.url) {
+    if (status === RequestStatus.APPROVED && dto.dbDetails?.url) {
       await this.vaultService.runConnectionFlow(
         user,
         projectId,

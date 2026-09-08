@@ -1,7 +1,5 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -92,10 +90,25 @@ model Project {
   syntheticDataRowCount   Int?
   connection      Connection?
   analysis        Analysis[]
+  datasetImages   ProjectImage[]
   proxy              Proxy?
   proxyInstallTokens ProxyInstallToken[]
 
   @@unique([ownerId, projectId])
+}
+
+model ProjectImage {
+  imageId     String   @id(map: "project_image_pkey") @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  fileName    String   @db.Text
+  storageKey  String   @db.Text
+  contentType String   @db.Text
+  caption     String?  @db.Text
+  sortOrder   Int      @default(0)
+  createdDate DateTime @default(now()) @db.Timestamp(6)
+  project     Project  @relation(fields: [projectId], references: [projectId], onDelete: Cascade, onUpdate: NoAction, map: "fk_project_image_project_id")
+
+  @@index([projectId])
 }
 
 model Notification {

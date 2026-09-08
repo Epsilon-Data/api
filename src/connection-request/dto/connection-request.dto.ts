@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { $Enums, Prisma } from 'src/generated/prisma/client';
+import { RequestStatus, Prisma } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -265,12 +265,12 @@ export class RequestDto {
   lastModified?: Date;
 
   @ApiProperty({
-    enum: $Enums.RequestStatus,
+    enum: RequestStatus,
     description: 'The status of the request',
-    example: $Enums.RequestStatus.PENDING,
+    example: RequestStatus.PENDING,
   })
-  @IsEnum($Enums.RequestStatus)
-  status: $Enums.RequestStatus;
+  @IsEnum(RequestStatus)
+  status: RequestStatus;
 
   @ApiPropertyOptional({
     description: 'Incoming request identifier',

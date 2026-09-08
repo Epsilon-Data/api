@@ -11,6 +11,19 @@ export const coverOptions: MulterOptions = {
   },
 };
 
+export const MAX_PROJECT_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export const projectImageOptions: MulterOptions = {
+  storage: memoryStorage(),
+  limits: { fileSize: MAX_PROJECT_IMAGE_BYTES },
+  fileFilter: (req, file, callback) => {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|webp)$/i)) {
+      return callback(new Error('Only image files are allowed!'), false);
+    }
+    callback(null, true);
+  },
+};
+
 // Single cap for the synthetic dataset everywhere it is buffered — the multer
 // upload, the link materialisation and the projected download all derive from
 // this constant so an attached dataset can never exceed what the download

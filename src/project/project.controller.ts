@@ -23,12 +23,14 @@ import {
   PaginationQueryDto,
   ProjectDetailsResponseDto,
   CreateProjectDto,
+  ProjectImageDto,
   ProjectRequestsResponse,
   ProjectSummaryInfoDto,
   SettingsDto,
   SettingsResponseDto,
   SyntheticDataLinkDto,
   SyntheticDataResponseDto,
+  UpdateProjectImageDto,
   UpdateProjectDto,
   UpdateCredentialsDto,
 } from './dto';
@@ -43,9 +45,14 @@ import {
   ApiOperation,
   ApiTags,
   getSchemaPath,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { coverOptions, syntheticDataOptions } from 'src/utils/options.util';
+import {
+  coverOptions,
+  projectImageOptions,
+  syntheticDataOptions,
+} from 'src/utils/options.util';
 import { KeycloakService } from 'src/auth/keycloak/keycloak.service';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import type { CurrentUserInfo } from 'src/common/decorators/user.decorator';
@@ -407,6 +414,79 @@ export class ProjectController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
     return await this.projectService.getProjectPublicDetails(projectId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view')
+  @Get(':projectId/images')
+  @ApiOperation({ summary: 'Get images attached to a project' })
+  @ApiOkResponse({
+    description: 'List of project images',
+    type: ProjectImageDto,
+    isArray: true,
+  })
+  async getProjectImages(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return await this.projectService.getProjectImages(projectId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Post(':projectId/images')
+  @UseInterceptors(FileInterceptor('file', projectImageOptions))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a project image' })
+  @ApiOkResponse({
+    description: 'Updated list of project images',
+    type: ProjectImageDto,
+    isArray: true,
+  })
+  async uploadProjectImage(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: UpdateProjectImageDto,
+    @UploadedFile(new ParseFilePipe()) file: Express.Multer.File,
+  ) {
+    return await this.projectService.uploadProjectImage(
+      projectId,
+      file,
+      dto.caption,
+    );
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Patch(':projectId/images/:imageId')
+  @ApiOperation({ summary: 'Update project image metadata' })
+  @ApiOkResponse({
+    description: 'Updated list of project images',
+    type: ProjectImageDto,
+    isArray: true,
+  })
+  async updateProjectImage(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Body() dto: UpdateProjectImageDto,
+  ) {
+    return await this.projectService.updateProjectImage(
+      projectId,
+      imageId,
+      dto,
+    );
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Delete(':projectId/images/:imageId')
+  @ApiOperation({ summary: 'Delete a project image' })
+  @ApiOkResponse({
+    description: 'Updated list of project images',
+    type: ProjectImageDto,
+    isArray: true,
+  })
+  async removeProjectImage(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+  ) {
+    return await this.projectService.removeProjectImage(projectId, imageId);
   }
 
   @UseGuards(ResourceGuard)

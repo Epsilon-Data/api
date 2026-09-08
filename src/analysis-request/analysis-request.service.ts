@@ -11,7 +11,7 @@ import {
   AnalysisRequestSummaryInfoDto,
   AnalysisStatusDto,
 } from './dto';
-import { $Enums, Prisma } from 'src/generated/prisma/client';
+import { RequestStatus, ProjectStatus, Prisma } from '@prisma/client';
 import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
@@ -200,7 +200,7 @@ export class AnalysisRequestService {
       await this.prisma.request.update({
         where: { requestId: createdRequest.requestId },
         data: {
-          status: $Enums.RequestStatus.APPROVED,
+          status: RequestStatus.APPROVED,
         },
       });
     }
@@ -215,7 +215,7 @@ export class AnalysisRequestService {
   ) {
     const { status } = dto;
 
-    if (status === $Enums.RequestStatus.APPROVED) {
+    if (status === RequestStatus.APPROVED) {
       const request = await this.prisma.request.findUniqueOrThrow({
         where: { requestId },
       });
@@ -241,7 +241,7 @@ export class AnalysisRequestService {
         projectId: projectId,
         request: {
           requestorId: userId,
-          status: $Enums.RequestStatus.APPROVED,
+          status: RequestStatus.APPROVED,
         },
       },
       select: {
@@ -252,13 +252,34 @@ export class AnalysisRequestService {
   }
 
   async update(userId: string, requestId: string, dto: AnalysisDto) {
-    return await this.prisma.analysis.update({
+    // Verify ownership first
+    const analysis = await this.prisma.analysis.findUniqueOrThrow({
+      where: { requestId },
+      select: { requestId: true },
+    });
+
+    if (!analysis) {
+      throw new NotFoundException('Analysis request not found');
+    }
+
+    // Verify request ownership
+    const request = await this.prisma.request.findFirst({
       where: {
-        requestId: requestId,
-        request: {
-          requestorId: userId,
+        requestId: analysis.requestId,
+        analysis: {
+          requestId: requestId,
         },
       },
+    });
+
+    if (!request) {
+      throw new NotFoundException(
+        'Analysis request not found or not owned by user',
+      );
+    }
+
+    return await this.prisma.analysis.update({
+      where: { requestId },
       data: {
         projectName: dto.projectName,
         projectStartDate: dto.projectStartDate,
@@ -348,13 +369,13 @@ export class AnalysisRequestService {
       where: {
         request: {
           is: {
-            status: $Enums.RequestStatus.APPROVED,
+            status: RequestStatus.APPROVED,
             requestorId: userId,
           },
         },
         project: {
           is: {
-            status: $Enums.ProjectStatus.MAPPED,
+            status: ProjectStatus.MAPPED,
           },
         },
       },

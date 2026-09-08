@@ -171,13 +171,16 @@ export class DatabaseService {
         result: AtlasEntityResponseDto;
       };
 
-      // ignore table if no foreign_keys or foreign_key_references
-      if (
-        !(result.entity.relationshipAttributes?.foreign_keys as []).length &&
-        !(result.entity.relationshipAttributes?.foreign_key_references as [])
-          .length
-      )
-        return [];
+      // Extract schema name from db relationship (default to 'public')
+      const schema =
+        ((result.entity?.relationshipAttributes?.db as Record<string, unknown>)
+          ?.displayText as string) ?? 'public';
+      const tableName = table.attributes?.name as string;
+      // If tableName already includes schema (e.g., "public.table_a"), use as-is
+      // Otherwise prepend schema (e.g., "table_a" → "public.table_a")
+      const qualifiedTableName = tableName.includes('.')
+        ? tableName
+        : `${schema}.${tableName}`;
 
       const referred = result.referredEntities ?? {};
       const columns: { id: string; name: string; table: string }[] = [];
@@ -188,7 +191,7 @@ export class DatabaseService {
         columns.push({
           id: entity.guid,
           name: (entity.attributes?.name as string) ?? entity.displayText,
-          table: table.attributes?.name as string,
+          table: qualifiedTableName,
         });
       }
       return columns;
