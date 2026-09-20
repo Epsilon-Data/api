@@ -186,6 +186,10 @@ describe('validateArchetype', () => {
       expect(codes(result)).toEqual([
         ArchetypeIssueCode.JOIN_VIA_UNMAPPED_TABLE,
       ]);
+      expect(result.issues[0].message).toContain('hosp.admissions');
+      expect(result.issues[0].suggestion).toBe(
+        'Map at least one column from hosp.admissions so the join is explicit.',
+      );
     });
 
     it('warns about row fan-out between independent one-to-many tables', () => {
@@ -244,6 +248,7 @@ describe('validateArchetype', () => {
       );
       expect(result.valid).toBe(false);
       expect(codes(result)).toEqual([ArchetypeIssueCode.COLUMN_NOT_FOUND]);
+      expect(result.issues[0].suggestion).toMatch(/map the field/);
       expect(result.issues[0].nodeIds).toEqual(['c-gone']);
     });
 
@@ -329,6 +334,18 @@ describe('validateArchetype', () => {
         ]),
       );
     });
+  });
+
+  it('lists errors before warnings and gives every issue a suggestion', () => {
+    const result = validateArchetype(
+      archetypeOf(
+        ['c-p-name', 'c-gone'],
+        [{ id: 'leaf-c-p-name', permission: ArchetypePermission.DETAILED }],
+      ),
+      schema,
+    );
+    expect(result.issues.map((i) => i.severity)).toEqual(['error', 'warning']);
+    expect(result.issues.every((i) => !!i.suggestion)).toBe(true);
   });
 
   describe('privacy', () => {

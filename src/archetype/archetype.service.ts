@@ -47,6 +47,10 @@ import {
   ArchetypeValidationResult,
   validateArchetype,
 } from './archetype-validation';
+import {
+  ArchetypeSuggestion,
+  suggestArchetypes,
+} from './archetype-suggestions';
 
 /**
  * A published-archetype leaf: its dot-joined property path (as used for the
@@ -826,6 +830,15 @@ export class ArchetypeService {
   ): Promise<ArchetypeValidationResult> {
     const schema = await this.database.getSchemaGraph(projectId, token);
     return validateArchetype(archetype, schema);
+  }
+
+  /** Archetypes that can be built from the project's crawled schema. */
+  async suggestArchetypes(
+    projectId: string,
+    token?: string,
+  ): Promise<ArchetypeSuggestion[]> {
+    const schema = await this.database.getSchemaGraph(projectId, token);
+    return suggestArchetypes(schema);
   }
 
   // Commands

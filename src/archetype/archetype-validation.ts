@@ -36,6 +36,8 @@ export interface ArchetypeIssue {
   code: ArchetypeIssueCode;
   severity: ArchetypeIssueSeverity;
   message: string;
+  // how to fix it
+  suggestion?: string;
   nodeIds: string[];
   tables?: string[];
 }
@@ -49,9 +51,41 @@ export interface ArchetypeValidationResult {
   rowDriver?: string;
 }
 
+const SUGGESTIONS: Record<ArchetypeIssueCode, string> = {
+  NO_ROOT: 'Add a root node; every other node hangs off it.',
+  MULTIPLE_ROOTS: 'Keep one root node and attach the others under it.',
+  DUPLICATE_NODE_ID:
+    'Map each database column only once; remove the extra mapping.',
+  DANGLING_EDGE: 'Delete this connection and redraw it between two nodes.',
+  ORPHAN_NODE: 'Connect this node to a parent, or delete it.',
+  MULTIPLE_PARENTS: 'Remove connections until the node has a single parent.',
+  MIXED_CHILDREN:
+    'A node is either a group (only sub-categories) or a field (exactly one column). Move the column under its own field node.',
+  UNMAPPED_LEAF: 'Drag a database column onto this field, or delete the field.',
+  DUPLICATE_SIBLING_LABEL:
+    'Rename one of them; fields under the same parent need distinct names.',
+  NO_COLUMNS: 'Map at least one database column to a field.',
+  SCHEMA_NOT_CRAWLED:
+    'Open the project connection settings and reconnect the data source so its schema is crawled again.',
+  COLUMN_NOT_FOUND:
+    'The database changed since this column was mapped. Remove the mapping and map the field to a current column.',
+  NO_RELATIONSHIPS:
+    'Either keep the archetype to a single table, or declare PRIMARY KEY and FOREIGN KEY constraints in the database and reconnect the data source.',
+  TABLES_NOT_CONNECTED:
+    'Remove the fields from these tables, or add a FOREIGN KEY linking them to the rest and reconnect the data source.',
+  JOIN_VIA_UNMAPPED_TABLE:
+    'Map at least one column from the linking table so the join is explicit.',
+  AMBIGUOUS_JOIN:
+    'Check that the generated dataset joins these tables the way you expect; drop one of the tables if it does not.',
+  ROW_FANOUT:
+    'Split these tables into separate archetypes, or keep only one of them, to avoid repeated rows.',
+  IDENTIFIER_EXPOSED:
+    'Set this field to HIGH_LEVEL or NONE, or remove it from the archetype.',
+};
+
 type ArchetypeGraph = Pick<ArchetypeDto, 'nodes' | 'edges' | 'permissions'>;
 
-const IDENTIFIER_PATTERN =
+export const IDENTIFIER_PATTERN =
   /^(first|last|full|middle|sur|given|patient|person|user)?_?name$|e?mail|phone|mobile|(^|_)fax|address|street|postcode|postal|zip_?code|ssn|social_?sec|nric|passport|national_?id|(^|_)ic_?(no|num)|licen[cs]e|(^|_)mrn($|_)|medical_?record|(^|_)dob($|_)|birth_?date|date_?of_?birth|(^|_)ip_?addr/i;
 
 const label = (node: ArchetypeNodeDto) => node.data?.label ?? node.id;
@@ -314,6 +348,11 @@ function finish(
   tables: string[],
   rowDriver?: string,
 ): ArchetypeValidationResult {
+  for (const issue of issues) issue.suggestion ??= SUGGESTIONS[issue.code];
+  // errors first
+  issues.sort(
+    (a, b) => Number(b.severity === 'error') - Number(a.severity === 'error'),
+  );
   return {
     valid: !issues.some((i) => i.severity === 'error'),
     issues,
@@ -382,10 +421,18 @@ function checkJoins(
     }
 
     const isolated = usedTables.filter((t) => !direct.has(t));
+    const bridges = bridgeTables(
+      usedTables[0],
+      isolated,
+      neighbours(foreignKeys),
+    )
+      .filter((t) => !used.has(t))
+      .map(tableName);
     issues.push({
       code: ArchetypeIssueCode.JOIN_VIA_UNMAPPED_TABLE,
       severity: 'warning',
-      message: `${isolated.map(tableName).join(', ')} can only be joined through a table the archetype does not map`,
+      message: `${isolated.map(tableName).join(', ')} can only be joined through ${bridges.join(', ')}, which the archetype does not map`,
+      suggestion: `Map at least one column from ${bridges.join(', ')} so the join is explicit.`,
       nodeIds: nodesOfTables(isolated),
       tables: isolated.map(tableName),
     });
@@ -433,4 +480,34 @@ function checkJoins(
       tables: drivers.map(tableName),
     });
   return undefined;
+}
+
+/** Tables on the shortest foreign key paths from `start` to each target. */
+function bridgeTables(
+  start: string,
+  targets: string[],
+  adjacency: Map<string, Set<string>>,
+): string[] {
+  const previous = new Map<string, string>();
+  const seen = new Set([start]);
+  const queue = [start];
+  while (queue.length) {
+    const current = queue.shift()!;
+    for (const next of adjacency.get(current) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      previous.set(next, current);
+      queue.push(next);
+    }
+  }
+
+  const bridges = new Set<string>();
+  for (const target of targets) {
+    let current = previous.get(target);
+    while (current && current !== start) {
+      bridges.add(current);
+      current = previous.get(current);
+    }
+  }
+  return [...bridges];
 }

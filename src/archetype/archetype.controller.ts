@@ -16,6 +16,7 @@ import {
 import { ArchetypeService } from './archetype.service';
 import {
   ArchetypeDto,
+  ArchetypeSuggestionDto,
   ArchetypeSummaryDto,
   ArchetypeValidationResultDto,
   UpdateArchetypeAttributesDto,
@@ -92,6 +93,19 @@ export class ArchetypeController {
   })
   async fetchArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
     return await this.archetypeService.fetchArchetypes(projectId);
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Get(':projectId/suggestions')
+  @ApiOperation({
+    summary: 'Suggest archetypes that can be built from the crawled schema',
+    description:
+      'Each suggestion follows foreign keys from one table to the tables it references, so it is joinable and never multiplies rows. Join keys and identifier-like columns are left out.',
+  })
+  @ApiOkResponse({ type: [ArchetypeSuggestionDto] })
+  suggestArchetypes(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return this.archetypeService.suggestArchetypes(projectId);
   }
 
   @Get(':projectId/published')

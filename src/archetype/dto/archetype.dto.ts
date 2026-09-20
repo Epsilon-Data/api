@@ -368,6 +368,13 @@ export class ArchetypeValidationIssueDto {
   })
   message!: string;
 
+  @ApiPropertyOptional({
+    description: 'How to fix the issue',
+    example:
+      'Remove the fields from these tables, or add a FOREIGN KEY linking them to the rest and reconnect the data source.',
+  })
+  suggestion?: string;
+
   @ApiProperty({
     description: 'Archetype nodes the issue applies to',
     type: [String],
@@ -407,4 +414,50 @@ export class ArchetypeValidationResultDto {
     example: 'hosp.diagnoses_icd',
   })
   rowDriver?: string;
+}
+
+@ApiExtraModels(ArchetypeNodeDto, ArchetypeEdgeDto, ArchetypeValidationIssueDto)
+export class ArchetypeSuggestionDto {
+  @ApiProperty({ example: 'sug_1f0c2a9e' })
+  id!: string;
+
+  @ApiProperty({ example: 'Diagnoses Icd with Admissions, Patients' })
+  title!: string;
+
+  @ApiProperty({
+    example:
+      'One row per hosp.diagnoses_icd record, enriched with hosp.admissions, hosp.patients through foreign keys.',
+  })
+  description!: string;
+
+  @ApiProperty({
+    description: 'Table whose row count drives the result set',
+    example: 'hosp.diagnoses_icd',
+  })
+  rowDriver!: string;
+
+  @ApiProperty({ type: [String] })
+  tables!: string[];
+
+  @ApiProperty({ example: 14 })
+  columnCount!: number;
+
+  @ApiProperty({
+    description:
+      'Columns left out: join keys, identifier-like columns and anything over the per-table cap',
+    example: 5,
+  })
+  omittedColumnCount!: number;
+
+  @ApiProperty({ type: () => [ArchetypeValidationIssueDto] })
+  warnings!: ArchetypeValidationIssueDto[];
+
+  @ApiProperty({
+    description: 'Ready to load into the archetype editor',
+    type: () => [ArchetypeNodeDto],
+  })
+  nodes!: ArchetypeNodeDto[];
+
+  @ApiProperty({ type: () => [ArchetypeEdgeDto] })
+  edges!: ArchetypeEdgeDto[];
 }
