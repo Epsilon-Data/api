@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { AtlasService } from 'src/atlas/atlas.service';
 import { QueueService } from 'src/queue/queue.service';
@@ -39,6 +42,11 @@ import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service'
 import { Readable } from 'stream';
 import { parseCsvText } from 'src/utils/csv-manifest.util';
 import { MAX_SYNTHETIC_DATA_BYTES } from 'src/utils/options.util';
+import { DatabaseService } from 'src/database/database.service';
+import {
+  ArchetypeValidationResult,
+  validateArchetype,
+} from './archetype-validation';
 
 /**
  * A published-archetype leaf: its dot-joined property path (as used for the
@@ -58,6 +66,8 @@ export class ArchetypeService {
     private prisma: PrismaService,
     private keycloak: KeycloakAdminService,
     private readonly fileStorage: FileStorageService,
+    @Inject(forwardRef(() => DatabaseService))
+    private readonly database: DatabaseService,
   ) {}
 
   // Synthetic dataset bucket — must match ProjectService.SYNTHETIC_BUCKET
@@ -805,6 +815,19 @@ export class ArchetypeService {
     return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
   }
 
+  /**
+   * Validates an archetype graph against the project's crawled schema:
+   * tree structure, column references, joinability and identifier exposure.
+   */
+  async validateArchetype(
+    projectId: string,
+    archetype: Pick<ArchetypeDto, 'nodes' | 'edges' | 'permissions'>,
+    token?: string,
+  ): Promise<ArchetypeValidationResult> {
+    const schema = await this.database.getSchemaGraph(projectId, token);
+    return validateArchetype(archetype, schema);
+  }
+
   // Commands
   async updateArchetypeDetails(
     projectId: string,
@@ -879,6 +902,26 @@ export class ArchetypeService {
         `Cannot transition archetype from ${currentStatus} to ${nextStatus}`,
       );
     }
+
+    // a published archetype is what analyses run against: it must be valid
+    if (nextStatus === ArchetypeStatus.PUBLISHED) {
+      const archetype = await this.getArchetypeDetails(
+        projectId,
+        archetypeId,
+        token,
+      );
+      const validation = await this.validateArchetype(
+        projectId,
+        archetype,
+        token,
+      );
+      if (!validation.valid)
+        throw new UnprocessableEntityException({
+          message: 'Archetype cannot be published until its errors are fixed',
+          issues: validation.issues,
+        });
+    }
+
     // apply status + attribute change to this archetype
     await this.updateAtlasTemplateAttributes(qualifiedName, attributes, token);
 

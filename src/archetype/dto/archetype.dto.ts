@@ -347,3 +347,64 @@ export class ArchetypeDto {
   @IsString()
   dbType?: string;
 }
+
+export class ArchetypeValidationIssueDto {
+  @ApiProperty({
+    description: 'Machine readable issue code',
+    example: 'TABLES_NOT_CONNECTED',
+  })
+  code!: string;
+
+  @ApiProperty({
+    description: 'Errors block publishing, warnings do not',
+    enum: ['error', 'warning'],
+    example: 'error',
+  })
+  severity!: 'error' | 'warning';
+
+  @ApiProperty({
+    description: 'Human readable explanation',
+    example: 'No foreign key path links hosp.labevents to hosp.patients',
+  })
+  message!: string;
+
+  @ApiProperty({
+    description: 'Archetype nodes the issue applies to',
+    type: [String],
+    example: ['node_4'],
+  })
+  nodeIds!: string[];
+
+  @ApiPropertyOptional({
+    description: 'Database tables the issue applies to',
+    type: [String],
+    example: ['hosp.labevents'],
+  })
+  tables?: string[];
+}
+
+@ApiExtraModels(ArchetypeValidationIssueDto)
+export class ArchetypeValidationResultDto {
+  @ApiProperty({
+    description: 'True when the archetype has no errors and can be published',
+    example: false,
+  })
+  valid!: boolean;
+
+  @ApiProperty({ type: () => [ArchetypeValidationIssueDto] })
+  issues!: ArchetypeValidationIssueDto[];
+
+  @ApiProperty({
+    description: 'Tables the archetype reads from',
+    type: [String],
+    example: ['hosp.admissions', 'hosp.diagnoses_icd', 'hosp.patients'],
+  })
+  tables!: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Table whose row count drives the result set (one output row per row of this table)',
+    example: 'hosp.diagnoses_icd',
+  })
+  rowDriver?: string;
+}

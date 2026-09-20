@@ -17,6 +17,7 @@ import { ArchetypeService } from './archetype.service';
 import {
   ArchetypeDto,
   ArchetypeSummaryDto,
+  ArchetypeValidationResultDto,
   UpdateArchetypeAttributesDto,
 } from './dto';
 import { Request } from 'express';
@@ -30,6 +31,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
@@ -210,6 +212,10 @@ export class ArchetypeController {
       error: 'MetadataServiceError',
     },
   })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'Archetype has validation errors and cannot be published (see issues)',
+  })
   @ApiInternalServerErrorResponse({
     description: 'Upstream Atlas / metadata service error',
     type: GenericErrorResponseDto,
@@ -230,6 +236,23 @@ export class ArchetypeController {
       archetypeId,
       attributes,
     );
+  }
+
+  @UseGuards(ResourceGuard)
+  @Scopes('view', 'edit')
+  @Post(':projectId/validate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Validate an archetype against the crawled database schema',
+    description:
+      'Checks tree structure, column references, foreign key joinability and identifier exposure without saving anything.',
+  })
+  @ApiOkResponse({ type: ArchetypeValidationResultDto })
+  validateArchetype(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() archetype: ArchetypeDto,
+  ) {
+    return this.archetypeService.validateArchetype(projectId, archetype);
   }
 
   // rest of these will go through queue implementation

@@ -2,7 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Readable } from 'stream';
 import { ArchetypeService } from './archetype.service';
 import { AtlasService } from 'src/atlas/atlas.service';
@@ -23,6 +26,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { FileStorageService } from 'src/file-storage/file_storage.service';
 import { ProjectStatus } from '@prisma/client';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { DatabaseService } from 'src/database/database.service';
+import { ArchetypeIssueCode } from './archetype-validation';
 
 describe('ArchetypeService', () => {
   let service: ArchetypeService;
@@ -30,6 +35,7 @@ describe('ArchetypeService', () => {
   let prisma: jest.Mocked<PrismaService>;
   let keycloak: jest.Mocked<KeycloakAdminService>;
   let fileStorage: jest.Mocked<FileStorageService>;
+  let database: jest.Mocked<DatabaseService>;
   let moduleRef: TestingModule;
 
   const mockQueue = {} as unknown as jest.Mocked<QueueService>;
@@ -65,6 +71,10 @@ describe('ArchetypeService', () => {
           provide: FileStorageService,
           useValue: { getFileUrl: jest.fn(), getFile: jest.fn() },
         },
+        {
+          provide: DatabaseService,
+          useValue: { getSchemaGraph: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -73,6 +83,7 @@ describe('ArchetypeService', () => {
     prisma = moduleRef.get(PrismaService);
     keycloak = moduleRef.get(KeycloakAdminService);
     fileStorage = moduleRef.get(FileStorageService);
+    database = moduleRef.get(DatabaseService);
     jest.clearAllMocks();
   });
 
@@ -866,6 +877,15 @@ describe('ArchetypeService', () => {
 
       (prisma.project.update as jest.Mock).mockResolvedValue({});
 
+      // publishing validates the stored archetype first
+      const stored = { projectId, archetypeId, name: 'Stored' };
+      const detailsSpy = jest
+        .spyOn(service, 'getArchetypeDetails')
+        .mockResolvedValue(stored as any);
+      const validateSpy = jest
+        .spyOn(service, 'validateArchetype')
+        .mockResolvedValue({ valid: true, issues: [], tables: [] });
+
       await expect(
         service.updateArchetypeDetails(
           projectId,
@@ -874,6 +894,9 @@ describe('ArchetypeService', () => {
           token,
         ),
       ).resolves.toBeUndefined();
+
+      expect(detailsSpy).toHaveBeenCalledWith(projectId, archetypeId, token);
+      expect(validateSpy).toHaveBeenCalledWith(projectId, stored, token);
 
       // search/basic called correctly
       expect(atlas.post).toHaveBeenCalledTimes(1);
@@ -948,6 +971,75 @@ describe('ArchetypeService', () => {
       });
     });
 
+    it('refuses to publish an archetype with validation errors', async () => {
+      const projectId = '638c6f81-00c8-47f4-82ec-6b94240e757d';
+      const archetypeId = 'Xa7BAIWZCA8u';
+      const qualifiedName = `${projectId}@${archetypeId}`;
+
+      atlas.post.mockResolvedValueOnce({
+        queryType: AtlasQueryType.BASIC,
+        searchParameters: {},
+        attributes: {
+          name: ['qualifiedName', 'status'],
+          values: [[qualifiedName, ArchetypeStatus.ACTIVE]],
+        },
+        approximateCount: 1,
+      } as AtlasSearchBasicHeadlessResponseDto);
+
+      jest
+        .spyOn(service, 'getArchetypeDetails')
+        .mockResolvedValue({ projectId, archetypeId, name: 'Stored' } as any);
+      const issues = [
+        {
+          code: ArchetypeIssueCode.TABLES_NOT_CONNECTED,
+          severity: 'error' as const,
+          message: 'No foreign key path links a to b',
+          nodeIds: ['n1'],
+        },
+      ];
+      jest
+        .spyOn(service, 'validateArchetype')
+        .mockResolvedValue({ valid: false, issues, tables: [] });
+
+      const error = await service
+        .updateArchetypeDetails(projectId, archetypeId, {
+          status: ArchetypeStatus.PUBLISHED,
+        })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (error as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({ issues });
+      // nothing was written
+      expect(atlas.put).not.toHaveBeenCalled();
+      expect(prisma.project.update).not.toHaveBeenCalled();
+    });
+
+    it('does not validate transitions other than publishing', async () => {
+      const projectId = 'p';
+      const archetypeId = 'a';
+
+      atlas.post.mockResolvedValueOnce({
+        queryType: AtlasQueryType.BASIC,
+        searchParameters: {},
+        attributes: {
+          name: ['qualifiedName', 'status'],
+          values: [[`${projectId}@${archetypeId}`, ArchetypeStatus.DRAFT]],
+        },
+        approximateCount: 1,
+      } as AtlasSearchBasicHeadlessResponseDto);
+      atlas.put.mockResolvedValue({} as AtlasPutEntityResponseDto);
+      (prisma.project.update as jest.Mock).mockResolvedValue({});
+      const validateSpy = jest.spyOn(service, 'validateArchetype');
+
+      await service.updateArchetypeDetails(projectId, archetypeId, {
+        status: ArchetypeStatus.ACTIVE,
+      });
+
+      expect(validateSpy).not.toHaveBeenCalled();
+    });
+
     it('rejects update because of transition not allowed', async () => {
       const projectId = '638c6f81-00c8-47f4-82ec-6b94240e757d';
       const archetypeId = 'Xa7BAIWZCA8u';
@@ -1006,6 +1098,61 @@ describe('ArchetypeService', () => {
       await expect(
         service.updateArchetypeDetails(projectId, archetypeId, attributes),
       ).rejects.toThrow('Unexpected server error');
+    });
+  });
+
+  describe('validateArchetype', () => {
+    it('validates the archetype against the crawled schema graph', async () => {
+      database.getSchemaGraph.mockResolvedValue({
+        tables: [
+          {
+            id: 't1',
+            name: 'public.patients',
+            columns: [{ id: 'c1', name: 'gender', primary: false }],
+          },
+        ],
+        foreignKeys: [],
+      });
+
+      const position = { x: 0, y: 0 };
+      const result = await service.validateArchetype(
+        'p1',
+        {
+          nodes: [
+            {
+              id: 'root',
+              type: ArchetypeNodeType.Root,
+              data: { label: 'Root', level: 0 },
+              position,
+            },
+            {
+              id: 'leaf',
+              type: ArchetypeNodeType.Category,
+              data: { label: 'Gender', level: 1 },
+              position,
+            },
+            {
+              id: 'c1',
+              type: ArchetypeNodeType.Column,
+              data: { label: 'gender', level: 2 },
+              position,
+            },
+          ],
+          edges: [
+            { id: 'e1', source: 'root', target: 'leaf' },
+            { id: 'e2', source: 'leaf', target: 'c1' },
+          ],
+        },
+        'test-token',
+      );
+
+      expect(database.getSchemaGraph).toHaveBeenCalledWith('p1', 'test-token');
+      expect(result).toEqual({
+        valid: true,
+        issues: [],
+        tables: ['public.patients'],
+        rowDriver: 'public.patients',
+      });
     });
   });
 

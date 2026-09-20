@@ -20,6 +20,7 @@ import {
   DatasetForeignKeyDto,
   DatasetTableReferenceDto,
 } from './dto';
+import { buildSchemaGraph, SchemaGraph } from './schema-graph';
 
 @Injectable()
 export class DatabaseService {
@@ -364,6 +365,27 @@ export class DatabaseService {
     }
 
     return result;
+  }
+
+  /** Tables, columns and foreign keys crawled for a project. */
+  async getSchemaGraph(
+    projectId: string,
+    token?: string,
+  ): Promise<SchemaGraph> {
+    const tables = await this.getTables(projectId, token);
+    if (tables.length === 0) return { tables: [], foreignKeys: [] };
+
+    const tablesDetails = await Promise.all(
+      this.getTablesDetails(tables, token),
+    );
+    const responses = tablesDetails.flatMap((details) => {
+      if ('__error' in details) {
+        // a partial schema would report columns as missing
+        throw details.__error;
+      }
+      return [details.result];
+    });
+    return buildSchemaGraph(responses);
   }
 
   private async getInstanceInfo(projectId: string, token?: string) {
