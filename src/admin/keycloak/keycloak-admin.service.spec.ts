@@ -18,6 +18,10 @@ import {
 } from '@epsilon-data/keycloak-admin-client';
 import { LoginDto } from 'src/analysis/dto';
 import { Logger } from '@nestjs/common';
+import {
+  KeycloakNotFoundError,
+  KeycloakUnavailableError,
+} from './keycloak-admin.errors';
 
 describe('KeycloakAdminService', () => {
   let service: KeycloakAdminService;
@@ -43,6 +47,7 @@ describe('KeycloakAdminService', () => {
       update: jest.fn(),
       del: jest.fn(),
       addToGroup: jest.fn(),
+      listGroups: jest.fn(),
     },
     realms: {
       findEvents: jest.fn(),
@@ -381,6 +386,64 @@ describe('KeycloakAdminService', () => {
     });
   });
 
+  describe('isGroupMember', () => {
+    const groupName = 'Collaborators of proj-1';
+
+    it('searches the user groups and is true for the exact top-level group', async () => {
+      mockKcAdminClient.users.listGroups.mockResolvedValueOnce([
+        { id: 'g1', name: groupName, path: `/${groupName}` },
+      ]);
+
+      const result = await service.isGroupMember(groupName, 'user-1');
+
+      expect(mockKcAdminClient.users.listGroups).toHaveBeenCalledWith({
+        id: 'user-1',
+        search: groupName,
+        realm: mockAdminConfig.realm,
+      });
+      expect(result).toBe(true);
+    });
+
+    it('is false for a subgroup of that name or a longer name containing it', async () => {
+      mockKcAdminClient.users.listGroups.mockResolvedValueOnce([
+        { id: 'g2', name: groupName, path: `/Other/${groupName}` },
+        { id: 'g3', name: `${groupName}0`, path: `/${groupName}0` },
+      ]);
+
+      await expect(service.isGroupMember(groupName, 'user-1')).resolves.toBe(
+        false,
+      );
+    });
+
+    it('is false when the user is in no matching group', async () => {
+      mockKcAdminClient.users.listGroups.mockResolvedValueOnce([]);
+
+      await expect(service.isGroupMember(groupName, 'user-1')).resolves.toBe(
+        false,
+      );
+    });
+
+    it('throws instead of answering when Keycloak fails', async () => {
+      mockKcAdminClient.users.listGroups.mockRejectedValueOnce({
+        response: { status: 503 },
+      });
+
+      await expect(service.isGroupMember(groupName, 'user-1')).rejects.toThrow(
+        KeycloakUnavailableError,
+      );
+    });
+
+    it('throws for a user Keycloak does not know', async () => {
+      mockKcAdminClient.users.listGroups.mockRejectedValueOnce({
+        response: { status: 404 },
+      });
+
+      await expect(service.isGroupMember(groupName, 'user-1')).rejects.toThrow(
+        KeycloakNotFoundError,
+      );
+    });
+  });
+
   describe('getAccessToken', () => {
     it('authenticates with password grant and returns access token', async () => {
       const login: LoginDto = {
@@ -445,7 +508,9 @@ describe('KeycloakAdminService', () => {
         .spyOn(service as any, 'handleKeycloakError')
         .mockImplementation((_fn: string, err: unknown) => err);
 
-      jest.spyOn(service as any, 'getGroupByName').mockResolvedValue([]);
+      jest
+        .spyOn(service as any, 'getTopLevelGroup')
+        .mockResolvedValue(undefined);
 
       mockKcAdminClient.clients.listResources.mockResolvedValue([
         { _id: 'resource-id-1' },
@@ -504,7 +569,9 @@ describe('KeycloakAdminService', () => {
         { id: 'user-1', name: `Analysis of ${projectId}`, type: 'user' },
       ]);
 
-      jest.spyOn(service as any, 'getGroupByName').mockResolvedValue([]);
+      jest
+        .spyOn(service as any, 'getTopLevelGroup')
+        .mockResolvedValue(undefined);
 
       jest
         .spyOn(service as any, 'isNotFound')
@@ -538,7 +605,9 @@ describe('KeycloakAdminService', () => {
         .spyOn(service as any, 'handleKeycloakError')
         .mockImplementation((_fn: string, err: unknown) => err);
 
-      jest.spyOn(service as any, 'getGroupByName').mockResolvedValue([]);
+      jest
+        .spyOn(service as any, 'getTopLevelGroup')
+        .mockResolvedValue(undefined);
 
       mockKcAdminClient.clients.listResources.mockResolvedValue([
         { _id: 'resource-id-1' },
@@ -577,6 +646,132 @@ describe('KeycloakAdminService', () => {
         expect.anything(),
       );
       expect(res).toBeTruthy();
+    });
+
+    it('never deletes another group the search returns', async () => {
+      (service as any).defaultClient = { id: 'client-uuid' };
+
+      const projectId = 'cedb48f3-cf26-4b0c-8cb2-cebd60df5083';
+      const collabGroupName = `Collaborators of ${projectId}`;
+
+      jest.spyOn(service as any, 'getProjectPolicies').mockResolvedValue([]);
+      mockKcAdminClient.clients.listResources.mockResolvedValue([
+        { _id: 'resource-id-1' },
+      ]);
+      mockKcAdminClient.clients.delResource.mockResolvedValue(undefined);
+      // other groups sort ahead of the project's own one
+      const allGroups = [
+        { id: 'admins-1', name: 'admins', path: '/admins' },
+        {
+          id: 'other-collab-1',
+          name: 'Collaborators of other',
+          path: '/Collaborators of other',
+        },
+        {
+          id: 'collab-group-1',
+          name: collabGroupName,
+          path: `/${collabGroupName}`,
+        },
+      ];
+      mockKcAdminClient.groups.find.mockResolvedValueOnce(allGroups);
+      mockKcAdminClient.groups.del.mockResolvedValue(undefined);
+
+      await service.deleteResource(projectId);
+
+      expect(mockKcAdminClient.groups.find).toHaveBeenCalledWith({
+        search: collabGroupName,
+        exact: true,
+        realm: mockAdminConfig.realm,
+      });
+      expect(mockKcAdminClient.groups.del).toHaveBeenCalledTimes(1);
+      expect(mockKcAdminClient.groups.del).toHaveBeenCalledWith({
+        id: 'collab-group-1',
+        realm: mockAdminConfig.realm,
+      });
+    });
+  });
+
+  describe('findUserByExactEmail', () => {
+    it('asks for an exact match and ignores substring hits', async () => {
+      mockKcAdminClient.users.find.mockResolvedValueOnce([
+        { id: 'attacker', email: 'xbob@example.com' },
+        { id: 'bob', email: 'Bob@Example.com' },
+      ]);
+
+      const user = await service.findUserByExactEmail(' bob@example.com ');
+
+      expect(mockKcAdminClient.users.find).toHaveBeenCalledWith(
+        {
+          email: 'bob@example.com',
+          exact: true,
+          realm: mockAdminConfig.realm,
+        },
+        { catchNotFound: false },
+      );
+      expect(user).toEqual(expect.objectContaining({ id: 'bob' }));
+    });
+
+    it('returns undefined when only a substring matches', async () => {
+      mockKcAdminClient.users.find.mockResolvedValueOnce([
+        { id: 'attacker', email: 'xbob@example.com' },
+      ]);
+
+      await expect(
+        service.findUserByExactEmail('bob@example.com'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws when several users have that email', async () => {
+      mockKcAdminClient.users.find.mockResolvedValueOnce([
+        { id: 'bob-1', email: 'bob@example.com' },
+        { id: 'bob-2', email: 'BOB@example.com' },
+      ]);
+
+      await expect(
+        service.findUserByExactEmail('bob@example.com'),
+      ).rejects.toThrow('More than one user');
+    });
+  });
+
+  describe('getTopLevelGroup', () => {
+    const name = 'Reviewers of proj-1';
+    const parentOfSubgroup = {
+      id: 'parent-1',
+      name: 'Parent',
+      path: '/Parent',
+      subGroups: [{ id: 'sub-1', name, path: `/Parent/${name}` }],
+    };
+
+    it('finds the top-level group with exactly that name', async () => {
+      mockKcAdminClient.groups.find.mockResolvedValueOnce([
+        parentOfSubgroup,
+        { id: 'top-1', name, path: `/${name}` },
+      ]);
+
+      const group = await service.getTopLevelGroup(name);
+
+      expect(mockKcAdminClient.groups.find).toHaveBeenCalledWith({
+        search: name,
+        exact: true,
+        realm: mockAdminConfig.realm,
+      });
+      expect(group).toEqual(expect.objectContaining({ id: 'top-1' }));
+    });
+
+    it('returns undefined when only a subgroup has that name', async () => {
+      mockKcAdminClient.groups.find.mockResolvedValueOnce([parentOfSubgroup]);
+
+      await expect(service.getTopLevelGroup(name)).resolves.toBeUndefined();
+    });
+
+    it('throws instead of answering when Keycloak fails', async () => {
+      mockKcAdminClient.groups.find.mockRejectedValueOnce({
+        response: { status: 500 },
+      });
+
+      await expect(service.getTopLevelGroup(name)).rejects.toThrow(
+        KeycloakUnavailableError,
+      );
     });
   });
 });

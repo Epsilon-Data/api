@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
@@ -16,6 +17,7 @@ import { ProjectMember } from 'src/project/dto';
 import { RequestCommentDto } from 'src/common/dto';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
 import { DatasetDto } from 'src/analysis/dto';
+import { groupPrefix } from 'src/utils/options.util';
 
 @Injectable()
 export class AnalysisRequestService {
@@ -248,7 +250,29 @@ export class AnalysisRequestService {
         requestId: true,
       },
     });
-    return request ? { isApproved: true } : { isApproved: false };
+    if (request) return { isApproved: true };
+
+    // the owner, custodian and collaborators are members of the project group
+    let isMember: boolean;
+    try {
+      await this.keycloak.auth();
+      isMember = await this.keycloak.isGroupMember(
+        `${groupPrefix}${projectId}`,
+        userId,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Collaborator check for project ${projectId} failed`,
+        error as Error,
+      );
+      // a 5xx makes the coordinator fail the job (re-runnable) instead of
+      // reporting the user as not approved
+      throw new ServiceUnavailableException(
+        'Authorisation service is currently unavailable',
+        { cause: error, description: 'AuthorisationServiceError' },
+      );
+    }
+    return { isApproved: isMember };
   }
 
   async update(userId: string, requestId: string, dto: AnalysisDto) {

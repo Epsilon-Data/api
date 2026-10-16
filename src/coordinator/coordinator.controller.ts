@@ -17,6 +17,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
   getSchemaPath,
@@ -137,6 +138,19 @@ export class CoordinatorController {
           statusCode: 500,
           message: 'Database is temporarily unavailable',
           error: 'DatabaseError',
+        },
+      },
+    },
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Collaborator check against the authorisation service failed',
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GenericErrorResponseDto) },
+        example: {
+          statusCode: 503,
+          message: 'Authorisation service is currently unavailable',
+          error: 'AuthorisationServiceError',
         },
       },
     },

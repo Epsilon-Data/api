@@ -413,13 +413,11 @@ export class AdminService {
 
     // Get collaborators from group
     try {
-      const groups = await this.keycloakService.getGroupByName(
+      const group = await this.keycloakService.getTopLevelGroup(
         `${groupPrefix}${projectId}`,
       );
-      if (groups.length > 0) {
-        const members = await this.keycloakService.getGroupMembers(
-          groups[0].id!,
-        );
+      if (group?.id) {
+        const members = await this.keycloakService.getGroupMembers(group.id);
         if (members && Array.isArray(members)) {
           for (const member of members) {
             if (!seenUserIds.has(member.id!)) {

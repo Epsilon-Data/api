@@ -42,7 +42,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
     createPermission: jest.fn(),
     createGroup: jest.fn(),
     addUserToGroup: jest.fn(),
-    checkUser: jest.fn(),
+    findUserByExactEmail: jest.fn(),
     createUser: jest.fn(),
     setUserActions: jest.fn(),
   };
@@ -104,7 +104,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
       name: 'group',
     });
     keycloakMock.addUserToGroup.mockResolvedValue(undefined);
-    keycloakMock.checkUser.mockResolvedValue([]);
+    keycloakMock.findUserByExactEmail.mockResolvedValue(undefined);
     keycloakMock.createUser.mockResolvedValue({ id: 'new-user-1' });
     keycloakMock.setUserActions.mockResolvedValue(undefined);
   });
@@ -214,7 +214,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
     );
 
     // no collaborator/custodian paths
-    expect(keycloakMock.checkUser).not.toHaveBeenCalled();
+    expect(keycloakMock.findUserByExactEmail).not.toHaveBeenCalled();
     expect(keycloakMock.createUser).not.toHaveBeenCalled();
     expect(keycloakMock.setUserActions).not.toHaveBeenCalled();
   });
@@ -222,13 +222,10 @@ describe('KeycloakProcessor.handleAddResource', () => {
   it('invites collaborators: creates missing users (and sets user actions), adds existing users to group', async () => {
     // collaborator1 => no existing user => createUser + setUserActions
     // collaborator2 => existing users => addUserToGroup for each
-    keycloakMock.checkUser.mockImplementation(
-      ({ email }: { email: string }) => {
-        if (email === 'new@ex.com') return [];
-        if (email === 'existing@ex.com')
-          return [{ id: 'u1', username: 'existing@ex.com' }];
-        return [];
-      },
+    keycloakMock.findUserByExactEmail.mockImplementation((email: string) =>
+      email === 'existing@ex.com'
+        ? { id: 'u1', username: 'existing@ex.com' }
+        : undefined,
     );
 
     keycloakMock.createUser.mockResolvedValueOnce({ id: 'created-1' });
@@ -260,7 +257,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
   });
 
   it('custodian: creates missing custodian user and creates custodian policy/permission', async () => {
-    keycloakMock.checkUser.mockResolvedValueOnce([]); // custodian not found
+    keycloakMock.findUserByExactEmail.mockResolvedValueOnce(undefined); // custodian not found
     keycloakMock.createUser.mockResolvedValueOnce({ id: 'custodian-1' });
 
     const job = makeJob({
@@ -313,9 +310,10 @@ describe('KeycloakProcessor.handleAddResource', () => {
   });
 
   it('custodian: existing user -> adds to group and uses username in custodian policy', async () => {
-    keycloakMock.checkUser.mockResolvedValueOnce([
-      { id: 'cust-uid', username: 'custodianUser' },
-    ] as UserRepresentation[]);
+    keycloakMock.findUserByExactEmail.mockResolvedValueOnce({
+      id: 'cust-uid',
+      username: 'custodianUser',
+    } as UserRepresentation);
 
     const job = makeJob({
       id: 'proj-123',
@@ -339,6 +337,42 @@ describe('KeycloakProcessor.handleAddResource', () => {
         users: ['custodianUser'],
       }),
     );
+  });
+
+  it('fails the job instead of guessing when an email matches several users', async () => {
+    jest
+      .spyOn((processor as any).logger, 'error')
+      .mockImplementation(() => undefined);
+    keycloakMock.findUserByExactEmail.mockRejectedValueOnce(
+      new Error('More than one user has the email bob@ex.com'),
+    );
+
+    const job = makeJob({
+      jobId: 'bg-job-1',
+      id: 'proj-123',
+      ownerId: 'owner-1',
+      collaborators: ['bob@ex.com'],
+      custodian: undefined,
+    });
+
+    await expect(processor.handleAddResource(job)).rejects.toThrow(
+      'More than one user',
+    );
+
+    expect(keycloakMock.findUserByExactEmail).toHaveBeenCalledWith(
+      'bob@ex.com',
+    );
+    // only the owner joins the collaborators group
+    expect(keycloakMock.addUserToGroup).toHaveBeenCalledTimes(1);
+    expect(keycloakMock.addUserToGroup).toHaveBeenCalledWith(
+      'owner-1',
+      'group-1',
+    );
+    expect(jobServiceMock.markFailed).toHaveBeenCalledWith(
+      'bg-job-1',
+      expect.any(String),
+    );
+    expect(jobServiceMock.markCompleted).not.toHaveBeenCalled();
   });
 
   it('logs error, marks the job failed and rethrows when owner cannot be resolved', async () => {
