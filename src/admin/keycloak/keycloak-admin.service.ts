@@ -28,6 +28,7 @@ import {
   analysisPermissionPrefix,
   analysisPermissions,
   groupPrefix,
+  reviewerGroupPrefix,
 } from 'src/utils/options.util';
 
 import {
@@ -411,6 +412,14 @@ export class KeycloakAdminService implements OnModuleInit {
       return this.handleKeycloakError('getTopLevelGroup', error);
     }
   }
+  async ensureGroup(name: string) {
+    const group = await this.getTopLevelGroup(name);
+    if (group?.id) {
+      this.logger.debug(`Group ${name} already exists, reusing it`);
+      return { id: group.id };
+    }
+    return await this.createGroup({ name });
+  }
   async getRoleById(id: string) {
     try {
       return await this.kcAdminClient.roles.findOneById({
@@ -694,6 +703,15 @@ export class KeycloakAdminService implements OnModuleInit {
       if (group?.id)
         await this.kcAdminClient.groups.del({
           id: group.id,
+          realm: this.config.realm,
+        });
+      // delete reviewers group for this resource
+      const reviewerGroup = await this.getTopLevelGroup(
+        `${reviewerGroupPrefix}${projectId}`,
+      );
+      if (reviewerGroup?.id)
+        await this.kcAdminClient.groups.del({
+          id: reviewerGroup.id,
           realm: this.config.realm,
         });
     } catch (error) {

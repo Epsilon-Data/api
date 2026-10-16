@@ -18,6 +18,7 @@ import {
   custodianPolicyPrefix,
   custodianPermissionPrefix,
   custodianPermissions,
+  reviewerGroupPrefix,
 } from 'src/utils/options.util';
 import { DecisionStrategy, Logic } from '@epsilon-data/keycloak-admin-client';
 import { AddResourceJobDataDto } from './dto';
@@ -186,6 +187,9 @@ export class KeycloakProcessor {
           policies: [`${custodianPolicyPrefix}${id}`],
         });
       }
+      // create the reviewers group (no policy or permission: it grants nothing
+      // on the project); last, so a failure cannot skip the access setup above
+      await this.keycloak.ensureGroup(`${reviewerGroupPrefix}${id}`);
       await this.jobService.markCompleted(jobId);
     } catch (error) {
       this.logger.error(`Error creating resource`, error);

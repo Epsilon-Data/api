@@ -648,6 +648,71 @@ describe('KeycloakAdminService', () => {
       expect(res).toBeTruthy();
     });
 
+    it('also deletes the project reviewers group', async () => {
+      (service as any).defaultClient = { id: 'client-uuid' };
+
+      const projectId = 'cedb48f3-cf26-4b0c-8cb2-cebd60df5083';
+      const reviewerGroupName = `Reviewers of ${projectId}`;
+
+      jest.spyOn(service as any, 'getProjectPolicies').mockResolvedValue([]);
+      mockKcAdminClient.clients.listResources.mockResolvedValue([
+        { _id: 'resource-id-1' },
+      ]);
+      mockKcAdminClient.clients.delResource.mockResolvedValue(undefined);
+      mockKcAdminClient.groups.find
+        .mockResolvedValueOnce([
+          {
+            id: 'collab-group-1',
+            name: `Collaborators of ${projectId}`,
+            path: `/Collaborators of ${projectId}`,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'reviewer-group-1',
+            name: reviewerGroupName,
+            path: `/${reviewerGroupName}`,
+          },
+        ]);
+      mockKcAdminClient.groups.del.mockResolvedValue(undefined);
+
+      await service.deleteResource(projectId);
+
+      expect(mockKcAdminClient.groups.find).toHaveBeenCalledWith({
+        search: reviewerGroupName,
+        exact: true,
+        realm: mockAdminConfig.realm,
+      });
+      expect(mockKcAdminClient.groups.del).toHaveBeenCalledTimes(2);
+      expect(mockKcAdminClient.groups.del).toHaveBeenCalledWith({
+        id: 'collab-group-1',
+        realm: mockAdminConfig.realm,
+      });
+      expect(mockKcAdminClient.groups.del).toHaveBeenCalledWith({
+        id: 'reviewer-group-1',
+        realm: mockAdminConfig.realm,
+      });
+    });
+
+    it('deletes no reviewers group when the project has none', async () => {
+      (service as any).defaultClient = { id: 'client-uuid' };
+
+      jest.spyOn(service as any, 'getProjectPolicies').mockResolvedValue([]);
+      mockKcAdminClient.clients.listResources.mockResolvedValue([
+        { _id: 'resource-id-1' },
+      ]);
+      mockKcAdminClient.clients.delResource.mockResolvedValue(undefined);
+      mockKcAdminClient.groups.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await expect(
+        service.deleteResource('cedb48f3-cf26-4b0c-8cb2-cebd60df5083'),
+      ).resolves.toBeUndefined();
+
+      expect(mockKcAdminClient.groups.del).not.toHaveBeenCalled();
+    });
+
     it('never deletes another group the search returns', async () => {
       (service as any).defaultClient = { id: 'client-uuid' };
 
@@ -673,7 +738,9 @@ describe('KeycloakAdminService', () => {
           path: `/${collabGroupName}`,
         },
       ];
-      mockKcAdminClient.groups.find.mockResolvedValueOnce(allGroups);
+      mockKcAdminClient.groups.find
+        .mockResolvedValueOnce(allGroups)
+        .mockResolvedValueOnce(allGroups);
       mockKcAdminClient.groups.del.mockResolvedValue(undefined);
 
       await service.deleteResource(projectId);
@@ -772,6 +839,43 @@ describe('KeycloakAdminService', () => {
       await expect(service.getTopLevelGroup(name)).rejects.toThrow(
         KeycloakUnavailableError,
       );
+    });
+  });
+
+  describe('ensureGroup', () => {
+    const name = 'Reviewers of proj-1';
+
+    it('reuses an existing group', async () => {
+      mockKcAdminClient.groups.find.mockResolvedValueOnce([
+        { id: 'existing-1', name, path: `/${name}` },
+      ]);
+
+      await expect(service.ensureGroup(name)).resolves.toEqual({
+        id: 'existing-1',
+      });
+      expect(mockKcAdminClient.groups.create).not.toHaveBeenCalled();
+    });
+
+    it('creates the group when it does not exist', async () => {
+      mockKcAdminClient.groups.find.mockResolvedValueOnce([]);
+      mockKcAdminClient.groups.create.mockResolvedValueOnce({ id: 'new-1' });
+
+      await expect(service.ensureGroup(name)).resolves.toEqual({ id: 'new-1' });
+      expect(mockKcAdminClient.groups.create).toHaveBeenCalledWith({
+        name,
+        realm: mockAdminConfig.realm,
+      });
+    });
+
+    it('creates nothing when the lookup fails', async () => {
+      mockKcAdminClient.groups.find.mockRejectedValueOnce({
+        response: { status: 503 },
+      });
+
+      await expect(service.ensureGroup(name)).rejects.toThrow(
+        KeycloakUnavailableError,
+      );
+      expect(mockKcAdminClient.groups.create).not.toHaveBeenCalled();
     });
   });
 });
