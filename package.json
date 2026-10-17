@@ -145,7 +145,7 @@
     }
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged",
+    "pre-commit": "pnpm lint-staged && sh hooks/gitleaks.sh",
     "pre-push": "pnpm tsx hooks/prevent-push-to-main.ts",
     "commit-msg": "pnpm tsx hooks/verify-commit.ts $1"
   },
