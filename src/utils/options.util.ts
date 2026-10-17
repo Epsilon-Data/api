@@ -96,6 +96,7 @@ export const groupPermissions = [
   'analysis',
   'stats',
 ];
+export const reviewerGroupPrefix = 'Reviewers of ';
 export const custodianPolicyPrefix = 'Custodian of ';
 export const custodianPermissionPrefix = `Custodian `;
 export const custodianPermissions = ['view', 'edit', 'connect'];

@@ -21,6 +21,7 @@ import {
   custodianPolicyPrefix,
   custodianPermissionPrefix,
   custodianPermissions,
+  reviewerGroupPrefix,
 } from 'src/utils/options.util';
 import {
   DecisionStrategy,
@@ -42,9 +43,10 @@ describe('KeycloakProcessor.handleAddResource', () => {
     createPermission: jest.fn(),
     createGroup: jest.fn(),
     addUserToGroup: jest.fn(),
-    checkUser: jest.fn(),
+    findUserByExactEmail: jest.fn(),
     createUser: jest.fn(),
     setUserActions: jest.fn(),
+    ensureGroup: jest.fn(),
   };
 
   const configServiceMock = {
@@ -104,9 +106,10 @@ describe('KeycloakProcessor.handleAddResource', () => {
       name: 'group',
     });
     keycloakMock.addUserToGroup.mockResolvedValue(undefined);
-    keycloakMock.checkUser.mockResolvedValue([]);
+    keycloakMock.findUserByExactEmail.mockResolvedValue(undefined);
     keycloakMock.createUser.mockResolvedValue({ id: 'new-user-1' });
     keycloakMock.setUserActions.mockResolvedValue(undefined);
+    keycloakMock.ensureGroup.mockResolvedValue({ id: 'reviewer-group-1' });
   });
 
   it('authenticates with client credentials and creates resource/policies/permissions/group (no collaborators, no custodian)', async () => {
@@ -214,7 +217,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
     );
 
     // no collaborator/custodian paths
-    expect(keycloakMock.checkUser).not.toHaveBeenCalled();
+    expect(keycloakMock.findUserByExactEmail).not.toHaveBeenCalled();
     expect(keycloakMock.createUser).not.toHaveBeenCalled();
     expect(keycloakMock.setUserActions).not.toHaveBeenCalled();
   });
@@ -222,13 +225,10 @@ describe('KeycloakProcessor.handleAddResource', () => {
   it('invites collaborators: creates missing users (and sets user actions), adds existing users to group', async () => {
     // collaborator1 => no existing user => createUser + setUserActions
     // collaborator2 => existing users => addUserToGroup for each
-    keycloakMock.checkUser.mockImplementation(
-      ({ email }: { email: string }) => {
-        if (email === 'new@ex.com') return [];
-        if (email === 'existing@ex.com')
-          return [{ id: 'u1', username: 'existing@ex.com' }];
-        return [];
-      },
+    keycloakMock.findUserByExactEmail.mockImplementation((email: string) =>
+      email === 'existing@ex.com'
+        ? { id: 'u1', username: 'existing@ex.com' }
+        : undefined,
     );
 
     keycloakMock.createUser.mockResolvedValueOnce({ id: 'created-1' });
@@ -260,7 +260,7 @@ describe('KeycloakProcessor.handleAddResource', () => {
   });
 
   it('custodian: creates missing custodian user and creates custodian policy/permission', async () => {
-    keycloakMock.checkUser.mockResolvedValueOnce([]); // custodian not found
+    keycloakMock.findUserByExactEmail.mockResolvedValueOnce(undefined); // custodian not found
     keycloakMock.createUser.mockResolvedValueOnce({ id: 'custodian-1' });
 
     const job = makeJob({
@@ -313,9 +313,10 @@ describe('KeycloakProcessor.handleAddResource', () => {
   });
 
   it('custodian: existing user -> adds to group and uses username in custodian policy', async () => {
-    keycloakMock.checkUser.mockResolvedValueOnce([
-      { id: 'cust-uid', username: 'custodianUser' },
-    ] as UserRepresentation[]);
+    keycloakMock.findUserByExactEmail.mockResolvedValueOnce({
+      id: 'cust-uid',
+      username: 'custodianUser',
+    } as UserRepresentation);
 
     const job = makeJob({
       id: 'proj-123',
@@ -339,6 +340,42 @@ describe('KeycloakProcessor.handleAddResource', () => {
         users: ['custodianUser'],
       }),
     );
+  });
+
+  it('fails the job instead of guessing when an email matches several users', async () => {
+    jest
+      .spyOn((processor as any).logger, 'error')
+      .mockImplementation(() => undefined);
+    keycloakMock.findUserByExactEmail.mockRejectedValueOnce(
+      new Error('More than one user has the email bob@ex.com'),
+    );
+
+    const job = makeJob({
+      jobId: 'bg-job-1',
+      id: 'proj-123',
+      ownerId: 'owner-1',
+      collaborators: ['bob@ex.com'],
+      custodian: undefined,
+    });
+
+    await expect(processor.handleAddResource(job)).rejects.toThrow(
+      'More than one user',
+    );
+
+    expect(keycloakMock.findUserByExactEmail).toHaveBeenCalledWith(
+      'bob@ex.com',
+    );
+    // only the owner joins the collaborators group
+    expect(keycloakMock.addUserToGroup).toHaveBeenCalledTimes(1);
+    expect(keycloakMock.addUserToGroup).toHaveBeenCalledWith(
+      'owner-1',
+      'group-1',
+    );
+    expect(jobServiceMock.markFailed).toHaveBeenCalledWith(
+      'bg-job-1',
+      expect.any(String),
+    );
+    expect(jobServiceMock.markCompleted).not.toHaveBeenCalled();
   });
 
   it('logs error, marks the job failed and rethrows when owner cannot be resolved', async () => {
@@ -396,5 +433,78 @@ describe('KeycloakProcessor.handleAddResource', () => {
     );
     expect(keycloakMock.getUserById).not.toHaveBeenCalled();
     expect(keycloakMock.createResource).not.toHaveBeenCalled();
+  });
+
+  it('creates the empty reviewers group with no policy, permission or members', async () => {
+    keycloakMock.findUserByExactEmail.mockImplementation((email: string) =>
+      email === 'existing@ex.com'
+        ? { id: 'u1', username: 'existing@ex.com' }
+        : undefined,
+    );
+
+    const job = makeJob({
+      jobId: 'bg-job-1',
+      id: 'proj-123',
+      ownerId: 'owner-1',
+      collaborators: ['new@ex.com', 'existing@ex.com'],
+      custodian: 'custodian@ex.com',
+    });
+
+    await processor.handleAddResource(job);
+
+    expect(keycloakMock.ensureGroup).toHaveBeenCalledTimes(1);
+    expect(keycloakMock.ensureGroup).toHaveBeenCalledWith(
+      `${reviewerGroupPrefix}proj-123`,
+    );
+
+    // it grants nothing on the project and nobody is added to it
+    const projectSetup = JSON.stringify([
+      keycloakMock.createPolicy.mock.calls,
+      keycloakMock.createPermission.mock.calls,
+      keycloakMock.createUser.mock.calls,
+    ]);
+    expect(projectSetup).not.toContain(reviewerGroupPrefix);
+    expect(projectSetup).not.toContain('reviewer-group-1');
+    expect(keycloakMock.addUserToGroup).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'reviewer-group-1',
+    );
+    expect(jobServiceMock.markCompleted).toHaveBeenCalledWith('bg-job-1');
+  });
+
+  it('marks the job failed when the reviewers group cannot be created, after the project access is set up', async () => {
+    const errorSpy = jest
+      .spyOn((processor as any).logger, 'error')
+      .mockImplementation(() => undefined);
+
+    keycloakMock.ensureGroup.mockRejectedValueOnce(new Error('keycloak down'));
+
+    const job = makeJob({
+      jobId: 'bg-job-1',
+      id: 'proj-123',
+      ownerId: 'owner-1',
+      collaborators: undefined,
+      custodian: undefined,
+    });
+
+    await expect(processor.handleAddResource(job)).rejects.toThrow(
+      'keycloak down',
+    );
+
+    expect(keycloakMock.createResource).toHaveBeenCalled();
+    expect(keycloakMock.createGroup).toHaveBeenCalled();
+    expect(keycloakMock.createPermission).toHaveBeenCalledWith(
+      expect.anything(),
+      'scope',
+      expect.objectContaining({
+        name: `${analysisPermissionPrefix}proj-123`,
+      }),
+    );
+    expect(errorSpy).toHaveBeenCalled();
+    expect(jobServiceMock.markFailed).toHaveBeenCalledWith(
+      'bg-job-1',
+      expect.any(String),
+    );
+    expect(jobServiceMock.markCompleted).not.toHaveBeenCalled();
   });
 });

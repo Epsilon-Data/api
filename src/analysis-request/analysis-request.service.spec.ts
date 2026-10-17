@@ -1,8 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { AnalysisRequestService } from './analysis-request.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { KeycloakAdminService } from 'src/admin/keycloak/keycloak-admin.service';
+import { KeycloakUnavailableError } from 'src/admin/keycloak/keycloak-admin.errors';
 import { ProjectStatus, RequestStatus } from '@prisma/client';
 import { AnalysisDto, AnalysisStatusDto } from './dto';
 import { ProjectMember } from 'src/project/dto';
@@ -36,12 +42,14 @@ describe('AnalysisRequestService', () => {
   let keycloakMock: {
     addUserToUserPolicy: jest.Mock;
     auth: jest.Mock;
+    isGroupMember: jest.Mock;
   };
 
   beforeEach(async () => {
     keycloakMock = {
       addUserToUserPolicy: jest.fn(),
       auth: jest.fn(),
+      isGroupMember: jest.fn(),
     };
     prisma = {
       analysis: {
@@ -825,15 +833,79 @@ describe('AnalysisRequestService', () => {
       });
 
       expect(result).toEqual({ isApproved: true });
+      // an approved analyst does not depend on Keycloak
+      expect(keycloakMock.auth).not.toHaveBeenCalled();
+      expect(keycloakMock.isGroupMember).not.toHaveBeenCalled();
     });
 
-    it('returns isApproved=false when no approved request exists', async () => {
+    it('returns isApproved=false when no approved request exists and the user is not in the project group', async () => {
       prisma.analysis.findFirst.mockResolvedValueOnce(null);
+      keycloakMock.isGroupMember.mockResolvedValueOnce(false);
 
       const result = await service.checkAnalysisAccess('proj-1', 'user-1');
 
       expect(prisma.analysis.findFirst).toHaveBeenCalledTimes(1);
+      expect(keycloakMock.isGroupMember).toHaveBeenCalledWith(
+        'Collaborators of proj-1',
+        'user-1',
+      );
       expect(result).toEqual({ isApproved: false });
+    });
+
+    it('approves a member of the project group (owner, custodian or collaborator) without an approved request', async () => {
+      prisma.analysis.findFirst.mockResolvedValueOnce(null);
+      keycloakMock.isGroupMember.mockResolvedValueOnce(true);
+
+      const result = await service.checkAnalysisAccess('proj-1', 'owner-1');
+
+      expect(keycloakMock.isGroupMember).toHaveBeenCalledWith(
+        'Collaborators of proj-1',
+        'owner-1',
+      );
+      // re-authenticate the shared admin client before using it
+      expect(keycloakMock.auth.mock.invocationCallOrder[0]).toBeLessThan(
+        keycloakMock.isGroupMember.mock.invocationCallOrder[0],
+      );
+      expect(result).toEqual({ isApproved: true });
+    });
+
+    it('fails with 503 instead of answering when Keycloak authentication fails', async () => {
+      const errorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      prisma.analysis.findFirst.mockResolvedValueOnce(null);
+      keycloakMock.auth.mockRejectedValueOnce(new Error('fetch failed'));
+
+      await expect(
+        service.checkAnalysisAccess('proj-1', 'user-1'),
+      ).rejects.toThrow(ServiceUnavailableException);
+
+      expect(keycloakMock.isGroupMember).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('fails with 503 instead of answering when the membership lookup fails', async () => {
+      const errorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      prisma.analysis.findFirst.mockResolvedValueOnce(null);
+      keycloakMock.isGroupMember.mockRejectedValueOnce(
+        new KeycloakUnavailableError('Keycloak server error (502)'),
+      );
+
+      const error: unknown = await service
+        .checkAnalysisAccess('proj-1', 'user-1')
+        .catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect((error as ServiceUnavailableException).getStatus()).toBe(503);
+      expect((error as ServiceUnavailableException).getResponse()).toEqual({
+        statusCode: 503,
+        message: 'Authorisation service is currently unavailable',
+        error: 'AuthorisationServiceError',
+      });
+      errorSpy.mockRestore();
     });
   });
 });

@@ -18,12 +18,9 @@ import {
   custodianPolicyPrefix,
   custodianPermissionPrefix,
   custodianPermissions,
+  reviewerGroupPrefix,
 } from 'src/utils/options.util';
-import {
-  DecisionStrategy,
-  Logic,
-  UserRepresentation,
-} from '@epsilon-data/keycloak-admin-client';
+import { DecisionStrategy, Logic } from '@epsilon-data/keycloak-admin-client';
 import { AddResourceJobDataDto } from './dto';
 import { ConfigService } from '@nestjs/config';
 import { JobService } from 'src/job/job.service';
@@ -139,25 +136,18 @@ export class KeycloakProcessor {
       // invite collaborators and add them to the group
       if (collaborators) {
         const collabQueries = collaborators.map(async (email) => {
-          const users = (await this.keycloak.checkUser({ email })) || [];
-          if (!users.length) {
-            const user = await this.keycloak.createUser({
+          const user = await this.keycloak.findUserByExactEmail(email);
+          if (!user) {
+            const newUser = await this.keycloak.createUser({
               email,
               enabled: true,
               groups: [`${groupPrefix}${id}`],
             });
-            return await this.keycloak.setUserActions(user.id);
+            return await this.keycloak.setUserActions(newUser.id);
           } else {
-            await Promise.all(
-              users
-                .filter(
-                  (user): user is UserRepresentation & { id: string } =>
-                    !!user.id,
-                )
-                .map((user) =>
-                  this.keycloak.addUserToGroup(user.id, createGroup.id),
-                ),
-            );
+            if (!user.id)
+              throw new Error(`Collaborator user ${email} has no ID`);
+            await this.keycloak.addUserToGroup(user.id, createGroup.id);
           }
         });
         await Promise.all(collabQueries);
@@ -165,17 +155,15 @@ export class KeycloakProcessor {
       if (custodian) {
         // temp username
         let custodianUserName = custodian;
-        const users =
-          (await this.keycloak.checkUser({ email: custodian })) || [];
-        if (!users.length) {
-          const user = await this.keycloak.createUser({
+        const user = await this.keycloak.findUserByExactEmail(custodian);
+        if (!user) {
+          const newUser = await this.keycloak.createUser({
             email: custodian,
             enabled: true,
             groups: [`${groupPrefix}${id}`],
           });
-          await this.keycloak.setUserActions(user.id);
+          await this.keycloak.setUserActions(newUser.id);
         } else {
-          const user = users[0];
           if (!user.id)
             throw new Error(`Custodian user ${custodian} has no ID`);
           custodianUserName = user.username ?? custodian;
@@ -199,6 +187,9 @@ export class KeycloakProcessor {
           policies: [`${custodianPolicyPrefix}${id}`],
         });
       }
+      // create the reviewers group (no policy or permission: it grants nothing
+      // on the project); last, so a failure cannot skip the access setup above
+      await this.keycloak.ensureGroup(`${reviewerGroupPrefix}${id}`);
       await this.jobService.markCompleted(jobId);
     } catch (error) {
       this.logger.error(`Error creating resource`, error);

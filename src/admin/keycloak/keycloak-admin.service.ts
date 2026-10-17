@@ -28,6 +28,7 @@ import {
   analysisPermissionPrefix,
   analysisPermissions,
   groupPrefix,
+  reviewerGroupPrefix,
 } from 'src/utils/options.util';
 
 import {
@@ -294,6 +295,19 @@ export class KeycloakAdminService implements OnModuleInit {
     }
   }
 
+  async findUserByExactEmail(email: string) {
+    const wanted = email.trim().toLowerCase();
+    const users = await this.checkUser({ email: wanted, exact: true });
+    // without exact the email search is a substring match; keep only the
+    // whole address, and never guess between several accounts
+    const matches = (users || []).filter(
+      (user) => user.email?.toLowerCase() === wanted,
+    );
+    if (matches.length > 1)
+      throw new Error(`More than one user has the email ${email}`);
+    return matches[0];
+  }
+
   async updateUser(id: string, user: Partial<UserRepresentation>) {
     try {
       return await this.kcAdminClient.users.update(
@@ -351,6 +365,20 @@ export class KeycloakAdminService implements OnModuleInit {
       return this.handleKeycloakError('addUserToGroup', error);
     }
   }
+  async isGroupMember(groupName: string, userId: string) {
+    try {
+      const groups = await this.kcAdminClient.users.listGroups({
+        id: userId,
+        search: groupName,
+        realm: this.config.realm,
+      });
+      // search matches any part of a name at any depth; the path pins the
+      // exact top-level group
+      return groups.some((group) => group.path === `/${groupName}`);
+    } catch (error) {
+      return this.handleKeycloakError('isGroupMember', error);
+    }
+  }
   async getGroupById(id: string) {
     try {
       return await this.kcAdminClient.groups.findOne({
@@ -371,16 +399,26 @@ export class KeycloakAdminService implements OnModuleInit {
       return this.handleKeycloakError('getGroupMembers', error);
     }
   }
-  async getGroupByName(name: string) {
+  async getTopLevelGroup(name: string) {
     try {
-      return await this.kcAdminClient.groups.find({
-        q: 'name',
+      const groups = await this.kcAdminClient.groups.find({
         search: name,
+        exact: true,
         realm: this.config.realm,
       });
+      // a subgroup with this name comes back nested in its top-level parent
+      return groups.find((group) => group.path === `/${name}`);
     } catch (error) {
-      return this.handleKeycloakError('getGroupByName', error);
+      return this.handleKeycloakError('getTopLevelGroup', error);
     }
+  }
+  async ensureGroup(name: string) {
+    const group = await this.getTopLevelGroup(name);
+    if (group?.id) {
+      this.logger.debug(`Group ${name} already exists, reusing it`);
+      return { id: group.id };
+    }
+    return await this.createGroup({ name });
   }
   async getRoleById(id: string) {
     try {
@@ -661,10 +699,19 @@ export class KeycloakAdminService implements OnModuleInit {
         }
       }
       // delete group for this resource
-      const group = await this.getGroupByName(`${groupPrefix}${projectId}`);
-      if (group.length)
+      const group = await this.getTopLevelGroup(`${groupPrefix}${projectId}`);
+      if (group?.id)
         await this.kcAdminClient.groups.del({
-          id: group[0].id!,
+          id: group.id,
+          realm: this.config.realm,
+        });
+      // delete reviewers group for this resource
+      const reviewerGroup = await this.getTopLevelGroup(
+        `${reviewerGroupPrefix}${projectId}`,
+      );
+      if (reviewerGroup?.id)
+        await this.kcAdminClient.groups.del({
+          id: reviewerGroup.id,
           realm: this.config.realm,
         });
     } catch (error) {
